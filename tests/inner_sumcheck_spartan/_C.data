@@ -1,0 +1,7 @@
+# 4x8 matrix C (chosen to satisfy Cz = Az*Bz for z below)
+size: 4,8
+data:
+0,0,1,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0
