@@ -34,30 +34,6 @@
 cargo run
 ```
 
-## Data-Driven Test (Inner Sumcheck)
-Case folder:
-- `tests/inner_sumcheck_naive/`
-  - `_A.data`
-  - `_y.data`
-
-Run with full logs:
-```bash
-cargo test --test inner_sumcheck_naive -- --nocapture
-```
-
-## Spartan-like Two-Phase Test (A/B/C/z)
-Case folder:
-- `tests/inner_sumcheck_spartan/`
-  - `_A.data`
-  - `_B.data`
-  - `_C.data`
-  - `_z.data`
-
-Run with full logs:
-```bash
-cargo test --test inner_sumcheck_spartan -- --nocapture
-```
-
 ## Input Format
 Example matrix file:
 ```text

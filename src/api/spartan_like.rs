@@ -8,7 +8,7 @@ use crate::{
   io::case_format::load_spartan_like_case_from_dir,
   sumcheck::{
     inner::{inner_product, prove_inner_sumcheck_with_label, verify_inner_sumcheck_trace},
-    outer::prove_outer_sumcheck,
+    outer::{prove_outer_sumcheck, verify_outer_sumcheck_trace},
   },
 };
 
@@ -24,6 +24,21 @@ fn derive_joint_challenge(az: &[Fp], bz: &[Fp], cz: &[Fp]) -> Fp {
   }
   let out: [u8; 32] = h.finalize().into();
   Fp::from_challenge(out)
+}
+
+fn derive_outer_tau(num_vars: usize, az: &[Fp], bz: &[Fp], cz: &[Fp], z: &[Fp]) -> Vec<Fp> {
+  let mut tau = Vec::with_capacity(num_vars);
+  for i in 0..num_vars {
+    let mut h = Sha256::new();
+    h.update(b"spartan-outer-tau");
+    h.update((i as u64).to_be_bytes());
+    for v in az.iter().chain(bz.iter()).chain(cz.iter()).chain(z.iter()) {
+      h.update(v.0.to_be_bytes());
+    }
+    let out: [u8; 32] = h.finalize().into();
+    tau.push(Fp::from_challenge(out));
+  }
+  tau
 }
 
 fn build_eq_weights_from_challenges(chals: &[Fp]) -> Vec<Fp> {
@@ -118,7 +133,17 @@ pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
     .map(|((a, b), c)| a.mul(*b).sub(*c))
     .collect();
 
-  let outer_trace = prove_outer_sumcheck(&residual);
+  let row_vars = case.a.len().trailing_zeros() as usize;
+  let tau = derive_outer_tau(row_vars, &az, &bz, &cz, &case.z);
+  let eq_tau = build_eq_weights_from_challenges(&tau);
+  let weighted_residual: Vec<Fp> = residual
+    .iter()
+    .zip(eq_tau.iter())
+    .map(|(r, w)| r.mul(*w))
+    .collect();
+
+  let outer_trace = prove_outer_sumcheck(&weighted_residual);
+  let outer_verify = verify_outer_sumcheck_trace(&outer_trace);
 
   let gamma = derive_joint_challenge(&az, &bz, &cz);
   let gamma_sq = gamma.mul(gamma);
@@ -130,7 +155,7 @@ pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
   out.push_str(&format!("field: F_{}\n", MODULUS));
   out.push_str("hash/transcript: SHA-256 Fiat-Shamir\n");
   out.push_str(&format!(
-    "outer challenge format: r = H(\"spartan-outer-sumcheck\", round, sum_low, sum_high, 0) mod {}\n",
+    "outer challenge format: r = H(\"spartan-outer-sumcheck\", round, g(0), g(2), g(3)) mod {}\n",
     MODULUS
   ));
   out.push_str(&format!(
@@ -148,25 +173,35 @@ pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
   out.push_str(&format!("Bz = B*z = {}\n", fmt_vec(&bz)));
   out.push_str(&format!("Cz = C*z = {}\n", fmt_vec(&cz)));
   out.push_str(&format!("residual = Az*Bz-Cz = {}\n", fmt_vec(&residual)));
+  out.push_str("outer claim uses eq(tau, x) weighting (Spartan-style):\n");
+  out.push_str(&format!("tau = {}\n", fmt_vec(&tau)));
+  out.push_str(&format!("eq(tau) = {}\n", fmt_vec(&eq_tau)));
+  out.push_str(&format!(
+    "weighted_residual = eq(tau) * residual = {}\n",
+    fmt_vec(&weighted_residual)
+  ));
   out.push_str("--------------------------------------------------\n");
 
   out.push_str("\n[Outer Prove]\n");
   out.push_str(&format!(
-    "initial claim C0 = sum(residual) = {}\n",
+    "initial claim C0 = sum(weighted_residual) = {}\n",
     outer_trace.claim_initial.0
   ));
   for r in &outer_trace.rounds {
     let folded_sum = r.folded_values.iter().fold(Fp::zero(), |acc, v| acc.add(*v));
     out.push_str(&format!(
-      "  round {} -> low_sum={}, high_sum={}, challenge_r=hash({}, {}, {}, 0)={}\n",
+      "  round {} -> send g(0)={}, g(2)={}, g(3)={}, challenge_r=hash({}, {}, {}, {})={}\n",
       r.round,
-      r.sum_low.0,
-      r.sum_high.0,
+      r.g_at_0.0,
+      r.g_at_2.0,
+      r.g_at_3.0,
       r.round,
-      r.sum_low.0,
-      r.sum_high.0,
+      r.g_at_0.0,
+      r.g_at_2.0,
+      r.g_at_3.0,
       r.challenge_r.0
     ));
+    out.push_str("    verifier derives g(1) from claim relation g(0)+g(1)=claim_in\n");
     out.push_str(&format!(
       "    folded residual = {:?}\n",
       r.folded_values.iter().map(|x| x.0).collect::<Vec<_>>()
@@ -191,11 +226,12 @@ pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
   out.push_str("r_x is NOT newly sampled; it reuses outer-round Fiat-Shamir challenges.\n");
   for rr in &outer_trace.rounds {
     out.push_str(&format!(
-      "  r_x[{}] = H(\"spartan-outer-sumcheck\", {}, {}, {}, 0) mod {} = {}\n",
+      "  r_x[{}] = H(\"spartan-outer-sumcheck\", {}, g0={}, g2={}, g3={}) mod {} = {}\n",
       rr.round,
       rr.round,
-      rr.sum_low.0,
-      rr.sum_high.0,
+      rr.g_at_0.0,
+      rr.g_at_2.0,
+      rr.g_at_3.0,
       MODULUS,
       rr.challenge_r.0
     ));
@@ -276,7 +312,7 @@ pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
   out.push_str("\n[Proof Payload]\n");
   out.push_str("Values verifier needs (recomputing Fiat-Shamir challenges locally):\n");
   out.push_str(&format!("  outer initial claim: {}\n", outer_trace.claim_initial.0));
-  out.push_str("  outer rounds: [(low_sum, high_sum)]\n");
+  out.push_str("  outer rounds: [(g(0), g(2), g(3))]\n");
   out.push_str("  outer-derived point: r_x (from outer transcript)\n");
   out.push_str("  eq(r_x) row weights (recomputed from r_x)\n");
   out.push_str(&format!("  inner initial claim: {}\n", joint_trace.claim_initial.0));
@@ -288,37 +324,28 @@ pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
   out.push_str("--------------------------------------------------\n");
 
   out.push_str("\n[Verify]\n");
-  let mut outer_verify_claim = outer_trace.claim_initial;
   out.push_str("outer verify checks:\n");
-  for r in &outer_trace.rounds {
-    let h01 = r.sum_low.add(r.sum_high);
-    let folded_sum = r.folded_values.iter().fold(Fp::zero(), |acc, v| acc.add(*v));
-    let expected_next_claim = if let Some(next_round) = outer_trace.rounds.get(r.round + 1) {
-      next_round.sum_low.add(next_round.sum_high)
-    } else {
-      outer_trace.final_claim
-    };
-    let transition_ok = folded_sum == expected_next_claim;
+  for r in &outer_verify.rounds {
     out.push_str(&format!(
-      "  round {}: claim_in={} | low+high={} | claim_ok={}\n",
+      "  round {}: claim_in={} | derived g(1)={} | claim_ok={}\n",
       r.round,
-      outer_verify_claim.0,
-      h01.0,
-      outer_verify_claim == h01
+      r.claim_in.0,
+      r.g1_derived.0,
+      r.claim_consistent
     ));
     out.push_str(&format!(
-      "           r={} -> next_claim_from_fold={} | transition_ok={}\n",
+      "           r={} -> g(r)={} | folded_claim={} | transition_ok={}\n",
       r.challenge_r.0,
-      folded_sum.0,
-      transition_ok
+      r.gr_from_interpolation.0,
+      r.folded_claim_from_vectors.0,
+      r.transition_consistent
     ));
-    outer_verify_claim = folded_sum;
   }
   out.push_str(&format!(
     "  outer final: verifier_claim={} | trace_final_claim={} | ok={}\n",
-    outer_verify_claim.0,
+    outer_verify.final_claim_from_verifier.0,
     outer_trace.final_claim.0,
-    outer_verify_claim == outer_trace.final_claim
+    outer_verify.final_consistent
   ));
 
   out.push_str("inner verify checks:\n");
