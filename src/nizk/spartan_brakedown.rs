@@ -25,8 +25,8 @@ use crate::{
     },
     protocol::shared::{
         append_case_to_transcript, bind_rows, build_eq_weights_from_challenges,
-        derive_outer_tau_sha, flatten_rows, matrix_vec_mul, sample_blind_vec_from_transcript,
-        sample_gamma_from_transcript,
+        derive_outer_tau_sha, flatten_rows, matrix_vec_mul, sample_blind_mix_alpha_from_transcript,
+        sample_blind_vec_from_transcript, sample_gamma_from_transcript,
     },
     sumcheck::{
         inner::{
@@ -45,17 +45,21 @@ pub struct SpartanBrakedownProof {
     pub inner_trace: SumcheckTrace,
     pub gamma: Fp,
     pub claimed_value: Fp,
-    pub blind_eval: Fp,
+    pub blind_eval_1: Fp,
+    pub blind_eval_2: Fp,
+    pub blind_mix_alpha: Fp,
     pub reference_profile: ReferenceProfile,
     pub verifier_commitment: BrakedownVerifierCommitment,
     pub pcs_proof_main: BrakedownEvalProof,
-    pub pcs_proof_blind: BrakedownEvalProof,
+    pub pcs_proof_blind_1: BrakedownEvalProof,
+    pub pcs_proof_blind_2: BrakedownEvalProof,
 }
 
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownPublic {
     pub outer_tensor_main: Vec<Fp>,
-    pub outer_tensor_blind: Vec<Fp>,
+    pub outer_tensor_blind_1: Vec<Fp>,
+    pub outer_tensor_blind_2: Vec<Fp>,
     pub inner_tensor: Vec<Fp>,
     pub claimed_value_unblinded: Fp,
     pub claimed_value_masked: Fp,
@@ -138,18 +142,25 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     );
 
     let claimed_value_unblinded = inner_product(&joint_bound, &case.z);
-    let blind_vec = sample_blind_vec_from_transcript(&mut tr_p, case.z.len());
-    let blind_eval = inner_product(&blind_vec, &case.z);
-    let claimed_value_masked = claimed_value_unblinded.add(blind_eval);
+    let blind_vec_1 = sample_blind_vec_from_transcript(&mut tr_p, case.z.len());
+    let blind_eval_1 = inner_product(&blind_vec_1, &case.z);
+    let blind_vec_2 = sample_blind_vec_from_transcript(&mut tr_p, case.z.len());
+    let blind_eval_2 = inner_product(&blind_vec_2, &case.z);
+    let blind_mix_alpha = sample_blind_mix_alpha_from_transcript(&mut tr_p);
+    let claimed_value_masked = claimed_value_unblinded
+        .add(blind_eval_1)
+        .add(blind_mix_alpha.mul(blind_eval_2));
 
     append_fp_le(&mut tr_p, b"claimed_value_unblinded", claimed_value_unblinded);
-    append_fp_le(&mut tr_p, b"blind_eval", blind_eval);
+    append_fp_le(&mut tr_p, b"blind_eval_1", blind_eval_1);
+    append_fp_le(&mut tr_p, b"blind_eval_2", blind_eval_2);
+    append_fp_le(&mut tr_p, b"blind_mix_alpha", blind_mix_alpha);
     append_fp_le(&mut tr_p, b"claimed_value_masked", claimed_value_masked);
 
     let k1_ms = t1.elapsed().as_secs_f64() * 1000.0;
 
     let t2 = Instant::now();
-    let coeff_rows = vec![a_bound, b_bound, c_bound, blind_vec];
+    let coeff_rows = vec![a_bound, b_bound, c_bound, blind_vec_1, blind_vec_2];
     let coeffs = flatten_rows(&coeff_rows);
 
     let params = BrakedownParams::new(case.a[0].len());
@@ -161,12 +172,27 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
     append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
 
-    let outer_tensor_main = vec![Fp::new(1), gamma, gamma_sq, Fp::new(1)];
-    let outer_tensor_blind = vec![Fp::zero(), Fp::zero(), Fp::zero(), Fp::new(1)];
+    let outer_tensor_main = vec![Fp::new(1), gamma, gamma_sq, Fp::new(1), blind_mix_alpha];
+    let outer_tensor_blind_1 = vec![
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::new(1),
+        Fp::zero(),
+    ];
+    let outer_tensor_blind_2 = vec![
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::new(1),
+    ];
 
     let pcs_proof_main = pcs.open(&prover_commitment, &outer_tensor_main, &mut tr_p)?;
-    tr_p.append_message(b"nizk_opening_label", b"blind_component_opening");
-    let pcs_proof_blind = pcs.open(&prover_commitment, &outer_tensor_blind, &mut tr_p)?;
+    tr_p.append_message(b"nizk_opening_label", b"blind_component_opening_1");
+    let pcs_proof_blind_1 = pcs.open(&prover_commitment, &outer_tensor_blind_1, &mut tr_p)?;
+    tr_p.append_message(b"nizk_opening_label", b"blind_component_opening_2");
+    let pcs_proof_blind_2 = pcs.open(&prover_commitment, &outer_tensor_blind_2, &mut tr_p)?;
     let k2_ms = t2.elapsed().as_secs_f64() * 1000.0;
 
     let proof = SpartanBrakedownProof {
@@ -174,16 +200,20 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
         inner_trace,
         gamma,
         claimed_value: claimed_value_masked,
-        blind_eval,
+        blind_eval_1,
+        blind_eval_2,
+        blind_mix_alpha,
         reference_profile: DUAL_REFERENCE_PROFILE,
         verifier_commitment,
         pcs_proof_main,
-        pcs_proof_blind,
+        pcs_proof_blind_1,
+        pcs_proof_blind_2,
     };
 
     let public = SpartanBrakedownPublic {
         outer_tensor_main,
-        outer_tensor_blind,
+        outer_tensor_blind_1,
+        outer_tensor_blind_2,
         inner_tensor: case.z,
         claimed_value_unblinded,
         claimed_value_masked,
@@ -218,7 +248,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         return Err(anyhow!("inner rounds do not match column count"));
     }
 
-    if proof.verifier_commitment.n_rows != 4 || proof.verifier_commitment.n_per_row != cols {
+    if proof.verifier_commitment.n_rows != 5 || proof.verifier_commitment.n_per_row != cols {
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
         ));
@@ -299,11 +329,24 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         return Err(anyhow!("inner sumcheck verification failed"));
     }
 
-    let blind_vec = sample_blind_vec_from_transcript(&mut tr_v, case.z.len());
-    let expected_blind_eval = inner_product(&blind_vec, &case.z);
-    if expected_blind_eval != proof.blind_eval {
+    let blind_vec_1 = sample_blind_vec_from_transcript(&mut tr_v, case.z.len());
+    let expected_blind_eval_1 = inner_product(&blind_vec_1, &case.z);
+    if expected_blind_eval_1 != proof.blind_eval_1 {
         return Err(anyhow!(
-            "blind evaluation mismatch vs transcript-derived blind vector"
+            "blind evaluation 1 mismatch vs transcript-derived blind vector"
+        ));
+    }
+    let blind_vec_2 = sample_blind_vec_from_transcript(&mut tr_v, case.z.len());
+    let expected_blind_eval_2 = inner_product(&blind_vec_2, &case.z);
+    if expected_blind_eval_2 != proof.blind_eval_2 {
+        return Err(anyhow!(
+            "blind evaluation 2 mismatch vs transcript-derived blind vector"
+        ));
+    }
+    let expected_blind_mix_alpha = sample_blind_mix_alpha_from_transcript(&mut tr_v);
+    if expected_blind_mix_alpha != proof.blind_mix_alpha {
+        return Err(anyhow!(
+            "blind mix alpha mismatch vs transcript-derived challenge"
         ));
     }
 
@@ -331,13 +374,17 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         return Err(anyhow!("inner initial claim mismatch vs bound/input"));
     }
 
-    let expected_masked = expected_claimed_unblinded.add(expected_blind_eval);
+    let expected_masked = expected_claimed_unblinded
+        .add(expected_blind_eval_1)
+        .add(expected_blind_mix_alpha.mul(expected_blind_eval_2));
     if proof.claimed_value != expected_masked {
         return Err(anyhow!("masked claimed value mismatch"));
     }
 
     append_fp_le(&mut tr_v, b"claimed_value_unblinded", expected_claimed_unblinded);
-    append_fp_le(&mut tr_v, b"blind_eval", proof.blind_eval);
+    append_fp_le(&mut tr_v, b"blind_eval_1", proof.blind_eval_1);
+    append_fp_le(&mut tr_v, b"blind_eval_2", proof.blind_eval_2);
+    append_fp_le(&mut tr_v, b"blind_mix_alpha", proof.blind_mix_alpha);
     append_fp_le(&mut tr_v, b"claimed_value_masked", proof.claimed_value);
     tr_v.append_message(b"nizk_opening_label", b"masked_main_opening");
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
@@ -346,8 +393,27 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     let params = BrakedownParams::new(cols);
     let pcs = BrakedownPcs::new(params);
     let inner_tensor = case.z;
-    let outer_tensor_main = vec![Fp::new(1), proof.gamma, gamma_sq, Fp::new(1)];
-    let outer_tensor_blind = vec![Fp::zero(), Fp::zero(), Fp::zero(), Fp::new(1)];
+    let outer_tensor_main = vec![
+        Fp::new(1),
+        proof.gamma,
+        gamma_sq,
+        Fp::new(1),
+        proof.blind_mix_alpha,
+    ];
+    let outer_tensor_blind_1 = vec![
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::new(1),
+        Fp::zero(),
+    ];
+    let outer_tensor_blind_2 = vec![
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::zero(),
+        Fp::new(1),
+    ];
 
     pcs.verify(
         &proof.verifier_commitment,
@@ -358,13 +424,22 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         &mut tr_v,
     )?;
 
-    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening");
+    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_1");
     pcs.verify(
         &proof.verifier_commitment,
-        &proof.pcs_proof_blind,
-        &outer_tensor_blind,
+        &proof.pcs_proof_blind_1,
+        &outer_tensor_blind_1,
         &inner_tensor,
-        proof.blind_eval,
+        proof.blind_eval_1,
+        &mut tr_v,
+    )?;
+    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_2");
+    pcs.verify(
+        &proof.verifier_commitment,
+        &proof.pcs_proof_blind_2,
+        &outer_tensor_blind_2,
+        &inner_tensor,
+        proof.blind_eval_2,
         &mut tr_v,
     )?;
 
@@ -382,7 +457,7 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
     out.push_str("\n[Scope]\n");
     out.push_str("- modular/unit tests keep SHA path for local arithmetic isolation\n");
     out.push_str("- integrated NIZK path uses single merlin transcript across outer/inner/pcs\n");
-    out.push_str("- includes toy ZK blinding layer at PCS evaluation boundary\n");
+    out.push_str("- includes transcript-bound two-component ZK masking at PCS boundary\n");
     out.push_str("- NOTE: this is research/demo code, not production-hardened NIZK\n");
 
     out.push_str("\n[Prove/Kernels]\n");
@@ -401,7 +476,9 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
         "  unblinded_claim(inner sumcheck)={}\n",
         public.claimed_value_unblinded.0
     ));
-    out.push_str(&format!("  blind_eval={}\n", proof.blind_eval.0));
+    out.push_str(&format!("  blind_eval_1={}\n", proof.blind_eval_1.0));
+    out.push_str(&format!("  blind_eval_2={}\n", proof.blind_eval_2.0));
+    out.push_str(&format!("  blind_mix_alpha={}\n", proof.blind_mix_alpha.0));
     out.push_str(&format!("  masked_claim={}\n", proof.claimed_value.0));
     out.push_str(&format!("  time_ms: {:.3}\n", t.k1_spartan_prove_ms));
 
@@ -417,10 +494,16 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
         proof.pcs_proof_main.columns.len()
     ));
     out.push_str(&format!(
-        "  blind payload: p_eval_len={}, p_random_count={}, opening_count={}\n",
-        proof.pcs_proof_blind.p_eval.len(),
-        proof.pcs_proof_blind.p_random_vec.len(),
-        proof.pcs_proof_blind.columns.len()
+        "  blind1 payload: p_eval_len={}, p_random_count={}, opening_count={}\n",
+        proof.pcs_proof_blind_1.p_eval.len(),
+        proof.pcs_proof_blind_1.p_random_vec.len(),
+        proof.pcs_proof_blind_1.columns.len()
+    ));
+    out.push_str(&format!(
+        "  blind2 payload: p_eval_len={}, p_random_count={}, opening_count={}\n",
+        proof.pcs_proof_blind_2.p_eval.len(),
+        proof.pcs_proof_blind_2.p_random_vec.len(),
+        proof.pcs_proof_blind_2.columns.len()
     ));
     out.push_str(&format!("  time_ms: {:.3}\n", t.k2_pcs_prove_ms));
 
@@ -433,7 +516,9 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
         "  - unblinded_claim={}\n",
         public.claimed_value_unblinded.0
     ));
-    out.push_str(&format!("  - blind_eval={}\n", proof.blind_eval.0));
+    out.push_str(&format!("  - blind_eval_1={}\n", proof.blind_eval_1.0));
+    out.push_str(&format!("  - blind_eval_2={}\n", proof.blind_eval_2.0));
+    out.push_str(&format!("  - blind_mix_alpha={}\n", proof.blind_mix_alpha.0));
     out.push_str(&format!("  - masked_claim={}\n", proof.claimed_value.0));
     out.push_str("from K2:\n");
     out.push_str(&format!(
@@ -441,15 +526,18 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
         hex::encode(proof.verifier_commitment.root)
     ));
     out.push_str("  - pcs main opening proof (masked claim)\n");
-    out.push_str("  - pcs blind opening proof (blind component)\n");
+    out.push_str("  - pcs blind opening proof #1 (blind component 1)\n");
+    out.push_str("  - pcs blind opening proof #2 (blind component 2)\n");
     out.push_str("public verifier input:\n");
     out.push_str("  - (A,B,C,z) loaded from case_dir\n");
     out.push_str(&format!(
-        "  - outer_tensor_main=[1,gamma,gamma^2,1]=[1,{},{},1]\n",
+        "  - outer_tensor_main=[1,gamma,gamma^2,1,alpha]=[1,{},{},1,{}]\n",
         proof.gamma.0,
-        proof.gamma.mul(proof.gamma).0
+        proof.gamma.mul(proof.gamma).0,
+        proof.blind_mix_alpha.0
     ));
-    out.push_str("  - outer_tensor_blind=[0,0,0,1]\n");
+    out.push_str("  - outer_tensor_blind_1=[0,0,0,1,0]\n");
+    out.push_str("  - outer_tensor_blind_2=[0,0,0,0,1]\n");
     out.push_str(&format!(
         "  - inner_tensor(z) len={} (from input)\n",
         public.inner_tensor.len()
@@ -459,9 +547,10 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
     out.push_str("step 1: replay transcript on (A,B,C,z) + outer rounds and check r_x\n");
     out.push_str("step 2: derive gamma from same transcript and check equality\n");
     out.push_str("step 3: replay transcript on inner rounds and check inner challenges\n");
-    out.push_str("step 4: check masked_claim = unblinded_claim + blind_eval\n");
+    out.push_str("step 4: check masked_claim = unblinded_claim + blind_eval_1 + alpha*blind_eval_2\n");
     out.push_str("step 5: verify PCS main opening for masked_claim\n");
-    out.push_str("step 6: verify PCS blind opening for blind_eval\n");
+    out.push_str("step 6: verify PCS blind opening #1 for blind_eval_1\n");
+    out.push_str("step 7: verify PCS blind opening #2 for blind_eval_2\n");
     out.push_str(&format!(
         "verify_result: success, masked_claim={}\n",
         public.claimed_value_masked.0

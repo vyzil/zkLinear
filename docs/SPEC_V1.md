@@ -36,6 +36,22 @@ Pinned API boundary:
 
 Verifier accepts/rejects caller-provided `claimed_value`.
 
+## 5.1 NIZK Masking Contract
+
+For the full-style NIZK path, the masked claim is transcript-bound as:
+
+- `masked_claim = unblinded_claim + blind_eval_1 + alpha_blind * blind_eval_2`
+
+where:
+- `blind_eval_1 = <blind_vec_1, z>`
+- `blind_eval_2 = <blind_vec_2, z>`
+- `alpha_blind` is sampled from the same transcript
+
+PCS openings are verified for:
+- main tensor (masked claim)
+- blind tensor #1 (`blind_eval_1`)
+- blind tensor #2 (`blind_eval_2`)
+
 ## 6. Serialization in Transcript/Hash Input
 
 - field element encoding: `u64` little-endian

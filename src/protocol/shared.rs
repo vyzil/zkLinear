@@ -5,7 +5,8 @@ use crate::{
     core::field::Fp, io::case_format::SpartanLikeCase, pcs::brakedown::challenges::sample_field_vec,
 };
 use crate::protocol::spec_v1::{
-    append_fp_le, append_u64_le, BLIND_VEC_LABEL, GAMMA_DOMAIN, GAMMA_LABEL, OUTER_TAU_LABEL,
+    append_fp_le, append_u64_le, BLIND_MIX_LABEL, BLIND_VEC_LABEL, GAMMA_DOMAIN, GAMMA_LABEL,
+    OUTER_TAU_LABEL,
 };
 
 pub fn append_case_to_transcript(tr: &mut Transcript, case: &SpartanLikeCase) {
@@ -75,6 +76,12 @@ pub fn sample_gamma_from_transcript(tr: &mut Transcript, az: &[Fp], bz: &[Fp], c
 
 pub fn sample_blind_vec_from_transcript(tr: &mut Transcript, n: usize) -> Vec<Fp> {
     sample_field_vec(tr, BLIND_VEC_LABEL, n)
+}
+
+pub fn sample_blind_mix_alpha_from_transcript(tr: &mut Transcript) -> Fp {
+    let mut out = [0u8; 32];
+    tr.challenge_bytes(BLIND_MIX_LABEL, &mut out);
+    Fp::from_challenge(out)
 }
 
 pub fn derive_outer_tau_sha(num_vars: usize, az: &[Fp], bz: &[Fp], cz: &[Fp], z: &[Fp]) -> Vec<Fp> {

@@ -56,8 +56,8 @@ fn spartan_brakedown_full_style_fails_on_tampered_root() {
 #[test]
 fn spartan_brakedown_full_style_fails_on_tampered_blind_opening() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    result.proof.pcs_proof_blind.columns[0].values[0] =
-        result.proof.pcs_proof_blind.columns[0].values[0].add(Fp::new(1));
+    result.proof.pcs_proof_blind_1.columns[0].values[0] =
+        result.proof.pcs_proof_blind_1.columns[0].values[0].add(Fp::new(1));
 
     let err = verify_from_dir(&case_dir(), &result.proof)
         .expect_err("verify should fail for tampered blind opening");
@@ -66,6 +66,18 @@ fn spartan_brakedown_full_style_fails_on_tampered_blind_opening() {
             || err.to_string().contains("degree-test column check failed")
             || err.to_string().contains("merkle path failed")
     );
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_tampered_blind_mix_alpha() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.blind_mix_alpha = result.proof.blind_mix_alpha.add(Fp::new(1));
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail for tampered blind mix alpha");
+    assert!(err
+        .to_string()
+        .contains("blind mix alpha mismatch vs transcript-derived challenge"));
 }
 
 #[test]
