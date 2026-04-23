@@ -4,7 +4,7 @@ use anyhow::Result;
 use sha2::{Digest, Sha256};
 
 use crate::{
-    core::field::Fp,
+    core::field::{Fp, ModulusScope},
     io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
     protocol::spec_v1::{GAMMA_DOMAIN, INNER_SUMCHECK_JOINT_LABEL, OUTER_TAU_LABEL},
     sumcheck::{
@@ -17,6 +17,10 @@ use crate::{
         },
     },
 };
+
+fn default_spartan_modulus() -> u64 {
+    (1u64 << 61) - 1
+}
 
 #[derive(Debug, Clone)]
 pub struct SpartanLikeReportData {
@@ -118,6 +122,14 @@ fn bind_rows(matrix: &[Vec<Fp>], weights: &[Fp]) -> Vec<Fp> {
 }
 
 pub fn build_spartan_like_report_data_from_dir(case_dir: &Path) -> Result<SpartanLikeReportData> {
+    build_spartan_like_report_data_from_dir_with_modulus(case_dir, default_spartan_modulus())
+}
+
+pub fn build_spartan_like_report_data_from_dir_with_modulus(
+    case_dir: &Path,
+    modulus: u64,
+) -> Result<SpartanLikeReportData> {
+    let _mod_scope = ModulusScope::enter(modulus);
     let case = load_spartan_like_case_from_dir(case_dir)?;
 
     let az = matrix_vec_mul(&case.a, &case.z);

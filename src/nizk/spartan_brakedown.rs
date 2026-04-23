@@ -5,13 +5,17 @@ use merlin::Transcript;
 
 use crate::{
     core::{
-        field::{Fp, MODULUS},
+        field::{current_modulus, Fp, ModulusScope},
         transcript::derive_round_challenge_merlin,
     },
     io::case_format::load_spartan_like_case_from_dir,
     pcs::{
         brakedown::{
-            types::{BrakedownEvalProof, BrakedownParams, BrakedownVerifierCommitment},
+            profiles::BrakedownSecurityPreset,
+            types::{
+                BrakedownEvalProof, BrakedownFieldProfile, BrakedownParams,
+                BrakedownVerifierCommitment,
+            },
             BrakedownPcs,
         },
         traits::PolynomialCommitmentScheme,
@@ -38,6 +42,30 @@ use crate::{
         },
     },
 };
+
+fn params_for_profile(n_per_row: usize, profile: BrakedownFieldProfile) -> BrakedownParams {
+    match profile {
+        BrakedownFieldProfile::ToyF97 => BrakedownSecurityPreset::DemoToy.params(n_per_row),
+        BrakedownFieldProfile::Mersenne61Ext2 => {
+            BrakedownSecurityPreset::ProductionMersenne61Ext2.params(n_per_row)
+        }
+        BrakedownFieldProfile::Goldilocks64Ext2 => {
+            BrakedownSecurityPreset::ProductionGoldilocks64Ext2.params(n_per_row)
+        }
+    }
+}
+
+fn field_modulus_for_profile(profile: BrakedownFieldProfile) -> u64 {
+    match profile {
+        BrakedownFieldProfile::ToyF97 => 97,
+        BrakedownFieldProfile::Mersenne61Ext2 => (1u64 << 61) - 1,
+        BrakedownFieldProfile::Goldilocks64Ext2 => 18446744069414584321,
+    }
+}
+
+fn default_profile() -> BrakedownFieldProfile {
+    BrakedownFieldProfile::Mersenne61Ext2
+}
 
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownProof {
@@ -74,6 +102,21 @@ pub struct KernelTimingMs {
     pub k3_verify_ms: f64,
 }
 
+impl KernelTimingMs {
+    pub fn total_ms(&self) -> f64 {
+        self.k0_input_parse_ms + self.k1_spartan_prove_ms + self.k2_pcs_prove_ms + self.k3_verify_ms
+    }
+
+    pub fn pct(&self, v: f64) -> f64 {
+        let total = self.total_ms();
+        if total <= 0.0 {
+            0.0
+        } else {
+            (v / total) * 100.0
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownPipelineResult {
     pub proof: SpartanBrakedownProof,
@@ -82,6 +125,14 @@ pub struct SpartanBrakedownPipelineResult {
 }
 
 pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+    prove_from_dir_with_profile(case_dir, default_profile())
+}
+
+pub fn prove_from_dir_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<SpartanBrakedownPipelineResult> {
+    let _mod_scope = ModulusScope::enter(field_modulus_for_profile(profile));
     let t0 = Instant::now();
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let k0_ms = t0.elapsed().as_secs_f64() * 1000.0;
@@ -163,7 +214,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     let coeff_rows = vec![a_bound, b_bound, c_bound, blind_vec_1, blind_vec_2];
     let coeffs = flatten_rows(&coeff_rows);
 
-    let params = BrakedownParams::new(case.a[0].len());
+    let params = params_for_profile(case.a[0].len(), profile);
     let pcs = BrakedownPcs::new(params);
     let prover_commitment = pcs.commit(&coeffs)?;
     let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
@@ -237,6 +288,9 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
 }
 
 pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    let _mod_scope = ModulusScope::enter(field_modulus_for_profile(
+        proof.verifier_commitment.field_profile,
+    ));
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let rows = case.a.len();
     let cols = case.a[0].len();
@@ -256,7 +310,6 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     if proof.reference_profile != DUAL_REFERENCE_PROFILE {
         return Err(anyhow!("unsupported reference profile for this NIZK flow"));
     }
-
     let az = matrix_vec_mul(&case.a, &case.z);
     let bz = matrix_vec_mul(&case.b, &case.z);
     let cz = matrix_vec_mul(&case.c, &case.z);
@@ -390,7 +443,12 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
     append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
-    let params = BrakedownParams::new(cols);
+    let params = params_for_profile(cols, proof.verifier_commitment.field_profile);
+    if params.field_profile != proof.verifier_commitment.field_profile {
+        return Err(anyhow!(
+            "PCS parameter/commitment field profile mismatch in verify"
+        ));
+    }
     let pcs = BrakedownPcs::new(params);
     let inner_tensor = case.z;
     let outer_tensor_main = vec![
@@ -461,11 +519,11 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
     out.push_str("- NOTE: this is research/demo code, not production-hardened NIZK\n");
 
     out.push_str("\n[Prove/Kernels]\n");
-    out.push_str("K0 Input Parse:\n");
+    out.push_str("input_parse:\n");
     out.push_str(&format!("  source: {}\n", case_dir.display()));
     out.push_str(&format!("  time_ms: {:.3}\n", t.k0_input_parse_ms));
 
-    out.push_str("K1 Spartan Prove Core:\n");
+    out.push_str("spartan_prove_core:\n");
     out.push_str(&format!(
         "  output: outer_rounds={}, inner_rounds={}, gamma={}\n",
         proof.outer_trace.rounds.len(),
@@ -482,7 +540,7 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
     out.push_str(&format!("  masked_claim={}\n", proof.claimed_value.0));
     out.push_str(&format!("  time_ms: {:.3}\n", t.k1_spartan_prove_ms));
 
-    out.push_str("K2 Brakedown PCS Commit/Open:\n");
+    out.push_str("pcs_commit_open_prove:\n");
     out.push_str(&format!(
         "  output: root={}\n",
         hex::encode(proof.verifier_commitment.root)
@@ -508,7 +566,7 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
     out.push_str(&format!("  time_ms: {:.3}\n", t.k2_pcs_prove_ms));
 
     out.push_str("\n[Payload Prove -> Verify]\n");
-    out.push_str("from K1:\n");
+    out.push_str("from spartan_prove_core:\n");
     out.push_str("  - outer_trace messages (g0,g2,g3 per round)\n");
     out.push_str("  - inner_trace messages (h0,h1,h2 per round)\n");
     out.push_str(&format!("  - gamma={}\n", proof.gamma.0));
@@ -520,7 +578,7 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
     out.push_str(&format!("  - blind_eval_2={}\n", proof.blind_eval_2.0));
     out.push_str(&format!("  - blind_mix_alpha={}\n", proof.blind_mix_alpha.0));
     out.push_str(&format!("  - masked_claim={}\n", proof.claimed_value.0));
-    out.push_str("from K2:\n");
+    out.push_str("from pcs_commit_open_prove:\n");
     out.push_str(&format!(
         "  - verifier commitment root={}\n",
         hex::encode(proof.verifier_commitment.root)
@@ -555,18 +613,35 @@ pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
         "verify_result: success, masked_claim={}\n",
         public.claimed_value_masked.0
     ));
-    out.push_str(&format!("K3 verify time_ms: {:.3}\n", t.k3_verify_ms));
+    out.push_str(&format!("verify time_ms: {:.3}\n", t.k3_verify_ms));
 
     out.push_str("\n[Timing Summary]\n");
-    out.push_str(&format!("K0: {:.3} ms\n", t.k0_input_parse_ms));
-    out.push_str(&format!("K1: {:.3} ms\n", t.k1_spartan_prove_ms));
-    out.push_str(&format!("K2: {:.3} ms\n", t.k2_pcs_prove_ms));
-    out.push_str(&format!("K3: {:.3} ms\n", t.k3_verify_ms));
     out.push_str(&format!(
-        "TOTAL: {:.3} ms\n",
-        t.k0_input_parse_ms + t.k1_spartan_prove_ms + t.k2_pcs_prove_ms + t.k3_verify_ms
+        "input_parse: {:.3} ms ({:.1}%)\n",
+        t.k0_input_parse_ms,
+        t.pct(t.k0_input_parse_ms)
     ));
-    out.push_str(&format!("\nfield: F_{}\n", MODULUS));
+    out.push_str(&format!(
+        "spartan_prove_core: {:.3} ms ({:.1}%)\n",
+        t.k1_spartan_prove_ms,
+        t.pct(t.k1_spartan_prove_ms)
+    ));
+    out.push_str(&format!(
+        "pcs_commit_open_prove: {:.3} ms ({:.1}%)\n",
+        t.k2_pcs_prove_ms,
+        t.pct(t.k2_pcs_prove_ms)
+    ));
+    out.push_str(&format!(
+        "verify: {:.3} ms ({:.1}%)\n",
+        t.k3_verify_ms,
+        t.pct(t.k3_verify_ms)
+    ));
+    out.push_str(&format!("total: {:.3} ms\n", t.total_ms()));
+    out.push_str(&format!("\nfield: F_{}\n", current_modulus()));
+    out.push_str(&format!(
+        "pcs_profile: {:?}\n",
+        proof.verifier_commitment.field_profile
+    ));
 
     Ok(out)
 }
