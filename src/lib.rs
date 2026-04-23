@@ -6,6 +6,7 @@ pub mod io;
 pub mod lcpc_trace;
 pub mod nizk;
 pub mod pcs;
+pub mod parity;
 pub mod protocol;
 pub mod spartan;
 pub mod sumcheck;
