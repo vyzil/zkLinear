@@ -17,6 +17,7 @@ use crate::{
         reference::{
             append_reference_profile_to_transcript, ReferenceProfile, DUAL_REFERENCE_PROFILE,
         },
+        spec_v1::{append_fp_le, append_spec_domain, append_u64_le},
         shared::{compute_case_digest, flatten_rows},
     },
     sumcheck::{
@@ -25,7 +26,7 @@ use crate::{
     },
 };
 
-pub const BRIDGE_TRANSCRIPT_LABEL: &[u8] = b"spartan-brakedown-bridge";
+pub const BRIDGE_TRANSCRIPT_LABEL: &[u8] = crate::protocol::spec_v1::BRIDGE_TRANSCRIPT_LABEL;
 
 #[derive(Debug, Clone)]
 pub struct BridgeProofBundle {
@@ -73,8 +74,8 @@ pub struct BridgeVerifyReport {
 
 fn append_bridge_public_metadata(tr: &mut Transcript, query: &BridgeVerifierQuery) {
     tr.append_message(b"case_digest", &query.public_case_digest);
-    tr.append_message(b"gamma", &query.gamma.0.to_be_bytes());
-    tr.append_message(b"claimed", &query.claimed_value.0.to_be_bytes());
+    append_fp_le(tr, b"gamma", query.gamma);
+    append_fp_le(tr, b"claimed", query.claimed_value);
 }
 
 pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
@@ -109,11 +110,12 @@ pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
     let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
 
     let mut tr_p = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &query.reference_profile);
     append_bridge_public_metadata(&mut tr_p, &query);
     tr_p.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let pcs_opening_proof = pcs.open(&prover_commitment, &query.outer_tensor, &mut tr_p)?;
     let k2 = t2.elapsed().as_secs_f64() * 1000.0;
 
@@ -193,14 +195,12 @@ pub fn verify_bridge_bundle(
         return Err(anyhow!("inner sumcheck verification failed"));
     }
 
+    append_spec_domain(tr);
     append_reference_profile_to_transcript(tr, &query.reference_profile);
     append_bridge_public_metadata(tr, query);
     tr.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);
-    tr.append_message(
-        b"ncols",
-        &(bundle.verifier_commitment.n_cols as u64).to_be_bytes(),
-    );
+    append_u64_le(tr, b"ncols", bundle.verifier_commitment.n_cols as u64);
 
     let pcs = BrakedownPcs::new(bundle.pcs_params.clone());
     pcs.verify(

@@ -4,6 +4,9 @@ use merlin::Transcript;
 use crate::{
     core::field::{Fp, MODULUS},
     pcs::traits::PolynomialCommitmentScheme,
+    protocol::spec_v1::{
+        append_spec_domain, append_u64_le, LCPC_DEG_TEST_LABEL, PCS_DEMO_TRANSCRIPT_LABEL,
+    },
 };
 
 use super::{
@@ -42,25 +45,28 @@ pub fn build_brakedown_demo_report() -> Result<String> {
         q = q.mul(xr);
     }
 
-    let mut tr_p = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     tr_p.append_message(b"polycommit", &root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let proof = pcs.open(&prover_commitment, &outer, &mut tr_p)?;
 
-    let mut tr_v = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     tr_v.append_message(b"polycommit", &root);
-    tr_v.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
     let claimed_eval = inner
         .iter()
         .zip(proof.p_eval.iter())
         .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
 
-    let mut tr_v_detail = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v_detail = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v_detail);
     tr_v_detail.append_message(b"polycommit", &root);
-    tr_v_detail.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v_detail, b"ncols", pcs.encoding.n_cols as u64);
     let mut rand_tensors = Vec::new();
     for p_rand in &proof.p_random_vec {
-        let t = sample_field_vec(&mut tr_v_detail, b"lcpc_deg_test", prover_commitment.n_rows);
+        let t = sample_field_vec(&mut tr_v_detail, LCPC_DEG_TEST_LABEL, prover_commitment.n_rows);
         rand_tensors.push(t);
         for v in p_rand {
             tr_v_detail.append_message(b"p_random", &v.0.to_le_bytes());

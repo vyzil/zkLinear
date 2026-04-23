@@ -8,6 +8,7 @@ use zk_linear::{
         },
         traits::PolynomialCommitmentScheme,
     },
+    protocol::spec_v1::{append_spec_domain, append_u64_le, PCS_DEMO_TRANSCRIPT_LABEL},
 };
 
 fn build_tensors(n_rows: usize, n_per_row: usize) -> (Vec<Fp>, Vec<Fp>) {
@@ -50,17 +51,19 @@ fn brakedown_end_to_end_succeeds() {
     let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
     let root = merkle_root(&prover_commitment.merkle_nodes);
-    let mut tr_p = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     tr_p.append_message(b"polycommit", &root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
 
     let proof = pcs
         .open(&prover_commitment, &outer, &mut tr_p)
         .expect("open should succeed");
 
-    let mut tr_v = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     tr_v.append_message(b"polycommit", &root);
-    tr_v.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
 
     let claimed_eval = inner
         .iter()
@@ -105,18 +108,20 @@ fn brakedown_verify_fails_on_tampered_column_value() {
     let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
     let root = merkle_root(&prover_commitment.merkle_nodes);
-    let mut tr_p = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     tr_p.append_message(b"polycommit", &root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let mut proof = pcs
         .open(&prover_commitment, &outer, &mut tr_p)
         .expect("open should succeed");
 
     proof.columns[0].values[0] = proof.columns[0].values[0].add(Fp::new(1));
 
-    let mut tr_v = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     tr_v.append_message(b"polycommit", &root);
-    tr_v.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
     let claimed_eval = inner
         .iter()
         .zip(proof.p_eval.iter())
@@ -148,18 +153,20 @@ fn brakedown_verify_fails_on_tampered_merkle_path() {
     let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
     let root = merkle_root(&prover_commitment.merkle_nodes);
-    let mut tr_p = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     tr_p.append_message(b"polycommit", &root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let mut proof = pcs
         .open(&prover_commitment, &outer, &mut tr_p)
         .expect("open should succeed");
 
     proof.columns[0].merkle_path[0][0] ^= 1;
 
-    let mut tr_v = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     tr_v.append_message(b"polycommit", &root);
-    tr_v.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
     let claimed_eval = inner
         .iter()
         .zip(proof.p_eval.iter())
@@ -187,16 +194,18 @@ fn brakedown_verify_fails_on_wrong_claimed_evaluation() {
     let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
     let root = merkle_root(&prover_commitment.merkle_nodes);
-    let mut tr_p = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     tr_p.append_message(b"polycommit", &root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let proof = pcs
         .open(&prover_commitment, &outer, &mut tr_p)
         .expect("open should succeed");
 
-    let mut tr_v = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     tr_v.append_message(b"polycommit", &root);
-    tr_v.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
 
     let correct_claim = inner
         .iter()
@@ -226,18 +235,20 @@ fn brakedown_verify_fails_on_tampered_commitment_root() {
     let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
     let root = merkle_root(&prover_commitment.merkle_nodes);
-    let mut tr_p = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     tr_p.append_message(b"polycommit", &root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let proof = pcs
         .open(&prover_commitment, &outer, &mut tr_p)
         .expect("open should succeed");
 
     verifier_commitment.root[0] ^= 1;
 
-    let mut tr_v = Transcript::new(b"mini-brakedown-demo");
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     tr_v.append_message(b"polycommit", &verifier_commitment.root);
-    tr_v.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
     let claimed_eval = inner
         .iter()
         .zip(proof.p_eval.iter())

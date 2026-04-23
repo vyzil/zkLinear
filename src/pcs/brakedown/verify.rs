@@ -2,6 +2,7 @@ use anyhow::{anyhow, Result};
 use merlin::Transcript;
 
 use crate::core::field::Fp;
+use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
     challenges::{sample_field_vec, sample_unique_cols},
@@ -41,7 +42,7 @@ pub fn verify_eval(
             return Err(anyhow!("degree-test vector length mismatch"));
         }
 
-        let t = sample_field_vec(tr, b"lcpc_deg_test", commitment.n_rows);
+        let t = sample_field_vec(tr, LCPC_DEG_TEST_LABEL, commitment.n_rows);
         rand_tensors.push(t);
         for v in p_rand {
             tr.append_message(b"p_random", &v.0.to_le_bytes());

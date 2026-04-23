@@ -4,84 +4,87 @@ use sha2::{Digest, Sha256};
 use crate::{
     core::field::Fp, io::case_format::SpartanLikeCase, pcs::brakedown::challenges::sample_field_vec,
 };
+use crate::protocol::spec_v1::{
+    append_fp_le, append_u64_le, BLIND_VEC_LABEL, GAMMA_DOMAIN, GAMMA_LABEL, OUTER_TAU_LABEL,
+};
 
 pub fn append_case_to_transcript(tr: &mut Transcript, case: &SpartanLikeCase) {
-    tr.append_message(b"rows", &(case.a.len() as u64).to_be_bytes());
-    tr.append_message(b"cols", &(case.a[0].len() as u64).to_be_bytes());
+    append_u64_le(tr, b"rows", case.a.len() as u64);
+    append_u64_le(tr, b"cols", case.a[0].len() as u64);
 
     for row in &case.a {
         for v in row {
-            tr.append_message(b"A", &v.0.to_be_bytes());
+            append_fp_le(tr, b"A", *v);
         }
     }
     for row in &case.b {
         for v in row {
-            tr.append_message(b"B", &v.0.to_be_bytes());
+            append_fp_le(tr, b"B", *v);
         }
     }
     for row in &case.c {
         for v in row {
-            tr.append_message(b"C", &v.0.to_be_bytes());
+            append_fp_le(tr, b"C", *v);
         }
     }
     for v in &case.z {
-        tr.append_message(b"z", &v.0.to_be_bytes());
+        append_fp_le(tr, b"z", *v);
     }
 }
 
 pub fn compute_case_digest(case: &SpartanLikeCase) -> [u8; 32] {
     let mut h = Sha256::new();
-    h.update((case.a.len() as u64).to_be_bytes());
-    h.update((case.a[0].len() as u64).to_be_bytes());
+    h.update((case.a.len() as u64).to_le_bytes());
+    h.update((case.a[0].len() as u64).to_le_bytes());
     for row in &case.a {
         for v in row {
-            h.update(v.0.to_be_bytes());
+            h.update(v.0.to_le_bytes());
         }
     }
     for row in &case.b {
         for v in row {
-            h.update(v.0.to_be_bytes());
+            h.update(v.0.to_le_bytes());
         }
     }
     for row in &case.c {
         for v in row {
-            h.update(v.0.to_be_bytes());
+            h.update(v.0.to_le_bytes());
         }
     }
     for z in &case.z {
-        h.update(z.0.to_be_bytes());
+        h.update(z.0.to_le_bytes());
     }
     h.finalize().into()
 }
 
 pub fn sample_gamma_from_transcript(tr: &mut Transcript, az: &[Fp], bz: &[Fp], cz: &[Fp]) -> Fp {
-    tr.append_message(b"gamma_domain", b"spartan-like-joint-challenge");
+    tr.append_message(b"gamma_domain", GAMMA_DOMAIN);
     for v in az {
-        tr.append_message(b"Az", &v.0.to_be_bytes());
+        append_fp_le(tr, b"Az", *v);
     }
     for v in bz {
-        tr.append_message(b"Bz", &v.0.to_be_bytes());
+        append_fp_le(tr, b"Bz", *v);
     }
     for v in cz {
-        tr.append_message(b"Cz", &v.0.to_be_bytes());
+        append_fp_le(tr, b"Cz", *v);
     }
     let mut out = [0u8; 32];
-    tr.challenge_bytes(b"gamma", &mut out);
+    tr.challenge_bytes(GAMMA_LABEL, &mut out);
     Fp::from_challenge(out)
 }
 
 pub fn sample_blind_vec_from_transcript(tr: &mut Transcript, n: usize) -> Vec<Fp> {
-    sample_field_vec(tr, b"spartan_nizk_blind_vec", n)
+    sample_field_vec(tr, BLIND_VEC_LABEL, n)
 }
 
 pub fn derive_outer_tau_sha(num_vars: usize, az: &[Fp], bz: &[Fp], cz: &[Fp], z: &[Fp]) -> Vec<Fp> {
     let mut tau = Vec::with_capacity(num_vars);
     for i in 0..num_vars {
         let mut h = Sha256::new();
-        h.update(b"spartan-outer-tau");
-        h.update((i as u64).to_be_bytes());
+        h.update(OUTER_TAU_LABEL);
+        h.update((i as u64).to_le_bytes());
         for v in az.iter().chain(bz.iter()).chain(cz.iter()).chain(z.iter()) {
-            h.update(v.0.to_be_bytes());
+            h.update(v.0.to_le_bytes());
         }
         let out: [u8; 32] = h.finalize().into();
         tau.push(Fp::from_challenge(out));

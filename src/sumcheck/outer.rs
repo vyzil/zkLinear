@@ -4,6 +4,7 @@ use crate::core::{
     field::Fp,
     transcript::{derive_round_challenge, derive_round_challenge_merlin},
 };
+use crate::protocol::spec_v1::OUTER_SUMCHECK_LABEL;
 
 #[derive(Debug, Clone)]
 pub struct OuterRoundTranscript {
@@ -89,7 +90,7 @@ pub fn prove_outer_sumcheck(values: &[Fp]) -> OuterSumcheckTrace {
         let g2 = g0.add(delta.mul(Fp::new(2)));
         let g3 = g0.add(delta.mul(Fp::new(3)));
 
-        let r = derive_round_challenge(b"spartan-outer-sumcheck", round, g0, g2, g3);
+        let r = derive_round_challenge(OUTER_SUMCHECK_LABEL, round, g0, g2, g3);
 
         let folded_values: Vec<Fp> = low
             .iter()
@@ -144,7 +145,7 @@ pub fn prove_outer_sumcheck_with_transcript(
         let g2 = g0.add(delta.mul(Fp::new(2)));
         let g3 = g0.add(delta.mul(Fp::new(3)));
 
-        let r = derive_round_challenge_merlin(tr, b"spartan-outer-sumcheck", round, g0, g2, g3);
+        let r = derive_round_challenge_merlin(tr, OUTER_SUMCHECK_LABEL, round, g0, g2, g3);
 
         let folded_values: Vec<Fp> = low
             .iter()

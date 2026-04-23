@@ -4,6 +4,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use crate::core::field::Fp;
+use crate::protocol::spec_v1::LCPC_COL_OPEN_LABEL;
 
 pub fn sample_field_vec(tr: &mut Transcript, label: &'static [u8], n: usize) -> Vec<Fp> {
     let mut seed = [0u8; 32];
@@ -18,7 +19,7 @@ pub fn sample_unique_cols(tr: &mut Transcript, n_cols: usize, n_open: usize) -> 
     }
 
     let mut seed = [0u8; 32];
-    tr.challenge_bytes(b"lcpc_col_open", &mut seed);
+    tr.challenge_bytes(LCPC_COL_OPEN_LABEL, &mut seed);
     let mut rng = ChaCha20Rng::from_seed(seed);
 
     let mut all: Vec<usize> = (0..n_cols).collect();

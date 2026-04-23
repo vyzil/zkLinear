@@ -6,6 +6,7 @@ use sha2::{Digest, Sha256};
 use crate::{
     core::field::Fp,
     io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
+    protocol::spec_v1::{GAMMA_DOMAIN, INNER_SUMCHECK_JOINT_LABEL, OUTER_TAU_LABEL},
     sumcheck::{
         inner::{
             inner_product, prove_inner_sumcheck_with_label, verify_inner_sumcheck_trace,
@@ -51,9 +52,9 @@ fn matrix_vec_mul(m: &[Vec<Fp>], z: &[Fp]) -> Vec<Fp> {
 
 fn derive_joint_challenge(az: &[Fp], bz: &[Fp], cz: &[Fp]) -> Fp {
     let mut h = Sha256::new();
-    h.update(b"spartan-like-joint-challenge");
+    h.update(GAMMA_DOMAIN);
     for v in az.iter().chain(bz.iter()).chain(cz.iter()) {
-        h.update(v.0.to_be_bytes());
+        h.update(v.0.to_le_bytes());
     }
     let out: [u8; 32] = h.finalize().into();
     Fp::from_challenge(out)
@@ -63,10 +64,10 @@ fn derive_outer_tau(num_vars: usize, az: &[Fp], bz: &[Fp], cz: &[Fp], z: &[Fp]) 
     let mut tau = Vec::with_capacity(num_vars);
     for i in 0..num_vars {
         let mut h = Sha256::new();
-        h.update(b"spartan-outer-tau");
-        h.update((i as u64).to_be_bytes());
+        h.update(OUTER_TAU_LABEL);
+        h.update((i as u64).to_le_bytes());
         for v in az.iter().chain(bz.iter()).chain(cz.iter()).chain(z.iter()) {
-            h.update(v.0.to_be_bytes());
+            h.update(v.0.to_le_bytes());
         }
         let out: [u8; 32] = h.finalize().into();
         tau.push(Fp::from_challenge(out));
@@ -161,7 +162,7 @@ pub fn build_spartan_like_report_data_from_dir(case_dir: &Path) -> Result<Sparta
         .collect();
 
     let joint_trace =
-        prove_inner_sumcheck_with_label(&joint_bound, &case.z, b"spartan-inner-joint");
+        prove_inner_sumcheck_with_label(&joint_bound, &case.z, INNER_SUMCHECK_JOINT_LABEL);
     let joint_verify = verify_inner_sumcheck_trace(&joint_trace);
 
     let a_trace = prove_inner_sumcheck_with_label(&a_bound, &case.z, b"spartan-inner-A");

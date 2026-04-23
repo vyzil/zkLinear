@@ -19,6 +19,10 @@ use crate::{
     protocol::reference::{
         append_reference_profile_to_transcript, ReferenceProfile, DUAL_REFERENCE_PROFILE,
     },
+    protocol::spec_v1::{
+        append_fp_le, append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL,
+        NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
+    },
     protocol::shared::{
         append_case_to_transcript, bind_rows, build_eq_weights_from_challenges,
         derive_outer_tau_sha, flatten_rows, matrix_vec_mul, sample_blind_vec_from_transcript,
@@ -34,9 +38,6 @@ use crate::{
         },
     },
 };
-
-const NIZK_TRANSCRIPT_LABEL: &[u8] = b"zklinear-spartan-brakedown-nizk";
-const JOINT_INNER_LABEL: &[u8] = b"spartan-inner-joint";
 
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownProof {
@@ -103,6 +104,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
         .collect();
 
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &DUAL_REFERENCE_PROFILE);
     append_case_to_transcript(&mut tr_p, &case);
 
@@ -131,7 +133,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     let inner_trace = prove_inner_sumcheck_with_label_and_transcript(
         &joint_bound,
         &case.z,
-        JOINT_INNER_LABEL,
+        INNER_SUMCHECK_JOINT_LABEL,
         &mut tr_p,
     );
 
@@ -140,15 +142,9 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     let blind_eval = inner_product(&blind_vec, &case.z);
     let claimed_value_masked = claimed_value_unblinded.add(blind_eval);
 
-    tr_p.append_message(
-        b"claimed_value_unblinded",
-        &claimed_value_unblinded.0.to_be_bytes(),
-    );
-    tr_p.append_message(b"blind_eval", &blind_eval.0.to_be_bytes());
-    tr_p.append_message(
-        b"claimed_value_masked",
-        &claimed_value_masked.0.to_be_bytes(),
-    );
+    append_fp_le(&mut tr_p, b"claimed_value_unblinded", claimed_value_unblinded);
+    append_fp_le(&mut tr_p, b"blind_eval", blind_eval);
+    append_fp_le(&mut tr_p, b"claimed_value_masked", claimed_value_masked);
 
     let k1_ms = t1.elapsed().as_secs_f64() * 1000.0;
 
@@ -163,7 +159,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
 
     tr_p.append_message(b"nizk_opening_label", b"masked_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
-    tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
 
     let outer_tensor_main = vec![Fp::new(1), gamma, gamma_sq, Fp::new(1)];
     let outer_tensor_blind = vec![Fp::zero(), Fp::zero(), Fp::zero(), Fp::new(1)];
@@ -256,13 +252,14 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     }
 
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
     append_case_to_transcript(&mut tr_v, &case);
 
     for r in &proof.outer_trace.rounds {
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
-            b"spartan-outer-sumcheck",
+            OUTER_SUMCHECK_LABEL,
             r.round,
             r.g_at_0,
             r.g_at_2,
@@ -286,7 +283,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     for r in &proof.inner_trace.rounds {
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
-            JOINT_INNER_LABEL,
+            INNER_SUMCHECK_JOINT_LABEL,
             r.round,
             r.h_at_0,
             r.h_at_1,
@@ -339,21 +336,12 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         return Err(anyhow!("masked claimed value mismatch"));
     }
 
-    tr_v.append_message(
-        b"claimed_value_unblinded",
-        &expected_claimed_unblinded.0.to_be_bytes(),
-    );
-    tr_v.append_message(b"blind_eval", &proof.blind_eval.0.to_be_bytes());
-    tr_v.append_message(
-        b"claimed_value_masked",
-        &proof.claimed_value.0.to_be_bytes(),
-    );
+    append_fp_le(&mut tr_v, b"claimed_value_unblinded", expected_claimed_unblinded);
+    append_fp_le(&mut tr_v, b"blind_eval", proof.blind_eval);
+    append_fp_le(&mut tr_v, b"claimed_value_masked", proof.claimed_value);
     tr_v.append_message(b"nizk_opening_label", b"masked_main_opening");
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
-    tr_v.append_message(
-        b"ncols",
-        &(proof.verifier_commitment.n_cols as u64).to_be_bytes(),
-    );
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let params = BrakedownParams::new(cols);
     let pcs = BrakedownPcs::new(params);

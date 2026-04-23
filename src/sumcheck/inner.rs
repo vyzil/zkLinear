@@ -4,6 +4,7 @@ use crate::core::{
     field::Fp,
     transcript::{derive_round_challenge, derive_round_challenge_merlin},
 };
+use crate::protocol::spec_v1::INNER_SUMCHECK_LABEL;
 
 #[derive(Debug, Clone)]
 pub struct RoundTranscript {
@@ -48,7 +49,7 @@ pub struct VerifyTrace {
     pub final_consistent: bool,
 }
 
-pub const CHALLENGE_LABEL: &[u8] = b"spartan-inner-sumcheck";
+pub const CHALLENGE_LABEL: &[u8] = INNER_SUMCHECK_LABEL;
 pub const CHALLENGE_HASH_NAME: &str = "SHA-256";
 
 pub fn inner_product(a: &[Fp], b: &[Fp]) -> Fp {
