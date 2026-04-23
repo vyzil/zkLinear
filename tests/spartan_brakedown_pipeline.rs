@@ -411,6 +411,36 @@ fn bridge_verify_fails_on_public_rows_mismatch() {
 }
 
 #[test]
+fn bridge_verify_fails_on_zero_public_shape() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.rows = 0;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on zero public shape");
+    assert!(err
+        .to_string()
+        .contains("bridge public shape must be non-zero powers of two"));
+}
+
+#[test]
+fn bridge_verify_fails_on_non_power_of_two_public_shape() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.cols += 1; // case cols is power-of-two; +1 makes it non-power-of-two
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on non-power-of-two public shape");
+    assert!(err
+        .to_string()
+        .contains("bridge public shape must be non-zero powers of two"));
+}
+
+#[test]
 fn bridge_verify_fails_on_outer_final_value_mismatch() {
     let dir = case_dir();
     let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
