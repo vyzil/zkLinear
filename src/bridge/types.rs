@@ -22,6 +22,7 @@ pub struct BridgeProofBundle {
     pub claimed_evaluation: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
+    pub context_fingerprint: [u8; 32],
     pub reference_profile: ReferenceProfile,
     pub pcs_params: BrakedownParams,
 }
@@ -36,6 +37,7 @@ pub struct BridgeVerifierQuery {
     pub claimed_value: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
+    pub context_fingerprint: [u8; 32],
     pub reference_profile: ReferenceProfile,
 }
 

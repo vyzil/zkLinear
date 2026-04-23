@@ -21,6 +21,7 @@ struct BridgeTranscriptVector {
     field_profile: String,
     reference_profile: String,
     case_digest_hex: String,
+    context_fingerprint_hex: String,
     gamma: u64,
     claimed_value: u64,
     outer_challenges: Vec<u64>,
@@ -79,6 +80,7 @@ fn build_snapshot() -> TranscriptVectorSnapshot {
         field_profile: format!("{:?}", bridge.bundle.verifier_commitment.field_profile),
         reference_profile: format!("{:?}", bridge.bundle.reference_profile),
         case_digest_hex: hex::encode(bridge.bundle.public_case_digest),
+        context_fingerprint_hex: hex::encode(bridge.bundle.context_fingerprint),
         gamma: bridge.bundle.gamma.0,
         claimed_value: bridge.verifier_query.claimed_value.0,
         outer_challenges: bridge

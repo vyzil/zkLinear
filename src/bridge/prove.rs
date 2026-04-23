@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    transcript::append_bridge_public_metadata,
+    transcript::{append_bridge_public_metadata, bridge_context_fingerprint},
     types::{
         BridgeBuildResult, BridgeProofBundle, BridgeTimingMs, BridgeVerifierQuery,
         BRIDGE_TRANSCRIPT_LABEL,
@@ -41,6 +41,13 @@ pub fn prove_bridge_from_dir_with_profile(
     let t1 = Instant::now();
     let claimed = data.joint_trace.claim_initial;
     let case_digest = compute_case_digest(&data.case);
+    let context_fingerprint = bridge_context_fingerprint(
+        data.case.a.len(),
+        data.case.a[0].len(),
+        case_digest,
+        profile,
+        DUAL_REFERENCE_PROFILE,
+    );
     let query = BridgeVerifierQuery {
         rows: data.case.a.len(),
         cols: data.case.a[0].len(),
@@ -48,6 +55,7 @@ pub fn prove_bridge_from_dir_with_profile(
         claimed_value: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
+        context_fingerprint,
         reference_profile: DUAL_REFERENCE_PROFILE,
     };
     let k1 = t1.elapsed().as_secs_f64() * 1000.0;
@@ -83,6 +91,7 @@ pub fn prove_bridge_from_dir_with_profile(
         claimed_evaluation: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
+        context_fingerprint,
         reference_profile: DUAL_REFERENCE_PROFILE,
         pcs_params: params,
     };

@@ -279,7 +279,15 @@ fn bridge_verify_fails_on_public_metadata_mismatch() {
     let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
     let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
         .expect_err("verify should fail on public metadata mismatch");
-    assert!(err.to_string().contains("public case digest mismatch"));
+    assert!(
+        err.to_string().contains("public case digest mismatch")
+            || err
+                .to_string()
+                .contains("context fingerprint mismatch between query and proof bundle")
+            || err
+                .to_string()
+                .contains("bridge public context fingerprint mismatch")
+    );
 }
 
 #[test]
@@ -452,6 +460,21 @@ fn bridge_verify_fails_on_non_power_of_two_public_shape() {
     assert!(err
         .to_string()
         .contains("bridge public shape must be non-zero powers of two"));
+}
+
+#[test]
+fn bridge_verify_fails_on_context_fingerprint_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.context_fingerprint[0] ^= 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on context fingerprint mismatch");
+    assert!(err
+        .to_string()
+        .contains("context fingerprint mismatch between query and proof bundle"));
 }
 
 #[test]

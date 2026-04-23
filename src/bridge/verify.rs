@@ -20,7 +20,7 @@ use crate::{
 };
 
 use super::{
-    transcript::append_bridge_public_metadata,
+    transcript::{append_bridge_public_metadata, bridge_context_fingerprint},
     types::{BridgeProofBundle, BridgeVerifierQuery, BridgeVerifyReport},
 };
 
@@ -40,6 +40,11 @@ pub fn verify_bridge_bundle(
     if query.public_case_digest != bundle.public_case_digest {
         return Err(anyhow!(
             "public case digest mismatch between query and proof bundle"
+        ));
+    }
+    if query.context_fingerprint != bundle.context_fingerprint {
+        return Err(anyhow!(
+            "context fingerprint mismatch between query and proof bundle"
         ));
     }
     if query.reference_profile != bundle.reference_profile {
@@ -69,6 +74,16 @@ pub fn verify_bridge_bundle(
     }
     if bundle.reference_profile != DUAL_REFERENCE_PROFILE {
         return Err(anyhow!("unsupported reference profile for this bridge flow"));
+    }
+    let expected_context = bridge_context_fingerprint(
+        query.rows,
+        query.cols,
+        query.public_case_digest,
+        query.field_profile,
+        query.reference_profile,
+    );
+    if query.context_fingerprint != expected_context {
+        return Err(anyhow!("bridge public context fingerprint mismatch"));
     }
     let _mod_scope = ModulusScope::enter(query.field_profile.base_modulus());
     if bundle.inner_trace.claim_initial != query.claimed_value {
