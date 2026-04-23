@@ -23,6 +23,7 @@ pub struct SpartanBrakedownProof {
     pub pcs_proof_blind_2: BrakedownEvalProof,
     pub pcs_proof_joint_eval_at_r: BrakedownEvalProof,
     pub pcs_proof_z_eval_at_r: BrakedownEvalProof,
+    pub context_fingerprint: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
@@ -34,6 +35,7 @@ pub struct SpartanBrakedownPublic {
     // Masking/claim-binding remains research/demo and is not a production ZK construction.
     pub claimed_value_masked: Fp,
     pub reference_profile: ReferenceProfile,
+    pub context_fingerprint: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
@@ -43,6 +45,7 @@ pub struct SpartanBrakedownCompiledCircuit {
     pub case_digest: [u8; 32],
     pub field_profile: BrakedownFieldProfile,
     pub reference_profile: ReferenceProfile,
+    pub context_fingerprint: [u8; 32],
 }
 
 #[derive(Debug, Clone)]

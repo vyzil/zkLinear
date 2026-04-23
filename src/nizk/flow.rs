@@ -4,6 +4,7 @@ use anyhow::{anyhow, Result};
 use merlin::Transcript;
 use rand::{RngCore, SeedableRng};
 use rand_chacha::ChaCha20Rng;
+use sha2::{Digest, Sha256};
 
 use crate::{
     core::{
@@ -22,7 +23,7 @@ use crate::{
     protocol::reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
     protocol::spec_v1::{
         append_fp_le, append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL,
-        NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
+        NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL, TRANSCRIPT_DOMAIN,
     },
     protocol::shared::{
         append_case_digest_to_transcript, bind_rows, build_eq_weights_from_challenges,
@@ -49,6 +50,37 @@ fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::default_nizk_profile()
 }
 
+fn context_fingerprint(
+    rows: usize,
+    cols: usize,
+    case_digest: [u8; 32],
+    field_profile: BrakedownFieldProfile,
+    reference_profile: crate::protocol::reference::ReferenceProfile,
+) -> [u8; 32] {
+    let params = params_for_field_profile(cols, field_profile);
+    let mut h = Sha256::new();
+    h.update(b"zklinear/nizk/context-fingerprint/v1");
+    h.update(TRANSCRIPT_DOMAIN);
+    h.update(NIZK_TRANSCRIPT_LABEL);
+    h.update((rows as u64).to_le_bytes());
+    h.update((cols as u64).to_le_bytes());
+    h.update(case_digest);
+    h.update((field_profile as u8).to_le_bytes());
+    h.update((reference_profile.protocol as u8).to_le_bytes());
+    h.update((reference_profile.pcs as u8).to_le_bytes());
+    h.update((params.n_degree_tests as u64).to_le_bytes());
+    h.update((params.n_col_opens as u64).to_le_bytes());
+    h.update((params.security_bits as u64).to_le_bytes());
+    h.update((params.auto_tune_security as u8).to_le_bytes());
+    h.update((params.encoder_kind as u8).to_le_bytes());
+    h.update(params.encoder_seed.to_le_bytes());
+    h.update((params.spel_layers as u64).to_le_bytes());
+    h.update((params.spel_pre_density as u64).to_le_bytes());
+    h.update((params.spel_post_density as u64).to_le_bytes());
+    h.update((params.spel_base_rs_parity as u64).to_le_bytes());
+    h.finalize().into()
+}
+
 fn sample_blind_vec_from_rng(rng: &mut ChaCha20Rng, n: usize) -> Vec<Fp> {
     let mut out = Vec::with_capacity(n);
     for _ in 0..n {
@@ -71,12 +103,21 @@ pub fn compile_from_dir_with_profile(
 ) -> Result<SpartanBrakedownCompiledCircuit> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
+    let case_digest = compute_case_digest(&case);
+    let reference_profile = DUAL_REFERENCE_PROFILE;
     Ok(SpartanBrakedownCompiledCircuit {
         rows: case.a.len(),
         cols: case.a[0].len(),
-        case_digest: compute_case_digest(&case),
+        case_digest,
         field_profile: profile,
-        reference_profile: DUAL_REFERENCE_PROFILE,
+        reference_profile,
+        context_fingerprint: context_fingerprint(
+            case.a.len(),
+            case.a[0].len(),
+            case_digest,
+            profile,
+            reference_profile,
+        ),
     })
 }
 
@@ -87,7 +128,13 @@ pub fn prove_with_compiled_from_dir(
     let _mod_scope = ModulusScope::enter(compiled.field_profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
     validate_compiled_case(compiled, &case)?;
-    prove_from_dir_impl(case_dir, compiled.field_profile)
+    let result = prove_from_dir_impl(case_dir, compiled.field_profile)?;
+    if result.public.context_fingerprint != compiled.context_fingerprint
+        || result.proof.context_fingerprint != compiled.context_fingerprint
+    {
+        return Err(anyhow!("compiled/prove context fingerprint mismatch"));
+    }
+    Ok(result)
 }
 
 pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
@@ -137,6 +184,13 @@ fn prove_from_dir_impl(
         .map(|(r, w)| r.mul(*w))
         .collect();
     let case_digest = compute_case_digest(&case);
+    let context_fingerprint = context_fingerprint(
+        case.a.len(),
+        case.a[0].len(),
+        case_digest,
+        profile,
+        DUAL_REFERENCE_PROFILE,
+    );
 
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
@@ -282,6 +336,7 @@ fn prove_from_dir_impl(
         pcs_proof_blind_2,
         pcs_proof_joint_eval_at_r,
         pcs_proof_z_eval_at_r,
+        context_fingerprint,
     };
 
     let public = SpartanBrakedownPublic {
@@ -290,6 +345,7 @@ fn prove_from_dir_impl(
         case_digest,
         claimed_value_masked,
         reference_profile: DUAL_REFERENCE_PROFILE,
+        context_fingerprint,
     };
 
     let t3 = Instant::now();
@@ -356,6 +412,17 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let rows = case.a.len();
     let cols = case.a[0].len();
+    let case_digest = compute_case_digest(&case);
+    let expected_context = context_fingerprint(
+        rows,
+        cols,
+        case_digest,
+        proof.verifier_commitment.field_profile,
+        proof.reference_profile,
+    );
+    if proof.context_fingerprint != expected_context {
+        return Err(anyhow!("proof context fingerprint mismatch"));
+    }
     if rows == 0 || cols == 0 || !rows.is_power_of_two() || !cols.is_power_of_two() {
         return Err(anyhow!("case shape must be non-zero powers of two"));
     }
@@ -402,7 +469,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
-    let case_digest = compute_case_digest(&case);
     append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
 
     for r in &proof.outer_trace.rounds {
@@ -623,6 +689,16 @@ fn validate_compiled_case(
     if compute_case_digest(case) != compiled.case_digest {
         return Err(anyhow!("compiled circuit digest mismatch"));
     }
+    let expected = context_fingerprint(
+        compiled.rows,
+        compiled.cols,
+        compiled.case_digest,
+        compiled.field_profile,
+        compiled.reference_profile,
+    );
+    if compiled.context_fingerprint != expected {
+        return Err(anyhow!("compiled context fingerprint mismatch"));
+    }
     Ok(())
 }
 
@@ -641,6 +717,11 @@ fn validate_compiled_public(
     }
     if public.case_digest != compiled.case_digest {
         return Err(anyhow!("compiled/public case digest mismatch"));
+    }
+    if public.context_fingerprint != compiled.context_fingerprint
+        || proof.context_fingerprint != compiled.context_fingerprint
+    {
+        return Err(anyhow!("compiled/public/proof context fingerprint mismatch"));
     }
     if proof.verifier_commitment.field_profile != compiled.field_profile {
         return Err(anyhow!("compiled/proof field profile mismatch"));
@@ -661,6 +742,9 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     if public.reference_profile != proof.reference_profile {
         return Err(anyhow!("reference profile mismatch"));
     }
+    if public.context_fingerprint != proof.context_fingerprint {
+        return Err(anyhow!("public/proof context fingerprint mismatch"));
+    }
     if proof.verifier_commitment.n_rows != 6 || proof.verifier_commitment.n_per_row != public.cols {
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
@@ -671,6 +755,16 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     }
     if proof.inner_trace.rounds.len() != public.cols.trailing_zeros() as usize {
         return Err(anyhow!("inner rounds do not match column count"));
+    }
+    let expected_context = context_fingerprint(
+        public.rows,
+        public.cols,
+        public.case_digest,
+        proof.verifier_commitment.field_profile,
+        public.reference_profile,
+    );
+    if public.context_fingerprint != expected_context {
+        return Err(anyhow!("public context fingerprint mismatch"));
     }
 
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);

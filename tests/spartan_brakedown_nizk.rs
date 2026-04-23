@@ -3,7 +3,8 @@ use std::path::PathBuf;
 use zk_linear::{
     core::field::Fp,
     nizk::spartan_brakedown::{
-        build_pipeline_report_from_dir, prove_from_dir, verify_from_dir_strict, verify_public,
+        build_pipeline_report_from_dir, compile_from_dir, prove_from_dir,
+        prove_with_compiled_from_dir, verify_from_dir_strict, verify_public, verify_with_compiled,
     },
     protocol::reference::{PcsReference, ProtocolReference},
 };
@@ -235,4 +236,43 @@ fn spartan_brakedown_full_style_fails_on_tampered_inner_folded_values() {
     assert!(err
         .to_string()
         .contains("inner sumcheck verification failed"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_public_context_fingerprint_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.public.context_fingerprint[0] ^= 1;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for context fingerprint mismatch");
+    assert!(
+        err.to_string()
+            .contains("public/proof context fingerprint mismatch")
+            || err.to_string().contains("public context fingerprint mismatch")
+    );
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_proof_context_fingerprint_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.context_fingerprint[0] ^= 1;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for context fingerprint mismatch");
+    assert!(err
+        .to_string()
+        .contains("public/proof context fingerprint mismatch"));
+}
+
+#[test]
+fn spartan_brakedown_with_compiled_fails_on_compiled_context_fingerprint_mismatch() {
+    let mut compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
+    let result = prove_with_compiled_from_dir(&compiled, &case_dir()).expect("prove should succeed");
+    compiled.context_fingerprint[0] ^= 1;
+
+    let err = verify_with_compiled(&compiled, &result.proof, &result.public)
+        .expect_err("verify_with_compiled should fail for compiled context mismatch");
+    assert!(err
+        .to_string()
+        .contains("compiled/public/proof context fingerprint mismatch"));
 }

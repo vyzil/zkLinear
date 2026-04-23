@@ -33,6 +33,7 @@ struct CompiledJson {
     rows: usize,
     cols: usize,
     case_digest_hex: String,
+    context_fingerprint_hex: String,
     field_profile: String,
     reference_profile: RefProfileJson,
 }
@@ -92,6 +93,7 @@ struct ProofJson {
     pcs_proof_blind_2_hex: String,
     pcs_proof_joint_eval_at_r_hex: String,
     pcs_proof_z_eval_at_r_hex: String,
+    context_fingerprint_hex: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +102,7 @@ struct PublicJson {
     cols: usize,
     case_digest_hex: String,
     claimed_value_masked: u64,
+    context_fingerprint_hex: String,
     reference_profile: RefProfileJson,
 }
 
@@ -252,6 +255,7 @@ fn compiled_to_json(c: &SpartanBrakedownCompiledCircuit) -> CompiledJson {
         rows: c.rows,
         cols: c.cols,
         case_digest_hex: digest_to_hex(c.case_digest),
+        context_fingerprint_hex: digest_to_hex(c.context_fingerprint),
         field_profile: format!("{:?}", c.field_profile),
         reference_profile: ref_to_json(c.reference_profile),
     }
@@ -264,6 +268,7 @@ fn compiled_from_json(j: &CompiledJson) -> Result<SpartanBrakedownCompiledCircui
         rows: j.rows,
         cols: j.cols,
         case_digest: digest_from_hex(&j.case_digest_hex)?,
+        context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
         field_profile,
         reference_profile: ref_from_json(&j.reference_profile)?,
     })
@@ -286,6 +291,7 @@ fn proof_to_json(p: &SpartanBrakedownProof) -> ProofJson {
         pcs_proof_blind_2_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_blind_2)),
         pcs_proof_joint_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_joint_eval_at_r)),
         pcs_proof_z_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_z_eval_at_r)),
+        context_fingerprint_hex: digest_to_hex(p.context_fingerprint),
     }
 }
 
@@ -320,6 +326,7 @@ fn proof_from_json(j: &ProofJson) -> Result<SpartanBrakedownProof> {
             &hex::decode(&j.pcs_proof_z_eval_at_r_hex)
                 .context("bad pcs_proof_z_eval_at_r hex")?,
         )?,
+        context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
     })
 }
 
@@ -329,6 +336,7 @@ fn public_to_json(p: &SpartanBrakedownPublic) -> PublicJson {
         cols: p.cols,
         case_digest_hex: digest_to_hex(p.case_digest),
         claimed_value_masked: fp_to_u64(p.claimed_value_masked),
+        context_fingerprint_hex: digest_to_hex(p.context_fingerprint),
         reference_profile: ref_to_json(p.reference_profile),
     }
 }
@@ -339,6 +347,7 @@ fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
         cols: j.cols,
         case_digest: digest_from_hex(&j.case_digest_hex)?,
         claimed_value_masked: u64_to_fp(j.claimed_value_masked),
+        context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
         reference_profile: ref_from_json(&j.reference_profile)?,
     })
 }
