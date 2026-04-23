@@ -108,6 +108,7 @@ pub struct BrakedownVerifierCommitment {
     pub n_rows: usize,
     pub n_per_row: usize,
     pub n_cols: usize,
+    pub field_profile: BrakedownFieldProfile,
     pub encoder_kind: BrakedownEncoderKind,
     pub encoder_seed: u64,
     pub spel_layers: usize,
@@ -117,12 +118,17 @@ pub struct BrakedownVerifierCommitment {
 }
 
 impl BrakedownProverCommitment {
-    pub fn verifier_view(&self, enc: &BrakedownEncoding) -> BrakedownVerifierCommitment {
+    pub fn verifier_view(
+        &self,
+        enc: &BrakedownEncoding,
+        field_profile: BrakedownFieldProfile,
+    ) -> BrakedownVerifierCommitment {
         BrakedownVerifierCommitment {
             root: *self.merkle_nodes.last().unwrap_or(&[0u8; 32]),
             n_rows: self.n_rows,
             n_per_row: self.n_per_row,
             n_cols: self.n_cols,
+            field_profile,
             encoder_kind: enc.kind.clone(),
             encoder_seed: enc.seed,
             spel_layers: enc.spel_layers,

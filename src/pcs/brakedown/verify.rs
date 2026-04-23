@@ -23,6 +23,9 @@ pub fn verify_eval(
     if commitment.n_per_row != enc.n_per_row || commitment.n_cols != enc.n_cols {
         return Err(anyhow!("commitment dimension/encoding mismatch"));
     }
+    if commitment.field_profile != params.field_profile {
+        return Err(anyhow!("commitment field profile mismatch"));
+    }
     if commitment.encoder_kind != enc.kind
         || commitment.encoder_seed != enc.seed
         || commitment.spel_layers != enc.spel_layers

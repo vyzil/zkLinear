@@ -3,7 +3,8 @@ use anyhow::{anyhow, Result};
 use crate::core::field::{Fp, MODULUS};
 
 use super::types::{
-    BrakedownEncoderKind, BrakedownEvalProof, BrakedownVerifierCommitment, ColumnOpening,
+    BrakedownEncoderKind, BrakedownEvalProof, BrakedownFieldProfile, BrakedownVerifierCommitment,
+    ColumnOpening,
 };
 
 const VC_TAG: &[u8; 8] = b"ZKVCB001";
@@ -74,6 +75,23 @@ fn decode_encoder_kind(v: u8) -> Result<BrakedownEncoderKind> {
     }
 }
 
+fn encode_field_profile(p: BrakedownFieldProfile) -> u8 {
+    match p {
+        BrakedownFieldProfile::ToyF97 => 0,
+        BrakedownFieldProfile::Mersenne61Ext2 => 1,
+        BrakedownFieldProfile::Goldilocks64Ext2 => 2,
+    }
+}
+
+fn decode_field_profile(v: u8) -> Result<BrakedownFieldProfile> {
+    match v {
+        0 => Ok(BrakedownFieldProfile::ToyF97),
+        1 => Ok(BrakedownFieldProfile::Mersenne61Ext2),
+        2 => Ok(BrakedownFieldProfile::Goldilocks64Ext2),
+        _ => Err(anyhow!("wire: unknown field profile tag")),
+    }
+}
+
 fn encode_fp(out: &mut Vec<u8>, v: Fp) {
     push_u64_le(out, v.0);
 }
@@ -87,12 +105,13 @@ fn decode_fp(r: &mut Reader<'_>) -> Result<Fp> {
 }
 
 pub fn serialize_verifier_commitment(vc: &BrakedownVerifierCommitment) -> Vec<u8> {
-    let mut out = Vec::with_capacity(8 + 32 + 8 * 8 + 1);
+    let mut out = Vec::with_capacity(8 + 32 + 8 * 8 + 2);
     out.extend_from_slice(VC_TAG);
     out.extend_from_slice(&vc.root);
     push_u64_le(&mut out, vc.n_rows as u64);
     push_u64_le(&mut out, vc.n_per_row as u64);
     push_u64_le(&mut out, vc.n_cols as u64);
+    push_u8(&mut out, encode_field_profile(vc.field_profile));
     push_u8(&mut out, encode_encoder_kind(&vc.encoder_kind));
     push_u64_le(&mut out, vc.encoder_seed);
     push_u64_le(&mut out, vc.spel_layers as u64);
@@ -111,6 +130,7 @@ pub fn deserialize_verifier_commitment(bytes: &[u8]) -> Result<BrakedownVerifier
     let n_rows = r.read_u64_le()? as usize;
     let n_per_row = r.read_u64_le()? as usize;
     let n_cols = r.read_u64_le()? as usize;
+    let field_profile = decode_field_profile(r.read_u8()?)?;
     let encoder_kind = decode_encoder_kind(r.read_u8()?)?;
     let encoder_seed = r.read_u64_le()?;
     let spel_layers = r.read_u64_le()? as usize;
@@ -126,6 +146,7 @@ pub fn deserialize_verifier_commitment(bytes: &[u8]) -> Result<BrakedownVerifier
         n_rows,
         n_per_row,
         n_cols,
+        field_profile,
         encoder_kind,
         encoder_seed,
         spel_layers,
@@ -222,4 +243,3 @@ pub fn deserialize_eval_proof(bytes: &[u8]) -> Result<BrakedownEvalProof> {
         columns,
     })
 }
-

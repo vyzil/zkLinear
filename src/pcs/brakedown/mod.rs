@@ -12,13 +12,17 @@ pub mod wire;
 use anyhow::Result;
 use merlin::Transcript;
 
-use crate::{core::field::Fp, pcs::traits::PolynomialCommitmentScheme};
+use crate::{
+    core::field::{Fp, ModulusScope},
+    pcs::traits::PolynomialCommitmentScheme,
+};
 
 use self::{
     commit::commit,
     prove::prove_eval,
     types::{
-        BrakedownEncoding, BrakedownEncoderKind, BrakedownEvalProof, BrakedownParams,
+        BrakedownEncoding, BrakedownEncoderKind, BrakedownEvalProof, BrakedownFieldProfile,
+        BrakedownParams,
         BrakedownProverCommitment,
         BrakedownVerifierCommitment,
     },
@@ -47,6 +51,14 @@ impl BrakedownPcs {
         Self {
             params: tuned,
             encoding,
+        }
+    }
+
+    fn active_modulus(&self) -> u64 {
+        match self.params.field_profile {
+            BrakedownFieldProfile::ToyF97 => 97,
+            BrakedownFieldProfile::Mersenne61Ext2 => (1u64 << 61) - 1,
+            BrakedownFieldProfile::Goldilocks64Ext2 => 18446744069414584321,
         }
     }
 }
@@ -79,6 +91,7 @@ impl PolynomialCommitmentScheme for BrakedownPcs {
     type OpeningProof = BrakedownEvalProof;
 
     fn commit(&self, coeffs: &[Self::Field]) -> Result<Self::ProverCommitment> {
+        let _scope = ModulusScope::enter(self.active_modulus());
         commit(coeffs, &self.encoding)
     }
 
@@ -86,7 +99,7 @@ impl PolynomialCommitmentScheme for BrakedownPcs {
         &self,
         prover_commitment: &Self::ProverCommitment,
     ) -> Self::VerifierCommitment {
-        prover_commitment.verifier_view(&self.encoding)
+        prover_commitment.verifier_view(&self.encoding, self.params.field_profile)
     }
 
     fn open(
@@ -95,6 +108,7 @@ impl PolynomialCommitmentScheme for BrakedownPcs {
         outer_tensor: &[Self::Field],
         transcript: &mut Transcript,
     ) -> Result<Self::OpeningProof> {
+        let _scope = ModulusScope::enter(self.active_modulus());
         prove_eval(
             prover_commitment,
             outer_tensor,
@@ -113,6 +127,7 @@ impl PolynomialCommitmentScheme for BrakedownPcs {
         claimed_value: Self::Field,
         transcript: &mut Transcript,
     ) -> Result<()> {
+        let _scope = ModulusScope::enter(self.active_modulus());
         verify_eval(
             verifier_commitment,
             proof,
