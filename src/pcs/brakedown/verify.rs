@@ -4,7 +4,7 @@ use merlin::Transcript;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
-    challenges::{sample_field_vec_t, sample_unique_cols},
+    challenges::{sample_field_vec_round_t, sample_unique_cols},
     merkle::verify_column_path_t,
     scalar::BrakedownField,
     types::{
@@ -55,12 +55,17 @@ pub fn verify_eval_t<F: BrakedownField>(
     }
 
     let mut rand_tensors = Vec::new();
-    for p_rand in &proof.p_random_vec {
+    for (round, p_rand) in proof.p_random_vec.iter().enumerate() {
         if p_rand.len() != enc.n_per_row {
             return Err(anyhow!("degree-test vector length mismatch"));
         }
 
-        let t: Vec<F> = sample_field_vec_t(tr, LCPC_DEG_TEST_LABEL, commitment.n_rows);
+        let t: Vec<F> = sample_field_vec_round_t(
+            tr,
+            LCPC_DEG_TEST_LABEL,
+            round as u64,
+            commitment.n_rows,
+        );
         rand_tensors.push(t);
         for v in p_rand {
             tr.append_message(b"p_random", &v.to_u64().to_le_bytes());

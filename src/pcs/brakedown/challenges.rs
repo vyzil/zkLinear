@@ -44,10 +44,22 @@ pub fn sample_field_vec_t<F: BrakedownField>(
     (0..n).map(|_| sample_field_unbiased::<F>(tr, label)).collect()
 }
 
+pub fn sample_field_vec_round_t<F: BrakedownField>(
+    tr: &mut Transcript,
+    label: &'static [u8],
+    round: u64,
+    n: usize,
+) -> Vec<F> {
+    tr.append_message(b"lcpc_deg_round", &round.to_le_bytes());
+    sample_field_vec_t(tr, label, n)
+}
+
 pub fn sample_unique_cols(tr: &mut Transcript, n_cols: usize, n_open: usize) -> Result<Vec<usize>> {
     if n_open > n_cols {
         return Err(anyhow!("cannot open more columns than available"));
     }
+    tr.append_message(b"lcpc_col_ncols", &(n_cols as u64).to_le_bytes());
+    tr.append_message(b"lcpc_col_nopen", &(n_open as u64).to_le_bytes());
 
     let mut all: Vec<usize> = (0..n_cols).collect();
     for i in 0..n_open {

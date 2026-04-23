@@ -79,6 +79,8 @@ deterministic:
 - degree-test vectors and column-open queries are derived directly from merlin
   challenge bytes
 - no external RNG seed injection at verifier boundary
+- degree-test vectors are sampled with explicit round binding (`round_idx`)
+- column-open query sampler is bound to `(n_cols, n_open)` metadata
 - bounded integer sampling uses rejection sampling to reduce modulo bias
 - field-element sampling enforces canonical `0 <= x < modulus`
 

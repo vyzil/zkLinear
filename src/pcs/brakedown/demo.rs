@@ -10,7 +10,7 @@ use crate::{
 };
 
 use super::{
-    challenges::{sample_field_vec, sample_unique_cols},
+    challenges::{sample_field_vec_round_t, sample_unique_cols},
     merkle::{merkle_root, verify_column_path},
     types::{BrakedownEncoderKind, BrakedownParams},
     BrakedownPcs,
@@ -65,8 +65,13 @@ pub fn build_brakedown_demo_report() -> Result<String> {
     tr_v_detail.append_message(b"polycommit", &root);
     append_u64_le(&mut tr_v_detail, b"ncols", pcs.encoding.n_cols as u64);
     let mut rand_tensors = Vec::new();
-    for p_rand in &proof.p_random_vec {
-        let t = sample_field_vec(&mut tr_v_detail, LCPC_DEG_TEST_LABEL, prover_commitment.n_rows);
+    for (round, p_rand) in proof.p_random_vec.iter().enumerate() {
+        let t: Vec<Fp> = sample_field_vec_round_t(
+            &mut tr_v_detail,
+            LCPC_DEG_TEST_LABEL,
+            round as u64,
+            prover_commitment.n_rows,
+        );
         rand_tensors.push(t);
         for v in p_rand {
             tr_v_detail.append_message(b"p_random", &v.0.to_le_bytes());
