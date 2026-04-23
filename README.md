@@ -14,6 +14,9 @@
 ## Project Structure
 - `src/core/`
   - shared field and transcript primitives
+- `src/protocol/`
+  - shared protocol helpers used by both `bridge/` and `nizk/`
+  - case/transcript binding, row-binding helpers, shared tensor utilities
 - `src/sumcheck/`
   - `inner.rs`: inner-sumcheck core implementation
   - `outer.rs`: outer-sumcheck core used by the Spartan-like test path
@@ -98,3 +101,6 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
 - The bridge and NIZK paths are still **protocol skeletons**:
   - useful for phase-by-phase analysis and interface validation
   - not a production-ready Spartan2 integration
+- In the NIZK skeleton:
+  - outer/inner/PCS use transcript-shaped flow
+  - masking/blinding is still research-oriented (toy layering), not final production ZK construction

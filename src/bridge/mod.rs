@@ -2,7 +2,6 @@ use std::{path::Path, time::Instant};
 
 use anyhow::{anyhow, Result};
 use merlin::Transcript;
-use sha2::{Digest, Sha256};
 
 use crate::{
     api::spartan_like::{build_spartan_like_report_data_from_dir, SpartanLikeReportData},
@@ -14,6 +13,7 @@ use crate::{
         },
         traits::PolynomialCommitmentScheme,
     },
+    protocol::shared::{compute_case_digest, flatten_rows},
     sumcheck::{
         inner::{verify_inner_sumcheck_trace, VerifyTrace},
         outer::{verify_outer_sumcheck_trace, OuterVerifyTrace},
@@ -64,43 +64,10 @@ pub struct BridgeVerifyReport {
     pub inner_verify: VerifyTrace,
 }
 
-fn compute_case_digest(data: &SpartanLikeReportData) -> [u8; 32] {
-    let mut h = Sha256::new();
-    h.update((data.case.a.len() as u64).to_be_bytes());
-    h.update((data.case.a[0].len() as u64).to_be_bytes());
-    for row in &data.case.a {
-        for v in row {
-            h.update(v.0.to_be_bytes());
-        }
-    }
-    for row in &data.case.b {
-        for v in row {
-            h.update(v.0.to_be_bytes());
-        }
-    }
-    for row in &data.case.c {
-        for v in row {
-            h.update(v.0.to_be_bytes());
-        }
-    }
-    for z in &data.case.z {
-        h.update(z.0.to_be_bytes());
-    }
-    h.finalize().into()
-}
-
 fn append_bridge_public_metadata(tr: &mut Transcript, query: &BridgeVerifierQuery) {
     tr.append_message(b"case_digest", &query.public_case_digest);
     tr.append_message(b"gamma", &query.gamma.0.to_be_bytes());
     tr.append_message(b"claimed", &query.claimed_value.0.to_be_bytes());
-}
-
-fn flatten_three_rows(a: &[Fp], b: &[Fp], c: &[Fp]) -> Vec<Fp> {
-    let mut coeffs = Vec::with_capacity(a.len() + b.len() + c.len());
-    coeffs.extend_from_slice(a);
-    coeffs.extend_from_slice(b);
-    coeffs.extend_from_slice(c);
-    coeffs
 }
 
 pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
@@ -112,7 +79,7 @@ pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
     let claimed = data.joint_trace.claim_initial;
     let outer_tensor = vec![Fp::new(1), data.gamma, data.gamma_sq];
     let inner_tensor = data.case.z.clone();
-    let case_digest = compute_case_digest(&data);
+    let case_digest = compute_case_digest(&data.case);
     let query = BridgeVerifierQuery {
         outer_tensor,
         inner_tensor,
@@ -125,12 +92,17 @@ pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
     let t2 = Instant::now();
     let params = BrakedownParams::new(data.a_bound.len());
     let pcs = BrakedownPcs::new(params.clone());
-    let coeffs = flatten_three_rows(&data.a_bound, &data.b_bound, &data.c_bound);
+    let coeffs = flatten_rows(&[
+        data.a_bound.clone(),
+        data.b_bound.clone(),
+        data.c_bound.clone(),
+    ]);
     let prover_commitment = pcs.commit(&coeffs)?;
     let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
 
     let mut tr_p = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
     append_bridge_public_metadata(&mut tr_p, &query);
+    tr_p.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
     tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
     let pcs_opening_proof = pcs.open(&prover_commitment, &query.outer_tensor, &mut tr_p)?;
@@ -207,6 +179,7 @@ pub fn verify_bridge_bundle(
     }
 
     append_bridge_public_metadata(tr, query);
+    tr.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);
     tr.append_message(
         b"ncols",

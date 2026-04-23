@@ -2,22 +2,29 @@ use std::{path::Path, time::Instant};
 
 use anyhow::{Result, anyhow};
 use merlin::Transcript;
-use rand::SeedableRng;
-use rand_chacha::ChaCha20Rng;
-use sha2::{Digest, Sha256};
 
 use crate::{
   core::{
     field::{Fp, MODULUS},
     transcript::derive_round_challenge_merlin,
   },
-  io::case_format::{SpartanLikeCase, load_spartan_like_case_from_dir},
+  io::case_format::load_spartan_like_case_from_dir,
   pcs::{
     brakedown::{
       BrakedownPcs,
       types::{BrakedownEvalProof, BrakedownParams, BrakedownVerifierCommitment},
     },
     traits::PolynomialCommitmentScheme,
+  },
+  protocol::shared::{
+    append_case_to_transcript,
+    bind_rows,
+    build_eq_weights_from_challenges,
+    derive_outer_tau_sha,
+    flatten_rows,
+    matrix_vec_mul,
+    sample_blind_vec_from_transcript,
+    sample_gamma_from_transcript,
   },
   sumcheck::{
     inner::{
@@ -73,109 +80,6 @@ pub struct SpartanBrakedownPipelineResult {
   pub timings: KernelTimingMs,
 }
 
-fn append_public_input_to_transcript(tr: &mut Transcript, case: &SpartanLikeCase) {
-  tr.append_message(b"rows", &(case.a.len() as u64).to_be_bytes());
-  tr.append_message(b"cols", &(case.a[0].len() as u64).to_be_bytes());
-
-  for row in &case.a {
-    for v in row {
-      tr.append_message(b"A", &v.0.to_be_bytes());
-    }
-  }
-  for row in &case.b {
-    for v in row {
-      tr.append_message(b"B", &v.0.to_be_bytes());
-    }
-  }
-  for row in &case.c {
-    for v in row {
-      tr.append_message(b"C", &v.0.to_be_bytes());
-    }
-  }
-  for v in &case.z {
-    tr.append_message(b"z", &v.0.to_be_bytes());
-  }
-}
-
-fn sample_gamma_from_transcript(tr: &mut Transcript, az: &[Fp], bz: &[Fp], cz: &[Fp]) -> Fp {
-  tr.append_message(b"gamma_domain", b"spartan-like-joint-challenge");
-  for v in az {
-    tr.append_message(b"Az", &v.0.to_be_bytes());
-  }
-  for v in bz {
-    tr.append_message(b"Bz", &v.0.to_be_bytes());
-  }
-  for v in cz {
-    tr.append_message(b"Cz", &v.0.to_be_bytes());
-  }
-  let mut out = [0u8; 32];
-  tr.challenge_bytes(b"gamma", &mut out);
-  Fp::from_challenge(out)
-}
-
-fn derive_outer_tau(num_vars: usize, az: &[Fp], bz: &[Fp], cz: &[Fp], z: &[Fp]) -> Vec<Fp> {
-  let mut tau = Vec::with_capacity(num_vars);
-  for i in 0..num_vars {
-    let mut h = Sha256::new();
-    h.update(b"spartan-outer-tau");
-    h.update((i as u64).to_be_bytes());
-    for v in az.iter().chain(bz.iter()).chain(cz.iter()).chain(z.iter()) {
-      h.update(v.0.to_be_bytes());
-    }
-    let out: [u8; 32] = h.finalize().into();
-    tau.push(Fp::from_challenge(out));
-  }
-  tau
-}
-
-fn build_eq_weights_from_challenges(chals: &[Fp]) -> Vec<Fp> {
-  let mut w = vec![Fp::new(1)];
-  for r in chals {
-    let one_minus_r = Fp::new(1).sub(*r);
-    let mut nxt = Vec::with_capacity(w.len() * 2);
-    for wi in &w {
-      nxt.push(wi.mul(one_minus_r));
-      nxt.push(wi.mul(*r));
-    }
-    w = nxt;
-  }
-  w
-}
-
-fn bind_rows(matrix: &[Vec<Fp>], weights: &[Fp]) -> Vec<Fp> {
-  let cols = matrix[0].len();
-  let mut out = vec![Fp::zero(); cols];
-  for (row, w) in matrix.iter().zip(weights.iter()) {
-    for j in 0..cols {
-      out[j] = out[j].add(row[j].mul(*w));
-    }
-  }
-  out
-}
-
-fn flatten_rows(rows: &[Vec<Fp>]) -> Vec<Fp> {
-  let total = rows.iter().map(Vec::len).sum();
-  let mut out = Vec::with_capacity(total);
-  for row in rows {
-    out.extend_from_slice(row);
-  }
-  out
-}
-
-fn matrix_vec_mul(m: &[Vec<Fp>], z: &[Fp]) -> Vec<Fp> {
-  m.iter().map(|row| inner_product(row, z)).collect()
-}
-
-fn sample_blind_vec(len: usize) -> Vec<Fp> {
-  let mut rng = ChaCha20Rng::from_entropy();
-  (0..len)
-    .map(|_| {
-      use rand::RngCore;
-      Fp::new(rng.next_u64() % MODULUS)
-    })
-    .collect()
-}
-
 pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
   let t0 = Instant::now();
   let case = load_spartan_like_case_from_dir(case_dir)?;
@@ -194,7 +98,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     .collect();
 
   let row_vars = case.a.len().trailing_zeros() as usize;
-  let tau = derive_outer_tau(row_vars, &az, &bz, &cz, &case.z);
+  let tau = derive_outer_tau_sha(row_vars, &az, &bz, &cz, &case.z);
   let eq_tau = build_eq_weights_from_challenges(&tau);
   let weighted_residual: Vec<Fp> = residual
     .iter()
@@ -203,7 +107,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     .collect();
 
   let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
-  append_public_input_to_transcript(&mut tr_p, &case);
+  append_case_to_transcript(&mut tr_p, &case);
 
   let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
   let r_x = outer_trace
@@ -231,7 +135,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
     prove_inner_sumcheck_with_label_and_transcript(&joint_bound, &case.z, JOINT_INNER_LABEL, &mut tr_p);
 
   let claimed_value_unblinded = inner_product(&joint_bound, &case.z);
-  let blind_vec = sample_blind_vec(case.z.len());
+  let blind_vec = sample_blind_vec_from_transcript(&mut tr_p, case.z.len());
   let blind_eval = inner_product(&blind_vec, &case.z);
   let claimed_value_masked = claimed_value_unblinded.add(blind_eval);
 
@@ -250,6 +154,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
   let prover_commitment = pcs.commit(&coeffs)?;
   let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
 
+  tr_p.append_message(b"nizk_opening_label", b"masked_main_opening");
   tr_p.append_message(b"polycommit", &verifier_commitment.root);
   tr_p.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
 
@@ -257,6 +162,7 @@ pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult>
   let outer_tensor_blind = vec![Fp::zero(), Fp::zero(), Fp::zero(), Fp::new(1)];
 
   let pcs_proof_main = pcs.open(&prover_commitment, &outer_tensor_main, &mut tr_p)?;
+  tr_p.append_message(b"nizk_opening_label", b"blind_component_opening");
   let pcs_proof_blind = pcs.open(&prover_commitment, &outer_tensor_blind, &mut tr_p)?;
   let k2_ms = t2.elapsed().as_secs_f64() * 1000.0;
 
@@ -321,7 +227,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     .map(|((a, b), c)| a.mul(*b).sub(*c))
     .collect::<Vec<_>>();
 
-  let tau = derive_outer_tau(rows.trailing_zeros() as usize, &az, &bz, &cz, &case.z);
+  let tau = derive_outer_tau_sha(rows.trailing_zeros() as usize, &az, &bz, &cz, &case.z);
   let eq_tau = build_eq_weights_from_challenges(&tau);
   let weighted_residual = residual
     .iter()
@@ -336,7 +242,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
   }
 
   let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
-  append_public_input_to_transcript(&mut tr_v, &case);
+  append_case_to_transcript(&mut tr_v, &case);
 
   for r in &proof.outer_trace.rounds {
     let expected_r = derive_round_challenge_merlin(
@@ -381,6 +287,12 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     return Err(anyhow!("inner sumcheck verification failed"));
   }
 
+  let blind_vec = sample_blind_vec_from_transcript(&mut tr_v, case.z.len());
+  let expected_blind_eval = inner_product(&blind_vec, &case.z);
+  if expected_blind_eval != proof.blind_eval {
+    return Err(anyhow!("blind evaluation mismatch vs transcript-derived blind vector"));
+  }
+
   let r_x = proof
     .outer_trace
     .rounds
@@ -405,7 +317,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     return Err(anyhow!("inner initial claim mismatch vs bound/input"));
   }
 
-  let expected_masked = expected_claimed_unblinded.add(proof.blind_eval);
+  let expected_masked = expected_claimed_unblinded.add(expected_blind_eval);
   if proof.claimed_value != expected_masked {
     return Err(anyhow!("masked claimed value mismatch"));
   }
@@ -413,6 +325,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
   tr_v.append_message(b"claimed_value_unblinded", &expected_claimed_unblinded.0.to_be_bytes());
   tr_v.append_message(b"blind_eval", &proof.blind_eval.0.to_be_bytes());
   tr_v.append_message(b"claimed_value_masked", &proof.claimed_value.0.to_be_bytes());
+  tr_v.append_message(b"nizk_opening_label", b"masked_main_opening");
   tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
   tr_v.append_message(b"ncols", &(proof.verifier_commitment.n_cols as u64).to_be_bytes());
 
@@ -431,6 +344,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     &mut tr_v,
   )?;
 
+  tr_v.append_message(b"nizk_opening_label", b"blind_component_opening");
   pcs.verify(
     &proof.verifier_commitment,
     &proof.pcs_proof_blind,
