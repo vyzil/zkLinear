@@ -5,7 +5,10 @@ use zk_linear::pcs::BrakedownSecurityPreset;
 use zk_linear::{
     core::field::Fp,
     field_profiles::{BaseField64, Mersenne61},
-    pcs::{traits::PolynomialCommitmentScheme, BrakedownPcs, BrakedownPcsT},
+    pcs::{
+        brakedown::profiles::auto_tuned_counts, traits::PolynomialCommitmentScheme, BrakedownPcs,
+        BrakedownPcsT,
+    },
     protocol::spec_v1::{append_spec_domain, append_u64_le, PCS_DEMO_TRANSCRIPT_LABEL},
 };
 
@@ -163,4 +166,27 @@ fn lcpc_like_preset_is_not_spec_v1_production_candidate() {
         !p.is_spec_v1_production_candidate(),
         "lcpc-like preset should stay distinct from pinned production-candidate profile"
     );
+}
+
+#[test]
+fn auto_tune_counts_match_profile_formula() {
+    let p = BrakedownSecurityPreset::ProductionMersenne61Ext2.params(8);
+    let pcs: BrakedownPcsT<Mersenne61> = BrakedownPcsT::new(p.clone());
+    let (deg, opens) = auto_tuned_counts(
+        p.security_bits,
+        pcs.encoding.n_cols,
+        p.field_profile,
+        p.encoder_kind,
+    );
+    assert_eq!(pcs.params.n_degree_tests, deg);
+    assert_eq!(pcs.params.n_col_opens, opens);
+}
+
+#[test]
+fn production_mersenne61_n_per_row8_has_expected_tuned_counts() {
+    let p = BrakedownSecurityPreset::ProductionMersenne61Ext2.params(8);
+    let pcs: BrakedownPcsT<Mersenne61> = BrakedownPcsT::new(p);
+    assert_eq!(pcs.encoding.n_cols, 35);
+    assert_eq!(pcs.params.n_degree_tests, 2);
+    assert_eq!(pcs.params.n_col_opens, 35);
 }

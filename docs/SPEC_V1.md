@@ -97,6 +97,16 @@ Code-level predicate:
 This contract is intended to keep benchmark/profiling runs comparable and
 fail-fast on accidental parameter drift.
 
+Auto-tuned security counts are pinned to:
+
+- `n_degree_tests = ceil(lambda / max(1, flog2(|F|) - floor(log2(n_cols))))`
+- `n_col_opens = clamp[1, n_cols]( ceil( -lambda / log2(1 - delta/3) ) )`
+  - `delta = rel_distance_hint(encoder_kind)`
+  - `rel_distance_hint(SpielmanLike) = 0.040105193951347796`
+  - `rel_distance_hint(ToyHybrid) = 0.08`
+
+where `lambda = security_bits`.
+
 ## 8. Scope Note
 
 This pinning applies to the protocol skeleton and verification boundary in this repository.
