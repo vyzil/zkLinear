@@ -90,17 +90,17 @@ fn brakedown_golden_consistency_toy_path() {
 
     assert_eq!(
         root_hex,
-        "aa51e3d1f8d81542390af1bddb9d7a1efcdefdca38e5c7991f3e4544ec6813f2"
+        "210504e5dda88a3dc54da773f8f1ea15b79a384c2659b075842aea249295dc75"
     );
-    assert_eq!(opened_cols, vec![12, 18, 4]);
+    assert_eq!(opened_cols, vec![16, 8, 17]);
     assert_eq!(claimed_eval.0, 68);
     assert_eq!(
         vc_hash,
-        "996140733dea6bb4dfb7d3aea06067b36e9dd575d15f0cec40d6c4de195bbce2"
+        "33fde17de1650e01793b225fda55f6ee17d5ffaf7331f1ecb1fb0e9205a621e9"
     );
     assert_eq!(
         pf_hash,
-        "aaa2d22c5aa0ebc50fe6c58f66c888e12e8c8b1a54b5d43804f6cc7b3293ce2b"
+        "81c6544e9dead1ab3b766c26883045cf79659e1fad80cb5dbaad5416e3819ffa"
     );
 }
 
@@ -159,20 +159,20 @@ fn brakedown_golden_consistency_mersenne61_path() {
     let (root_hex, opened_cols, claimed_eval, vc_hash, pf_hash) = run_generic_golden(&pcs);
     assert_eq!(
         root_hex,
-        "01ea861c00b23e0d5814748612356ac0dd0414a913929f0179153e42ed712e89"
+        "02d601459138ca631e2912d2aa4c86ebf5226fed9b9d5a7d12b426e310438ffd"
     );
     assert_eq!(
         opened_cols,
-        vec![7, 3, 8, 13, 10, 14, 11, 9, 15, 18, 2, 19, 6, 5, 0, 12, 1, 4, 20, 16, 17]
+        vec![14, 10, 11, 20, 13, 12, 5, 18, 4, 0, 1, 17, 15, 6, 7, 19, 9, 2, 16, 3, 8]
     );
     assert_eq!(claimed_eval, 665753899684855131);
     assert_eq!(
         vc_hash,
-        "44971d5d1fd55d74fde4d339327790fe482abe364b47643c871ad65f7c1778dc"
+        "f789eda631a8db786b140639c275272319ed1aeb11b6d20141f4e8105e3fc77d"
     );
     assert_eq!(
         pf_hash,
-        "e372e425fdd3119f83e9743a3c240a20e5d41099b5d769f026059f563ac3b0c3"
+        "bd689be0574f3c374bf9935a2a05d2b689393e5a76e59866970360eea543395c"
     );
 }
 
@@ -183,19 +183,19 @@ fn brakedown_golden_consistency_goldilocks64_path() {
     let (root_hex, opened_cols, claimed_eval, vc_hash, pf_hash) = run_generic_golden(&pcs);
     assert_eq!(
         root_hex,
-        "01ea861c00b23e0d5814748612356ac0dd0414a913929f0179153e42ed712e89"
+        "48979736e21d301ef069fc49003ab914193162b2e1ed02dbbf6045956c1d5da3"
     );
     assert_eq!(
         opened_cols,
-        vec![14, 4, 1, 11, 7, 18, 8, 15, 9, 17, 20, 10, 5, 16, 3, 13, 12, 2, 0, 19, 6]
+        vec![7, 5, 6, 9, 1, 19, 20, 14, 15, 2, 12, 18, 10, 16, 4, 3, 17, 11, 8, 0, 13]
     );
     assert_eq!(claimed_eval, 6529514271123546666);
     assert_eq!(
         vc_hash,
-        "e4b8905a6246f33fa2ef4598cfb168853f0c77370c6db0c4d41907a72b984673"
+        "a2c88a251fa69389a4be55ada5657abc79537a2804a23746a635f40837810afb"
     );
     assert_eq!(
         pf_hash,
-        "c691481ad5ece71037e6254d0e9607c1fa603d11ab60afee5a3bf6f73e7609bb"
+        "2b5705280033336991e21f6a20f23312d4ad7be05d4938a6002c52fc0202e0b9"
     );
 }

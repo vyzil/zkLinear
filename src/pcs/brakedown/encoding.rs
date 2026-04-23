@@ -171,12 +171,21 @@ fn sparse_layer_map<F: BrakedownField>(
     let mut rng =
         ChaCha20Rng::seed_from_u64(seed ^ (input.len() as u64) ^ ((out_len as u64) << 16));
     let mut out = vec![F::zero(); out_len];
+    let eff_density = density.min(input.len());
 
     for o in &mut out {
         let mut acc = F::zero();
-        for _ in 0..density {
-            let idx = rng.gen_range(0..input.len());
-            let coeff = F::new((rng.gen_range(1..=7)) as u64);
+        // Sample distinct neighbors so configured density is respected.
+        let mut idx_pool: Vec<usize> = (0..input.len()).collect();
+        for i in 0..eff_density {
+            let j = i + rng.gen_range(0..(input.len() - i));
+            idx_pool.swap(i, j);
+            let idx = idx_pool[i];
+            // Deterministic non-zero coefficient from PRG stream.
+            let mut coeff = F::new(rng.r#gen::<u64>());
+            if coeff == F::zero() {
+                coeff = F::new(1);
+            }
             acc = acc.add(input[idx].mul(coeff));
         }
         *o = acc;
