@@ -6,6 +6,7 @@ use zk_linear::{
         build_pipeline_report_from_dir, compile_from_dir, prove_from_dir,
         prove_with_compiled_from_dir, verify_from_dir_strict, verify_public, verify_with_compiled,
     },
+    protocol::reference::{DUAL_REFERENCE_PROFILE},
     protocol::reference::{PcsReference, ProtocolReference},
     pcs::brakedown::types::BrakedownFieldProfile,
 };
@@ -405,4 +406,27 @@ fn spartan_brakedown_with_compiled_fails_on_public_field_profile_mismatch() {
     assert!(err
         .to_string()
         .contains("compiled/public field profile mismatch"));
+}
+
+#[test]
+fn spartan_brakedown_with_compiled_fails_on_non_standard_reference_even_if_matched() {
+    let mut compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
+    let mut result =
+        prove_with_compiled_from_dir(&compiled, &case_dir()).expect("prove should succeed");
+
+    compiled.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    compiled.reference_profile.pcs = PcsReference::ExperimentalAlt;
+    result.proof.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    result.proof.reference_profile.pcs = PcsReference::ExperimentalAlt;
+    result.public.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    result.public.reference_profile.pcs = PcsReference::ExperimentalAlt;
+
+    let err = verify_with_compiled(&compiled, &result.proof, &result.public)
+        .expect_err("verify_with_compiled should reject non-standard compiled reference");
+    assert!(err
+        .to_string()
+        .contains("unsupported reference profile in compiled circuit"));
+
+    // sanity: test setup really diverged from pinned dual-reference default
+    assert_ne!(compiled.reference_profile, DUAL_REFERENCE_PROFILE);
 }
