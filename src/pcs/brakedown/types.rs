@@ -32,6 +32,31 @@ impl BrakedownFieldProfile {
             BrakedownFieldProfile::Goldilocks64Ext2 => 128,
         }
     }
+
+    pub fn base_modulus(self) -> u64 {
+        match self {
+            BrakedownFieldProfile::ToyF97 => 97,
+            BrakedownFieldProfile::Mersenne61Ext2 => (1u64 << 61) - 1,
+            BrakedownFieldProfile::Goldilocks64Ext2 => 18446744069414584321,
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.to_ascii_lowercase().as_str() {
+            "toy" | "toyf97" | "f97" => Some(Self::ToyF97),
+            "m61" | "mersenne61" | "mersenne61ext2" | "ext2-m61" => {
+                Some(Self::Mersenne61Ext2)
+            }
+            "gold" | "goldilocks" | "goldilocks64ext2" | "ext2-gold" => {
+                Some(Self::Goldilocks64Ext2)
+            }
+            _ => None,
+        }
+    }
+
+    pub fn default_nizk_profile() -> Self {
+        Self::Mersenne61Ext2
+    }
 }
 
 #[derive(Clone, Debug)]

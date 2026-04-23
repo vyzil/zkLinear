@@ -40,6 +40,20 @@ impl BrakedownSecurityPreset {
     }
 }
 
+pub fn preset_for_field_profile(profile: BrakedownFieldProfile) -> BrakedownSecurityPreset {
+    match profile {
+        BrakedownFieldProfile::ToyF97 => BrakedownSecurityPreset::DemoToy,
+        BrakedownFieldProfile::Mersenne61Ext2 => BrakedownSecurityPreset::ProductionMersenne61Ext2,
+        BrakedownFieldProfile::Goldilocks64Ext2 => {
+            BrakedownSecurityPreset::ProductionGoldilocks64Ext2
+        }
+    }
+}
+
+pub fn params_for_field_profile(n_per_row: usize, profile: BrakedownFieldProfile) -> BrakedownParams {
+    preset_for_field_profile(profile).params(n_per_row)
+}
+
 fn production_params(n_per_row: usize, field_profile: BrakedownFieldProfile) -> BrakedownParams {
     let mut p = BrakedownParams::new_with_field_profile(n_per_row, field_profile);
     p.encoder_kind = BrakedownEncoderKind::SpielmanLike;

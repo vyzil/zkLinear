@@ -10,7 +10,7 @@ use crate::{
     core::field::{Fp, ModulusScope},
     pcs::{
         brakedown::{
-            profiles::BrakedownSecurityPreset,
+            profiles::params_for_field_profile,
             types::{
                 BrakedownEvalProof, BrakedownFieldProfile, BrakedownParams,
                 BrakedownVerifierCommitment,
@@ -33,26 +33,6 @@ use crate::{
 };
 
 pub const BRIDGE_TRANSCRIPT_LABEL: &[u8] = crate::protocol::spec_v1::BRIDGE_TRANSCRIPT_LABEL;
-
-fn params_for_profile(n_per_row: usize, profile: BrakedownFieldProfile) -> BrakedownParams {
-    match profile {
-        BrakedownFieldProfile::ToyF97 => BrakedownSecurityPreset::DemoToy.params(n_per_row),
-        BrakedownFieldProfile::Mersenne61Ext2 => {
-            BrakedownSecurityPreset::ProductionMersenne61Ext2.params(n_per_row)
-        }
-        BrakedownFieldProfile::Goldilocks64Ext2 => {
-            BrakedownSecurityPreset::ProductionGoldilocks64Ext2.params(n_per_row)
-        }
-    }
-}
-
-fn field_modulus_for_profile(profile: BrakedownFieldProfile) -> u64 {
-    match profile {
-        BrakedownFieldProfile::ToyF97 => 97,
-        BrakedownFieldProfile::Mersenne61Ext2 => (1u64 << 61) - 1,
-        BrakedownFieldProfile::Goldilocks64Ext2 => 18446744069414584321,
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct BridgeProofBundle {
@@ -112,11 +92,11 @@ pub fn prove_bridge_from_dir_with_profile(
     case_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<BridgeBuildResult> {
-    let _mod_scope = ModulusScope::enter(field_modulus_for_profile(profile));
+    let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let t0 = Instant::now();
     let data = build_spartan_like_report_data_from_dir_with_modulus(
         case_dir,
-        field_modulus_for_profile(profile),
+        profile.base_modulus(),
     )?;
     let k0 = t0.elapsed().as_secs_f64() * 1000.0;
 
@@ -136,7 +116,7 @@ pub fn prove_bridge_from_dir_with_profile(
     let k1 = t1.elapsed().as_secs_f64() * 1000.0;
 
     let t2 = Instant::now();
-    let params = params_for_profile(data.a_bound.len(), profile);
+    let params = params_for_field_profile(data.a_bound.len(), profile);
     let pcs = BrakedownPcs::new(params.clone());
     let coeffs = flatten_rows(&[
         data.a_bound.clone(),
@@ -185,9 +165,7 @@ pub fn verify_bridge_bundle(
     query: &BridgeVerifierQuery,
     tr: &mut Transcript,
 ) -> Result<BridgeVerifyReport> {
-    let _mod_scope = ModulusScope::enter(field_modulus_for_profile(
-        bundle.verifier_commitment.field_profile,
-    ));
+    let _mod_scope = ModulusScope::enter(bundle.verifier_commitment.field_profile.base_modulus());
     if query.claimed_value != bundle.claimed_evaluation {
         return Err(anyhow!(
             "claimed value mismatch between query and proof bundle"
@@ -242,7 +220,7 @@ pub fn verify_bridge_bundle(
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);
     append_u64_le(tr, b"ncols", bundle.verifier_commitment.n_cols as u64);
 
-    let expected_params = params_for_profile(
+    let expected_params = params_for_field_profile(
         bundle.verifier_commitment.n_per_row,
         bundle.verifier_commitment.field_profile,
     );
