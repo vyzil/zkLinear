@@ -81,6 +81,49 @@ fn spartan_brakedown_full_style_fails_on_tampered_blind_mix_alpha() {
 }
 
 #[test]
+fn spartan_brakedown_full_style_fails_on_tampered_blind_eval_1() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.blind_eval_1 = result.proof.blind_eval_1.add(Fp::new(1));
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail for tampered blind_eval_1");
+    assert!(err
+        .to_string()
+        .contains("blind evaluation 1 mismatch vs transcript-derived blind vector"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_tampered_blind_eval_2() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.blind_eval_2 = result.proof.blind_eval_2.add(Fp::new(1));
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail for tampered blind_eval_2");
+    assert!(err
+        .to_string()
+        .contains("blind evaluation 2 mismatch vs transcript-derived blind vector"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_swapped_blind_openings() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    std::mem::swap(
+        &mut result.proof.pcs_proof_blind_1,
+        &mut result.proof.pcs_proof_blind_2,
+    );
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail when blind openings are swapped");
+    assert!(
+        err.to_string().contains("claimed evaluation mismatch")
+            || err.to_string().contains("eval column check failed")
+            || err.to_string().contains("degree-test column check failed")
+            || err.to_string().contains("opened column index mismatch")
+            || err.to_string().contains("merkle path failed")
+    );
+}
+
+#[test]
 fn spartan_brakedown_full_style_fails_on_reference_profile_mismatch() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.reference_profile.protocol = ProtocolReference::ExperimentalAlt;

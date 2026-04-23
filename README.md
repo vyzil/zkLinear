@@ -104,6 +104,7 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
 - `docs/SPEC_V1.md`: pinned transcript/message/verify boundary for v1
 - `docs/REFERENCE_DIFF.md`: Spartan2-like vs lcpc/brakedown-like dual-reference boundary
 - `docs/PRODUCTION_CHECKLIST.md`: prioritized production-upgrade checklist
+- `docs/NIZK_MASKING_MODEL.md`: current masked-claim construction and scope notes
 
 
 ## Demo Caveats (Important)
