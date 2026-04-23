@@ -385,6 +385,7 @@ fn prove_from_dir_impl(
         rows,
         cols,
         case_digest,
+        field_profile: profile,
         claimed_value_masked,
         reference_profile: DUAL_REFERENCE_PROFILE,
         context_fingerprint,
@@ -792,6 +793,9 @@ fn validate_compiled_public(
     if proof.verifier_commitment.field_profile != compiled.field_profile {
         return Err(anyhow!("compiled/proof field profile mismatch"));
     }
+    if public.field_profile != compiled.field_profile {
+        return Err(anyhow!("compiled/public field profile mismatch"));
+    }
     let expected_commitment_cols =
         expected_commitment_n_cols(compiled.cols, compiled.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
@@ -806,7 +810,10 @@ fn validate_compiled_public(
 }
 
 fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
-    let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
+    if public.field_profile != proof.verifier_commitment.field_profile {
+        return Err(anyhow!("public/proof field profile mismatch"));
+    }
+    let _mod_scope = ModulusScope::enter(public.field_profile.base_modulus());
     if public.rows == 0
         || public.cols == 0
         || !public.rows.is_power_of_two()
@@ -825,7 +832,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         return Err(anyhow!("public/proof context fingerprint mismatch"));
     }
     let expected_commitment_cols =
-        expected_commitment_n_cols(public.cols, proof.verifier_commitment.field_profile);
+        expected_commitment_n_cols(public.cols, public.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
         || proof.verifier_commitment.n_per_row != public.cols
         || proof.verifier_commitment.n_cols != expected_commitment_cols
@@ -844,7 +851,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         public.rows,
         public.cols,
         public.case_digest,
-        proof.verifier_commitment.field_profile,
+        public.field_profile,
         public.reference_profile,
     );
     if public.context_fingerprint != expected_context {
@@ -953,7 +960,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     append_fp_le(&mut tr_v, b"blind_mix_alpha", proof.blind_mix_alpha);
     append_fp_le(&mut tr_v, b"claimed_value_masked", proof.claimed_value);
 
-    let params = params_for_field_profile(public.cols, proof.verifier_commitment.field_profile);
+    let params = params_for_field_profile(public.cols, public.field_profile);
     let pcs = BrakedownPcs::new(params);
     let outer_tensor_main = vec![
         Fp::new(1),

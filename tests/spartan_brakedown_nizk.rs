@@ -7,6 +7,7 @@ use zk_linear::{
         prove_with_compiled_from_dir, verify_from_dir_strict, verify_public, verify_with_compiled,
     },
     protocol::reference::{PcsReference, ProtocolReference},
+    pcs::brakedown::types::BrakedownFieldProfile,
 };
 
 fn case_dir() -> PathBuf {
@@ -325,6 +326,18 @@ fn spartan_brakedown_full_style_fails_on_commitment_n_cols_mismatch() {
     assert!(err
         .to_string()
         .contains("verifier commitment dimensions mismatch for blinded layout"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_public_field_profile_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.public.field_profile = BrakedownFieldProfile::Goldilocks64Ext2;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for public/proof field profile mismatch");
+    assert!(err
+        .to_string()
+        .contains("public/proof field profile mismatch"));
 }
 
 #[test]

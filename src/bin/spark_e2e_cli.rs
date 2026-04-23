@@ -105,6 +105,7 @@ struct PublicJson {
     rows: usize,
     cols: usize,
     case_digest_hex: String,
+    field_profile: String,
     claimed_value_masked: u64,
     context_fingerprint_hex: String,
     reference_profile: RefProfileJson,
@@ -145,6 +146,7 @@ struct PublicWire {
     rows: usize,
     cols: usize,
     case_digest: [u8; 32],
+    field_profile: String,
     claimed_value_masked: u64,
     context_fingerprint: [u8; 32],
     reference_profile: RefProfileJson,
@@ -471,6 +473,7 @@ fn public_to_json(p: &SpartanBrakedownPublic) -> PublicJson {
         rows: p.rows,
         cols: p.cols,
         case_digest_hex: digest_to_hex(p.case_digest),
+        field_profile: format!("{:?}", p.field_profile),
         claimed_value_masked: fp_to_u64(p.claimed_value_masked),
         context_fingerprint_hex: digest_to_hex(p.context_fingerprint),
         reference_profile: ref_to_json(p.reference_profile),
@@ -482,6 +485,7 @@ fn public_to_wire(p: &SpartanBrakedownPublic) -> PublicWire {
         rows: p.rows,
         cols: p.cols,
         case_digest: p.case_digest,
+        field_profile: format!("{:?}", p.field_profile),
         claimed_value_masked: fp_to_u64(p.claimed_value_masked),
         context_fingerprint: p.context_fingerprint,
         reference_profile: ref_to_json(p.reference_profile),
@@ -489,10 +493,13 @@ fn public_to_wire(p: &SpartanBrakedownPublic) -> PublicWire {
 }
 
 fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
+    let field_profile = parse_field_profile(&j.field_profile)
+        .ok_or_else(|| anyhow!("unknown field profile '{}'", j.field_profile))?;
     Ok(SpartanBrakedownPublic {
         rows: j.rows,
         cols: j.cols,
         case_digest: digest_from_hex(&j.case_digest_hex)?,
+        field_profile,
         claimed_value_masked: u64_to_fp(j.claimed_value_masked),
         context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
         reference_profile: ref_from_json(&j.reference_profile)?,
@@ -500,10 +507,13 @@ fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
 }
 
 fn public_from_wire(j: &PublicWire) -> Result<SpartanBrakedownPublic> {
+    let field_profile = parse_field_profile(&j.field_profile)
+        .ok_or_else(|| anyhow!("unknown field profile '{}'", j.field_profile))?;
     Ok(SpartanBrakedownPublic {
         rows: j.rows,
         cols: j.cols,
         case_digest: j.case_digest,
+        field_profile,
         claimed_value_masked: u64_to_fp(j.claimed_value_masked),
         context_fingerprint: j.context_fingerprint,
         reference_profile: ref_from_json(&j.reference_profile)?,

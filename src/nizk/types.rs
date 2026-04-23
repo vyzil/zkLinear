@@ -33,6 +33,7 @@ pub struct SpartanBrakedownPublic {
     pub rows: usize,
     pub cols: usize,
     pub case_digest: [u8; 32],
+    pub field_profile: BrakedownFieldProfile,
     // Public claims only (no witness-like evaluation tensors on this boundary).
     // Masking/claim-binding remains research/demo and is not a production ZK construction.
     pub claimed_value_masked: Fp,
