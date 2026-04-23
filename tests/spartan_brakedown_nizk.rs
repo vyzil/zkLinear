@@ -370,9 +370,13 @@ fn spartan_brakedown_with_compiled_fails_on_compiled_context_fingerprint_mismatc
 
     let err = verify_with_compiled(&compiled, &result.proof, &result.public)
         .expect_err("verify_with_compiled should fail for compiled context mismatch");
-    assert!(err
-        .to_string()
-        .contains("compiled/public/proof context fingerprint mismatch"));
+    assert!(
+        err.to_string()
+            .contains("compiled context fingerprint mismatch")
+            || err
+                .to_string()
+                .contains("compiled/public/proof context fingerprint mismatch")
+    );
 }
 
 #[test]

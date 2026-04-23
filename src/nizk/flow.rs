@@ -780,6 +780,19 @@ fn validate_compiled_public(
     proof: &SpartanBrakedownProof,
     public: &SpartanBrakedownPublic,
 ) -> Result<()> {
+    if compiled.reference_profile != DUAL_REFERENCE_PROFILE {
+        return Err(anyhow!("unsupported reference profile in compiled circuit"));
+    }
+    let expected_compiled_context = context_fingerprint(
+        compiled.rows,
+        compiled.cols,
+        compiled.case_digest,
+        compiled.field_profile,
+        compiled.reference_profile,
+    );
+    if compiled.context_fingerprint != expected_compiled_context {
+        return Err(anyhow!("compiled context fingerprint mismatch"));
+    }
     if compiled.reference_profile != public.reference_profile
         || compiled.reference_profile != proof.reference_profile
     {
