@@ -46,6 +46,15 @@ pub fn verify_eval_structure_t<F: BrakedownField>(
     params: &BrakedownParams,
     tr: &mut Transcript,
 ) -> Result<()> {
+    if commitment.n_rows == 0 {
+        return Err(anyhow!("commitment must have at least one row"));
+    }
+    if enc.n_per_row == 0 {
+        return Err(anyhow!("encoding n_per_row must be non-zero"));
+    }
+    if enc.n_cols == 0 {
+        return Err(anyhow!("encoding n_cols must be non-zero"));
+    }
     if commitment.n_per_row != enc.n_per_row || commitment.n_cols != enc.n_cols {
         return Err(anyhow!("commitment dimension/encoding mismatch"));
     }
