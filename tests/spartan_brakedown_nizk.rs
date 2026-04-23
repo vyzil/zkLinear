@@ -388,3 +388,17 @@ fn spartan_brakedown_with_compiled_fails_on_commitment_dimension_mismatch() {
         .to_string()
         .contains("compiled/proof verifier commitment dimensions mismatch"));
 }
+
+#[test]
+fn spartan_brakedown_with_compiled_fails_on_public_field_profile_mismatch() {
+    let compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
+    let mut result =
+        prove_with_compiled_from_dir(&compiled, &case_dir()).expect("prove should succeed");
+    result.public.field_profile = BrakedownFieldProfile::Goldilocks64Ext2;
+
+    let err = verify_with_compiled(&compiled, &result.proof, &result.public)
+        .expect_err("verify_with_compiled should fail for public field profile mismatch");
+    assert!(err
+        .to_string()
+        .contains("compiled/public field profile mismatch"));
+}
