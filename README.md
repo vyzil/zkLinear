@@ -103,12 +103,18 @@ cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/zklin
 cargo run --bin spark_e2e_cli -- prove /tmp/zklinear_compiled.json tests/inner_sumcheck_spartan /tmp/zklinear_proof.json /tmp/zklinear_public.json
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_compiled.json /tmp/zklinear_proof.json /tmp/zklinear_public.json
 ```
+Each step also emits binary sidecars (`*.wire`) for machine metrics and size reporting.
 
 Size-driven run + proof inspection:
 ```bash
 cargo run --bin spark_e2e_cli -- prove-k 17 /tmp/zklinear_run_k17 m61
 cargo run --bin spark_e2e_cli -- inspect /tmp/zklinear_run_k17/proof.json
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_run_k17/compiled.json /tmp/zklinear_run_k17/proof.json /tmp/zklinear_run_k17/public.json
+```
+
+Single metrics runner (warmup + repeated runs + CSV/JSON):
+```bash
+cargo run --bin metrics_runner -- tests/inner_sumcheck_spartan /tmp/zklinear_metrics m61 1 5
 ```
 
 Generate circom repeat case only (no prove/verify run):
