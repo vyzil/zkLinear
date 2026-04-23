@@ -27,9 +27,10 @@ use crate::{
         TRANSCRIPT_DOMAIN,
     },
     protocol::shared::{
-        append_case_digest_to_transcript, bind_rows, build_eq_weights_from_challenges,
-        compute_case_digest, derive_outer_tau_sha, flatten_rows, matrix_vec_mul,
-        sample_blind_mix_alpha_from_transcript, sample_gamma_from_transcript_light,
+        append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
+        build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha,
+        flatten_rows, matrix_vec_mul, sample_blind_mix_alpha_from_transcript,
+        sample_gamma_from_transcript_light,
     },
     sumcheck::{
         inner::{
@@ -234,6 +235,7 @@ fn prove_from_dir_impl(
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &DUAL_REFERENCE_PROFILE);
+    append_field_profile_to_transcript(&mut tr_p, profile);
     append_case_digest_to_transcript(&mut tr_p, rows, cols, case_digest);
 
     let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
@@ -512,6 +514,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
+    append_field_profile_to_transcript(&mut tr_v, proof.verifier_commitment.field_profile);
     append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
 
     for (i, r) in proof.outer_trace.rounds.iter().enumerate() {
@@ -864,6 +867,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
+    append_field_profile_to_transcript(&mut tr_v, public.field_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
 
     for (i, r) in proof.outer_trace.rounds.iter().enumerate() {

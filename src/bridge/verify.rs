@@ -8,6 +8,7 @@ use crate::{
     },
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
+        shared::append_field_profile_to_transcript,
         spec_v1::{append_spec_domain, append_u64_le},
     },
     sumcheck::{
@@ -113,6 +114,7 @@ pub fn verify_bridge_bundle(
 
     append_spec_domain(tr);
     append_reference_profile_to_transcript(tr, &query.reference_profile);
+    append_field_profile_to_transcript(tr, bundle.verifier_commitment.field_profile);
     append_bridge_public_metadata(tr, query);
     tr.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);

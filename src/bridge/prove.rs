@@ -12,7 +12,7 @@ use crate::{
     },
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
-        shared::{compute_case_digest, flatten_rows},
+        shared::{append_field_profile_to_transcript, compute_case_digest, flatten_rows},
         spec_v1::{append_spec_domain, append_u64_le},
     },
 };
@@ -63,6 +63,7 @@ pub fn prove_bridge_from_dir_with_profile(
     let mut tr_p = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &query.reference_profile);
+    append_field_profile_to_transcript(&mut tr_p, profile);
     append_bridge_public_metadata(&mut tr_p, &query);
     tr_p.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
