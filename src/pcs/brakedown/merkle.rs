@@ -5,59 +5,59 @@ use crate::core::field::Fp;
 use super::types::ColumnOpening;
 
 pub fn digest_fp_list(values: &[Fp]) -> [u8; 32] {
-  let mut h = Sha256::new();
-  h.update([0u8; 32]);
-  for v in values {
-    h.update(v.0.to_le_bytes());
-  }
-  h.finalize().into()
+    let mut h = Sha256::new();
+    h.update([0u8; 32]);
+    for v in values {
+        h.update(v.0.to_le_bytes());
+    }
+    h.finalize().into()
 }
 
 pub fn merkle_tree(leaves: &[[u8; 32]]) -> Vec<[u8; 32]> {
-  let n = leaves.len().next_power_of_two();
-  let mut full = vec![[0u8; 32]; 2 * n - 1];
-  full[..leaves.len()].copy_from_slice(leaves);
-  for leaf in full.iter_mut().take(n).skip(leaves.len()) {
-    *leaf = [0u8; 32];
-  }
-
-  let mut layer_start = 0;
-  let mut width = n;
-  let mut out_start = n;
-  while width > 1 {
-    for i in 0..(width / 2) {
-      let l = full[layer_start + 2 * i];
-      let r = full[layer_start + 2 * i + 1];
-      let mut h = Sha256::new();
-      h.update(l);
-      h.update(r);
-      full[out_start + i] = h.finalize().into();
+    let n = leaves.len().next_power_of_two();
+    let mut full = vec![[0u8; 32]; 2 * n - 1];
+    full[..leaves.len()].copy_from_slice(leaves);
+    for leaf in full.iter_mut().take(n).skip(leaves.len()) {
+        *leaf = [0u8; 32];
     }
-    layer_start = out_start;
-    out_start += width / 2;
-    width /= 2;
-  }
-  full
+
+    let mut layer_start = 0;
+    let mut width = n;
+    let mut out_start = n;
+    while width > 1 {
+        for i in 0..(width / 2) {
+            let l = full[layer_start + 2 * i];
+            let r = full[layer_start + 2 * i + 1];
+            let mut h = Sha256::new();
+            h.update(l);
+            h.update(r);
+            full[out_start + i] = h.finalize().into();
+        }
+        layer_start = out_start;
+        out_start += width / 2;
+        width /= 2;
+    }
+    full
 }
 
 pub fn merkle_root(nodes: &[[u8; 32]]) -> [u8; 32] {
-  *nodes.last().unwrap_or(&[0u8; 32])
+    *nodes.last().unwrap_or(&[0u8; 32])
 }
 
 pub fn verify_column_path(root: [u8; 32], opening: &ColumnOpening) -> bool {
-  let mut cur = digest_fp_list(&opening.values);
-  let mut idx = opening.col_idx;
-  for s in &opening.merkle_path {
-    let mut h = Sha256::new();
-    if idx.is_multiple_of(2) {
-      h.update(cur);
-      h.update(*s);
-    } else {
-      h.update(*s);
-      h.update(cur);
+    let mut cur = digest_fp_list(&opening.values);
+    let mut idx = opening.col_idx;
+    for s in &opening.merkle_path {
+        let mut h = Sha256::new();
+        if idx.is_multiple_of(2) {
+            h.update(cur);
+            h.update(*s);
+        } else {
+            h.update(*s);
+            h.update(cur);
+        }
+        cur = h.finalize().into();
+        idx >>= 1;
     }
-    cur = h.finalize().into();
-    idx >>= 1;
-  }
-  cur == root
+    cur == root
 }

@@ -13,7 +13,12 @@ use crate::{
         },
         traits::PolynomialCommitmentScheme,
     },
-    protocol::shared::{compute_case_digest, flatten_rows},
+    protocol::{
+        reference::{
+            append_reference_profile_to_transcript, ReferenceProfile, DUAL_REFERENCE_PROFILE,
+        },
+        shared::{compute_case_digest, flatten_rows},
+    },
     sumcheck::{
         inner::{verify_inner_sumcheck_trace, VerifyTrace},
         outer::{verify_outer_sumcheck_trace, OuterVerifyTrace},
@@ -31,6 +36,7 @@ pub struct BridgeProofBundle {
     pub claimed_evaluation: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
+    pub reference_profile: ReferenceProfile,
     pub pcs_params: BrakedownParams,
 }
 
@@ -41,6 +47,7 @@ pub struct BridgeVerifierQuery {
     pub claimed_value: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
+    pub reference_profile: ReferenceProfile,
 }
 
 #[derive(Debug, Clone)]
@@ -86,6 +93,7 @@ pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
         claimed_value: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
+        reference_profile: DUAL_REFERENCE_PROFILE,
     };
     let k1 = t1.elapsed().as_secs_f64() * 1000.0;
 
@@ -101,6 +109,7 @@ pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
     let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
 
     let mut tr_p = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    append_reference_profile_to_transcript(&mut tr_p, &query.reference_profile);
     append_bridge_public_metadata(&mut tr_p, &query);
     tr_p.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
@@ -116,6 +125,7 @@ pub fn prove_bridge_from_dir(case_dir: &Path) -> Result<BridgeBuildResult> {
         claimed_evaluation: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
+        reference_profile: DUAL_REFERENCE_PROFILE,
         pcs_params: params,
     };
 
@@ -149,6 +159,11 @@ pub fn verify_bridge_bundle(
             "public case digest mismatch between query and proof bundle"
         ));
     }
+    if query.reference_profile != bundle.reference_profile {
+        return Err(anyhow!(
+            "reference profile mismatch between query and proof bundle"
+        ));
+    }
     if bundle.inner_trace.claim_initial != query.claimed_value {
         return Err(anyhow!(
             "inner-sumcheck claim and verifier claimed value mismatch"
@@ -178,6 +193,7 @@ pub fn verify_bridge_bundle(
         return Err(anyhow!("inner sumcheck verification failed"));
     }
 
+    append_reference_profile_to_transcript(tr, &query.reference_profile);
     append_bridge_public_metadata(tr, query);
     tr.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);

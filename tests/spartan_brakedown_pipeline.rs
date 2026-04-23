@@ -4,6 +4,7 @@ use merlin::Transcript;
 use zk_linear::{
     bridge::{prove_bridge_from_dir, verify_bridge_bundle, BRIDGE_TRANSCRIPT_LABEL},
     core::field::Fp,
+    protocol::reference::{PcsReference, ProtocolReference},
 };
 
 fn case_dir() -> PathBuf {
@@ -271,4 +272,18 @@ fn bridge_verify_fails_on_public_metadata_mismatch() {
     let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
         .expect_err("verify should fail on public metadata mismatch");
     assert!(err.to_string().contains("public case digest mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_reference_profile_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let query = built.verifier_query.clone();
+    built.bundle.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    built.bundle.reference_profile.pcs = PcsReference::ExperimentalAlt;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on reference profile mismatch");
+    assert!(err.to_string().contains("reference profile mismatch"));
 }

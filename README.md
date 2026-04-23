@@ -89,13 +89,17 @@ data:
 This repository is intentionally modular and inspection-friendly.
 It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
 
+## Docs
+- `docs/REFERENCE_DIFF.md`: Spartan2-like vs lcpc/brakedown-like dual-reference boundary
+- `docs/PRODUCTION_CHECKLIST.md`: prioritized production-upgrade checklist
+
+
 ## Demo Caveats (Important)
 - The current Brakedown path is a **research/demo implementation** for inspection and testing.
-- The encoder in `src/pcs/brakedown/encoding.rs` is a **toy hybrid**:
-  - systematic copy
-  - small RS-like parity block
-  - fixed sparse linear parity block
-- It is **not** a full production Brakedown encoder, and it is **not** a strict Spielman-code implementation.
+- The encoder path in `src/pcs/brakedown/encoding.rs` is now **configurable**:
+  - `SpielmanLike` (default): SDIG-inspired sparse precode/postcode + base RS-like layer
+  - `ToyHybrid`: systematic + RS-like parity + fixed sparse parity (legacy demo mode)
+- It is still **not** a full production Brakedown implementation or a drop-in replacement for audited reference code.
 - Tensors/challenges in tests are chosen for reproducible protocol tracing, not for production parameterization.
 - Use this repo to understand flow and verify invariants; do not treat current parameters/encoding as final cryptographic settings.
 - The bridge and NIZK paths are still **protocol skeletons**:
