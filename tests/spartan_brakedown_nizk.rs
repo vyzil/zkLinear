@@ -268,6 +268,18 @@ fn spartan_brakedown_full_style_fails_on_public_context_fingerprint_mismatch() {
 }
 
 #[test]
+fn spartan_brakedown_full_style_fails_on_commitment_n_cols_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.verifier_commitment.n_cols += 1;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for commitment n_cols mismatch");
+    assert!(err
+        .to_string()
+        .contains("verifier commitment dimensions mismatch for blinded layout"));
+}
+
+#[test]
 fn spartan_brakedown_full_style_fails_on_proof_context_fingerprint_mismatch() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.context_fingerprint[0] ^= 1;
@@ -290,4 +302,18 @@ fn spartan_brakedown_with_compiled_fails_on_compiled_context_fingerprint_mismatc
     assert!(err
         .to_string()
         .contains("compiled/public/proof context fingerprint mismatch"));
+}
+
+#[test]
+fn spartan_brakedown_with_compiled_fails_on_commitment_dimension_mismatch() {
+    let compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
+    let mut result =
+        prove_with_compiled_from_dir(&compiled, &case_dir()).expect("prove should succeed");
+    result.proof.verifier_commitment.n_cols += 1;
+
+    let err = verify_with_compiled(&compiled, &result.proof, &result.public)
+        .expect_err("verify_with_compiled should fail for commitment dimension mismatch");
+    assert!(err
+        .to_string()
+        .contains("compiled/proof verifier commitment dimensions mismatch"));
 }

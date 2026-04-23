@@ -119,6 +119,11 @@ fn context_fingerprint(
     h.finalize().into()
 }
 
+fn expected_commitment_n_cols(cols: usize, field_profile: BrakedownFieldProfile) -> usize {
+    let params = params_for_field_profile(cols, field_profile);
+    BrakedownPcs::new(params).encoding.n_cols
+}
+
 fn sample_blind_vec_from_rng(rng: &mut ChaCha20Rng, n: usize) -> Vec<Fp> {
     let mut out = Vec::with_capacity(n);
     for _ in 0..n {
@@ -466,8 +471,11 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         return Err(anyhow!("inner rounds do not match column count"));
     }
 
+    let expected_commitment_cols =
+        expected_commitment_n_cols(cols, proof.verifier_commitment.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
         || proof.verifier_commitment.n_per_row != cols
+        || proof.verifier_commitment.n_cols != expected_commitment_cols
     {
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
@@ -761,6 +769,16 @@ fn validate_compiled_public(
     if proof.verifier_commitment.field_profile != compiled.field_profile {
         return Err(anyhow!("compiled/proof field profile mismatch"));
     }
+    let expected_commitment_cols =
+        expected_commitment_n_cols(compiled.cols, compiled.field_profile);
+    if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
+        || proof.verifier_commitment.n_per_row != compiled.cols
+        || proof.verifier_commitment.n_cols != expected_commitment_cols
+    {
+        return Err(anyhow!(
+            "compiled/proof verifier commitment dimensions mismatch"
+        ));
+    }
     Ok(())
 }
 
@@ -783,8 +801,11 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     if public.context_fingerprint != proof.context_fingerprint {
         return Err(anyhow!("public/proof context fingerprint mismatch"));
     }
+    let expected_commitment_cols =
+        expected_commitment_n_cols(public.cols, proof.verifier_commitment.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
         || proof.verifier_commitment.n_per_row != public.cols
+        || proof.verifier_commitment.n_cols != expected_commitment_cols
     {
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
