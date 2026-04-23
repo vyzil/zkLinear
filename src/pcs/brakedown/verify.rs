@@ -14,10 +14,11 @@ pub fn verify_eval(
   proof: &BrakedownEvalProof,
   outer_tensor: &[Fp],
   inner_tensor: &[Fp],
+  claimed_value: Fp,
   enc: &MiniEncoding,
   params: &BrakedownParams,
   tr: &mut Transcript,
-) -> Result<Fp> {
+) -> Result<()> {
   if outer_tensor.len() != commitment.n_rows {
     return Err(anyhow!("outer tensor size mismatch"));
   }
@@ -96,5 +97,8 @@ pub fn verify_eval(
     .iter()
     .zip(proof.p_eval.iter())
     .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
-  Ok(eval)
+  if eval != claimed_value {
+    return Err(anyhow!("claimed evaluation mismatch"));
+  }
+  Ok(())
 }

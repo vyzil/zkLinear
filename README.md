@@ -17,21 +17,39 @@
 - `src/sumcheck/`
   - `inner.rs`: inner-sumcheck core implementation
   - `outer.rs`: outer-sumcheck core used by the Spartan-like test path
-- `src/spartan/`
-  - Spartan orchestration and report formatting
 - `src/io/`
-  - input case parser (`_A.data`, `_y.data`)
+  - input case parser (`_A.data`, `_B.data`, `_C.data`, `_y.data`, `_z.data`)
 - `src/api/`
   - API entrypoints used by tests/binaries
+- `src/spartan/`
+  - matrix-vector inner-sumcheck orchestration/reporting
+- `src/pcs/`
+  - `traits.rs`: lightweight PCS trait (`commit/open/verify`)
+  - `brakedown/`: modular mini Brakedown-style path
+    - `types.rs`: commitment/proof/parameter types
+    - `encoding.rs`: linear-code row encoding
+    - `merkle.rs`: Merkle hashing/path verification
+    - `commit.rs`: commitment + column opening
+    - `prove.rs`: prover-side opening proof generation
+    - `verify.rs`: verifier-side checks
+    - `demo.rs`: human-readable demo trace
 - `src/lcpc_trace.rs`
-  - independent mini Brakedown-style commit/open/verify trace
+  - backward-compatible wrapper that calls `src/pcs/brakedown/demo.rs`
 - `tests/`
-  - integration test shims: `tests/inner_sumcheck_naive.rs`, `tests/inner_sumcheck_spartan.rs`
+  - integration test shims: `tests/inner_sumcheck_naive.rs`, `tests/inner_sumcheck_spartan.rs`, `tests/brakedown_pcs.rs`
   - per-test folders with code+data: `tests/<part>/test.rs` and `tests/<part>/*.data`
 
 ## Run
 ```bash
 cargo run
+```
+
+## Test
+```bash
+cargo test -q
+cargo test --test inner_sumcheck_naive -- --nocapture
+cargo test --test inner_sumcheck_spartan -- --nocapture
+cargo test --test brakedown_pcs -- --nocapture
 ```
 
 ## Input Format

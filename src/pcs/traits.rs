@@ -27,6 +27,7 @@ pub trait PolynomialCommitmentScheme {
     proof: &Self::OpeningProof,
     outer_tensor: &[Self::Field],
     inner_tensor: &[Self::Field],
+    claimed_value: Self::Field,
     transcript: &mut Transcript,
-  ) -> Result<Self::Field>;
+  ) -> Result<()>;
 }

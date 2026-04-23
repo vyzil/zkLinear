@@ -70,13 +70,15 @@ impl PolynomialCommitmentScheme for BrakedownPcs {
     proof: &Self::OpeningProof,
     outer_tensor: &[Self::Field],
     inner_tensor: &[Self::Field],
+    claimed_value: Self::Field,
     transcript: &mut Transcript,
-  ) -> Result<Self::Field> {
+  ) -> Result<()> {
     verify_eval(
       verifier_commitment,
       proof,
       outer_tensor,
       inner_tensor,
+      claimed_value,
       &self.encoding,
       &self.params,
       transcript,
