@@ -92,6 +92,7 @@ fn production_preset_has_expected_fixed_encoder_knobs() {
     assert_eq!(p.spel_post_density, 4);
     assert_eq!(p.spel_base_rs_parity, 16);
     assert!(p.auto_tune_security);
+    assert!(p.is_spec_v1_production_candidate());
 }
 
 #[test]
@@ -153,4 +154,13 @@ fn fp_trait_path_rejects_non_toy_profiles() {
     assert!(err
         .to_string()
         .contains("Fp PCS path supports only ToyF97 profile"));
+}
+
+#[test]
+fn lcpc_like_preset_is_not_spec_v1_production_candidate() {
+    let p = BrakedownSecurityPreset::LcpcLikeMersenne61Ext2.params(8);
+    assert!(
+        !p.is_spec_v1_production_candidate(),
+        "lcpc-like preset should stay distinct from pinned production-candidate profile"
+    );
 }

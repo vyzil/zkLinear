@@ -63,6 +63,26 @@ Default enforced profile:
 
 Any profile mismatch at verification boundary is rejected.
 
+## 7.1 Brakedown Production-Candidate Parameter Contract
+
+For production-oriented profiling (still non-audited), this repository pins the
+following Brakedown parameter shape:
+
+- `field_profile`: non-toy (`Mersenne61Ext2` or `Goldilocks64Ext2`)
+- `auto_tune_security`: `true`
+- `encoder_kind`: `SpielmanLike`
+- `encoder_seed`: `0`
+- `spel_layers`: `3`
+- `spel_pre_density`: `5`
+- `spel_post_density`: `4`
+- `spel_base_rs_parity`: `16`
+
+Code-level predicate:
+- `BrakedownParams::is_spec_v1_production_candidate() == true`
+
+This contract is intended to keep benchmark/profiling runs comparable and
+fail-fast on accidental parameter drift.
+
 ## 8. Scope Note
 
 This pinning applies to the protocol skeleton and verification boundary in this repository.
