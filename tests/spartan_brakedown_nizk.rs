@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use zk_linear::{
     core::field::Fp,
     nizk::spartan_brakedown::{build_pipeline_report_from_dir, prove_from_dir, verify_from_dir},
+    protocol::reference::{PcsReference, ProtocolReference},
 };
 
 fn case_dir() -> PathBuf {
@@ -50,4 +51,43 @@ fn spartan_brakedown_full_style_fails_on_tampered_root() {
         err.to_string().contains("merkle path failed")
             || err.to_string().contains("opened column index mismatch")
     );
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_tampered_blind_opening() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.pcs_proof_blind.columns[0].values[0] =
+        result.proof.pcs_proof_blind.columns[0].values[0].add(Fp::new(1));
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail for tampered blind opening");
+    assert!(
+        err.to_string().contains("eval column check failed")
+            || err.to_string().contains("degree-test column check failed")
+            || err.to_string().contains("merkle path failed")
+    );
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_reference_profile_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    result.proof.reference_profile.pcs = PcsReference::ExperimentalAlt;
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail for mismatched reference profile");
+    assert!(err
+        .to_string()
+        .contains("unsupported reference profile for this NIZK flow"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_tampered_outer_challenge() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.outer_trace.rounds[0].challenge_r =
+        result.proof.outer_trace.rounds[0].challenge_r.add(Fp::new(1));
+
+    let err = verify_from_dir(&case_dir(), &result.proof)
+        .expect_err("verify should fail for tampered outer challenge");
+    assert!(err.to_string().contains("outer challenge mismatch"));
 }
