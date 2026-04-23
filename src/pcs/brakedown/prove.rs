@@ -49,14 +49,18 @@ pub fn prove_eval_t<F: BrakedownField>(
         );
         let p_rand = collapse_rows_t(&comm.coeffs, &rand_tensor, comm.n_rows, comm.n_per_row);
         for v in &p_rand {
-            tr.append_message(b"p_random", &v.to_u64().to_le_bytes());
+            let mut b = Vec::new();
+            v.append_le_bytes(&mut b);
+            tr.append_message(b"p_random", &b);
         }
         p_random_vec.push(p_rand);
     }
 
     let p_eval = collapse_rows_t(&comm.coeffs, outer_tensor, comm.n_rows, comm.n_per_row);
     for v in &p_eval {
-        tr.append_message(b"p_eval", &v.to_u64().to_le_bytes());
+        let mut b = Vec::new();
+        v.append_le_bytes(&mut b);
+        tr.append_message(b"p_eval", &b);
     }
 
     let cols = sample_unique_cols(tr, comm.n_cols, params.n_col_opens)?;

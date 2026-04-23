@@ -1,7 +1,7 @@
 use merlin::Transcript;
 use zk_linear::{
     core::field::{Fp, MODULUS},
-    field_profiles::{BaseField64, Mersenne61},
+    field_profiles::{BaseField64, Mersenne61, Mersenne61Ext2},
     pcs::{
         brakedown::{
             merkle::merkle_root,
@@ -182,6 +182,64 @@ fn brakedown_wire_roundtrip_generic_mersenne61() {
 
     pcs.verify_generic(&vc2, &pf2, &outer, &inner, claim, &mut tr_v)
         .expect("generic verify after wire roundtrip should succeed");
+}
+
+#[test]
+fn brakedown_wire_roundtrip_generic_mersenne61_ext2() {
+    let params = BrakedownParams::new_with_field_profile(
+        8,
+        zk_linear::pcs::BrakedownFieldProfile::Mersenne61Ext2,
+    );
+    let pcs = zk_linear::pcs::BrakedownPcsT::<Mersenne61Ext2>::new(params);
+
+    let n_rows = 4usize;
+    let coeffs: Vec<Mersenne61Ext2> = (0..(n_rows * 8))
+        .map(|i| Mersenne61Ext2::new(Mersenne61::new(((i as u64) * 13 + 5) % Mersenne61::P), Mersenne61::new((i as u64) % 17)))
+        .collect();
+
+    let comm = pcs.commit_generic(&coeffs).expect("generic ext2 commit should succeed");
+    let vc = pcs.verifier_commitment_generic(&comm);
+
+    let x = Mersenne61Ext2::new(Mersenne61::new(7), Mersenne61::new(3));
+    let mut inner = Vec::with_capacity(8);
+    let mut p = Mersenne61Ext2::one();
+    for _ in 0..8 {
+        inner.push(p);
+        p = p.mul(x);
+    }
+    let xr = x.mul(*inner.last().unwrap());
+    let mut outer = Vec::with_capacity(n_rows);
+    let mut q = Mersenne61Ext2::one();
+    for _ in 0..n_rows {
+        outer.push(q);
+        q = q.mul(xr);
+    }
+
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
+    tr_p.append_message(b"polycommit", &vc.root);
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
+    let pf = pcs
+        .open_generic(&comm, &outer, &mut tr_p)
+        .expect("generic ext2 open should succeed");
+
+    let vc_bytes = serialize_verifier_commitment(&vc);
+    let pf_bytes = serialize_eval_proof_t(&pf);
+    let vc2 = deserialize_verifier_commitment(&vc_bytes).expect("vc decode");
+    let pf2 = deserialize_eval_proof_t::<Mersenne61Ext2>(&pf_bytes).expect("pf decode");
+
+    let claim = inner
+        .iter()
+        .zip(pf2.p_eval.iter())
+        .fold(Mersenne61Ext2::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
+    tr_v.append_message(b"polycommit", &vc2.root);
+    append_u64_le(&mut tr_v, b"ncols", pcs.encoding.n_cols as u64);
+
+    pcs.verify_generic(&vc2, &pf2, &outer, &inner, claim, &mut tr_v)
+        .expect("generic ext2 verify after wire roundtrip should succeed");
 }
 
 #[test]

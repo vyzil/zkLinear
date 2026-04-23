@@ -7,8 +7,11 @@ use super::{scalar::BrakedownField, types::ColumnOpeningT};
 pub fn digest_list_t<F: BrakedownField>(values: &[F]) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update([0u8; 32]);
+    let mut buf = Vec::new();
     for v in values {
-        h.update(v.to_u64().to_le_bytes());
+        buf.clear();
+        v.append_le_bytes(&mut buf);
+        h.update(&buf);
     }
     h.finalize().into()
 }

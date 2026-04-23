@@ -9,7 +9,7 @@ use super::types::{
 use super::scalar::BrakedownField;
 
 const VC_TAG: &[u8; 8] = b"ZKVCB001";
-const PF_TAG: &[u8; 8] = b"ZKPFB001";
+const PF_TAG: &[u8; 8] = b"ZKPFB002";
 
 fn push_u64_le(out: &mut Vec<u8>, v: u64) {
     out.extend_from_slice(&v.to_le_bytes());
@@ -94,15 +94,19 @@ fn decode_field_profile(v: u8) -> Result<BrakedownFieldProfile> {
 }
 
 fn encode_field_t<F: BrakedownField>(out: &mut Vec<u8>, v: F) {
-    push_u64_le(out, v.to_u64());
+    let mut words = Vec::with_capacity(F::wire_word_len());
+    v.to_wire_words(&mut words);
+    for w in words {
+        push_u64_le(out, w);
+    }
 }
 
 fn decode_field_t<F: BrakedownField>(r: &mut Reader<'_>) -> Result<F> {
-    let v = r.read_u64_le()?;
-    if v >= F::modulus() {
-        return Err(anyhow!("wire: invalid field element encoding"));
+    let mut words = Vec::with_capacity(F::wire_word_len());
+    for _ in 0..F::wire_word_len() {
+        words.push(r.read_u64_le()?);
     }
-    Ok(F::new(v))
+    F::from_wire_words(&words).ok_or_else(|| anyhow!("wire: invalid field element encoding"))
 }
 
 pub fn serialize_verifier_commitment(vc: &BrakedownVerifierCommitment) -> Vec<u8> {

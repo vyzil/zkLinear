@@ -92,7 +92,7 @@ fn brakedown_golden_consistency_toy_path() {
         root_hex,
         "210504e5dda88a3dc54da773f8f1ea15b79a384c2659b075842aea249295dc75"
     );
-    assert_eq!(opened_cols, vec![20, 13, 17]);
+    assert_eq!(opened_cols, vec![9, 6, 8]);
     assert_eq!(claimed_eval.0, 68);
     assert_eq!(
         vc_hash,
@@ -100,7 +100,7 @@ fn brakedown_golden_consistency_toy_path() {
     );
     assert_eq!(
         pf_hash,
-        "f8855ca686adb87ffbbcd53edd1dbb36a10812218989c39ab19052ceb40e841b"
+        "702bd31fff3367fe57ea14255fa83a01cffd64ce63d5f86f2192926297fce959"
     );
 }
 
@@ -163,7 +163,7 @@ fn brakedown_golden_consistency_mersenne61_path() {
     );
     assert_eq!(
         opened_cols,
-        vec![1, 19, 2, 14, 20, 0, 18, 11, 16, 3, 17, 6, 12, 7, 8, 9, 4, 5, 15, 13, 10]
+        vec![6, 17, 3, 9, 12, 0, 2, 1, 5, 14, 10, 7, 19, 18, 8, 16, 20, 4, 11, 13, 15]
     );
     assert_eq!(claimed_eval, 665753899684855131);
     assert_eq!(
@@ -172,7 +172,7 @@ fn brakedown_golden_consistency_mersenne61_path() {
     );
     assert_eq!(
         pf_hash,
-        "f7e63026fb073efb386e7a5a3202b2b21d46580aed168e683118a5cadcace1ad"
+        "b2c7b0756fd2e7a5cac93be0eff7c64e6c810f7c0f94c66e524d784f3325dd73"
     );
 }
 
@@ -187,7 +187,7 @@ fn brakedown_golden_consistency_goldilocks64_path() {
     );
     assert_eq!(
         opened_cols,
-        vec![19, 18, 1, 13, 12, 8, 6, 17, 5, 10, 15, 4, 2, 9, 14, 7, 0, 16, 11, 20, 3]
+        vec![17, 18, 1, 8, 3, 4, 15, 0, 11, 16, 9, 7, 12, 20, 19, 2, 14, 13, 5, 10, 6]
     );
     assert_eq!(claimed_eval, 6529514271123546666);
     assert_eq!(
@@ -196,6 +196,6 @@ fn brakedown_golden_consistency_goldilocks64_path() {
     );
     assert_eq!(
         pf_hash,
-        "dc83073baa14ff284973a2c2b6d763aa4a71f4fc7ea1186b89139b6fd27bc6ea"
+        "718d6e08a2484ec4d8f84c923e27ca5fb8bf96f8a3a690908a3b2556909ac51d"
     );
 }

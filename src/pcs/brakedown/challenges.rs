@@ -30,10 +30,10 @@ fn sample_u64_below_unbiased(
     }
 }
 
-fn sample_field_unbiased<F: BrakedownField>(tr: &mut Transcript, label: &'static [u8]) -> F {
-    let p = F::modulus();
-    let x = sample_u64_below_unbiased(tr, label, p);
-    F::new(x)
+fn sample_field_from_transcript<F: BrakedownField>(tr: &mut Transcript, label: &'static [u8]) -> F {
+    let mut out = [0u8; 32];
+    tr.challenge_bytes(label, &mut out);
+    F::from_challenge(out)
 }
 
 pub fn sample_field_vec_t<F: BrakedownField>(
@@ -41,7 +41,9 @@ pub fn sample_field_vec_t<F: BrakedownField>(
     label: &'static [u8],
     n: usize,
 ) -> Vec<F> {
-    (0..n).map(|_| sample_field_unbiased::<F>(tr, label)).collect()
+    (0..n)
+        .map(|_| sample_field_from_transcript::<F>(tr, label))
+        .collect()
 }
 
 pub fn sample_field_vec_round_t<F: BrakedownField>(
