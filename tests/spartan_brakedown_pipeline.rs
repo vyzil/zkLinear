@@ -339,3 +339,18 @@ fn bridge_verify_fails_on_pcs_param_contract_mismatch() {
         .to_string()
         .contains("bridge PCS parameter contract mismatch"));
 }
+
+#[test]
+fn bridge_verify_fails_on_excessive_outer_round_count() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let seed_round = built.bundle.outer_trace.rounds[0].clone();
+    built.bundle.outer_trace.rounds = vec![seed_round; usize::BITS as usize];
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail for excessive outer rounds");
+    assert!(err
+        .to_string()
+        .contains("bridge outer round count exceeds machine word capacity"));
+}

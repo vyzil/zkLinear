@@ -72,11 +72,22 @@ pub fn verify_bridge_bundle(
         ));
     }
     let outer_rounds = bundle.outer_trace.rounds.len();
+    let max_rounds = usize::BITS as usize - 1;
+    if outer_rounds > max_rounds {
+        return Err(anyhow!(
+            "bridge outer round count exceeds machine word capacity"
+        ));
+    }
+    let outer_rows = 1usize
+        .checked_shl(outer_rounds as u32)
+        .ok_or_else(|| anyhow!("bridge outer round count overflow"))?;
     for (i, r) in bundle.outer_trace.rounds.iter().enumerate() {
         if r.round != i {
             return Err(anyhow!("bridge outer round index mismatch at position {}", i));
         }
-        let expected_fold_len = 1usize << (outer_rounds - i - 1);
+        let expected_fold_len = outer_rows
+            .checked_shr((i + 1) as u32)
+            .ok_or_else(|| anyhow!("bridge outer folded-length shift overflow"))?;
         if r.folded_values.len() != expected_fold_len {
             return Err(anyhow!(
                 "bridge outer folded vector length mismatch at round {}",
