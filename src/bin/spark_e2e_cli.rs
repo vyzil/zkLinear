@@ -159,6 +159,32 @@ struct KernelTimingJson {
     total_ms: f64,
 }
 
+#[derive(Debug, Clone, Serialize)]
+struct PayloadBytesJson {
+    vc_bytes: usize,
+    main_bytes: usize,
+    blind1_bytes: usize,
+    blind2_bytes: usize,
+    joint_r_bytes: usize,
+    z_r_bytes: usize,
+    total_bytes: usize,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct StageReportJson {
+    schema_version: u32,
+    stage: String,
+    field_profile: String,
+    base_modulus: u64,
+    rows: usize,
+    cols: usize,
+    case_digest_hex: String,
+    context_fingerprint_hex: String,
+    runtime_ms: f64,
+    prove_breakdown: Option<KernelTimingJson>,
+    payload_bytes: Option<PayloadBytesJson>,
+}
+
 fn fp_to_u64(v: Fp) -> u64 {
     v.0
 }
@@ -529,6 +555,28 @@ fn sidecar_wire_path(path: &Path) -> PathBuf {
     path.with_extension("wire")
 }
 
+fn payload_bytes_from_proof(p: &SpartanBrakedownProof) -> PayloadBytesJson {
+    let vc_bytes = serialize_verifier_commitment(&p.verifier_commitment).len();
+    let main_bytes = serialize_eval_proof(&p.pcs_proof_main).len();
+    let blind1_bytes = serialize_eval_proof(&p.pcs_proof_blind_1).len();
+    let blind2_bytes = serialize_eval_proof(&p.pcs_proof_blind_2).len();
+    let joint_r_bytes = serialize_eval_proof(&p.pcs_proof_joint_eval_at_r).len();
+    let z_r_bytes = serialize_eval_proof(&p.pcs_proof_z_eval_at_r).len();
+    PayloadBytesJson {
+        vc_bytes,
+        main_bytes,
+        blind1_bytes,
+        blind2_bytes,
+        joint_r_bytes,
+        z_r_bytes,
+        total_bytes: vc_bytes + main_bytes + blind1_bytes + blind2_bytes + joint_r_bytes + z_r_bytes,
+    }
+}
+
+fn write_stage_report(path: &PathBuf, report: &StageReportJson) -> Result<()> {
+    write_json(path, report)
+}
+
 fn run_compile(args: &[String]) -> Result<()> {
     if args.len() < 3 {
         bail!("usage: spark_e2e_cli compile <case_dir> <compiled.json> [profile]");
@@ -538,14 +586,34 @@ fn run_compile(args: &[String]) -> Result<()> {
     let profile_s = args.get(3).cloned().unwrap_or_else(|| "m61".to_string());
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
+    let started = Instant::now();
     let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
+    let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
     let compiled_wire = sidecar_wire_path(&out_compiled);
+    let report_path = out_compiled.with_extension("compile.report.json");
     write_json(&out_compiled, &compiled_to_json(&compiled))?;
     write_wire(&compiled_wire, &compiled_to_wire(&compiled))?;
+    write_stage_report(
+        &report_path,
+        &StageReportJson {
+            schema_version: 1,
+            stage: "compile".to_string(),
+            field_profile: format!("{:?}", compiled.field_profile),
+            base_modulus: compiled.field_profile.base_modulus(),
+            rows: compiled.rows,
+            cols: compiled.cols,
+            case_digest_hex: digest_to_hex(compiled.case_digest),
+            context_fingerprint_hex: digest_to_hex(compiled.context_fingerprint),
+            runtime_ms: elapsed_ms,
+            prove_breakdown: None,
+            payload_bytes: None,
+        },
+    )?;
     println!("compile: ok");
     println!("  case_dir={}", case_dir.display());
     println!("  compiled={}", out_compiled.display());
     println!("  compiled_wire={}", compiled_wire.display());
+    println!("  report={}", report_path.display());
     println!("  field_profile={:?}", compiled.field_profile);
     println!("  rows={}, cols={}", compiled.rows, compiled.cols);
     Ok(())
@@ -578,7 +646,24 @@ fn run_prove(args: &[String]) -> Result<()> {
     write_wire(&public_wire, &public_to_wire(&res.public))?;
     let timing = timings_to_json(&res.timings);
     let timing_path = proof_path.with_extension("timings.json");
+    let report_path = proof_path.with_extension("prove.report.json");
     write_json(&timing_path, &timing)?;
+    write_stage_report(
+        &report_path,
+        &StageReportJson {
+            schema_version: 1,
+            stage: "prove".to_string(),
+            field_profile: format!("{:?}", compiled.field_profile),
+            base_modulus: compiled.field_profile.base_modulus(),
+            rows: res.public.rows,
+            cols: res.public.cols,
+            case_digest_hex: digest_to_hex(res.public.case_digest),
+            context_fingerprint_hex: digest_to_hex(res.public.context_fingerprint),
+            runtime_ms: elapsed_ms,
+            prove_breakdown: Some(timing.clone()),
+            payload_bytes: Some(payload_bytes_from_proof(&res.proof)),
+        },
+    )?;
 
     println!("prove: ok");
     println!("  compiled={}", compiled_path.display());
@@ -588,6 +673,7 @@ fn run_prove(args: &[String]) -> Result<()> {
     println!("  public={}", public_path.display());
     println!("  public_wire={}", public_wire.display());
     println!("  timings={}", timing_path.display());
+    println!("  report={}", report_path.display());
     println!(
         "  runtime_ms={:.3} (k1={:.3}, k2={:.3}, k3={:.3})",
         elapsed_ms, timing.spartan_prove_core_ms, timing.pcs_commit_open_prove_ms, timing.verify_ms
@@ -625,18 +711,52 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     let t_compile = Instant::now();
     let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
+    let compile_report_path = out_dir.join("compile.report.json");
     write_json(&compiled_path, &compiled_to_json(&compiled))?;
     write_wire(&compiled_wire, &compiled_to_wire(&compiled))?;
+    write_stage_report(
+        &compile_report_path,
+        &StageReportJson {
+            schema_version: 1,
+            stage: "compile".to_string(),
+            field_profile: format!("{:?}", compiled.field_profile),
+            base_modulus: compiled.field_profile.base_modulus(),
+            rows: compiled.rows,
+            cols: compiled.cols,
+            case_digest_hex: digest_to_hex(compiled.case_digest),
+            context_fingerprint_hex: digest_to_hex(compiled.context_fingerprint),
+            runtime_ms: compile_ms,
+            prove_breakdown: None,
+            payload_bytes: None,
+        },
+    )?;
 
     let t_prove = Instant::now();
     let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
     let prove_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
+    let prove_report_path = out_dir.join("prove.report.json");
     write_json(&proof_path, &proof_to_json(&res.proof))?;
     write_json(&public_path, &public_to_json(&res.public))?;
     write_wire(&proof_wire, &proof_to_wire(&res.proof))?;
     write_wire(&public_wire, &public_to_wire(&res.public))?;
     let timing_path = out_dir.join("prove.timings.json");
     write_json(&timing_path, &timings_to_json(&res.timings))?;
+    write_stage_report(
+        &prove_report_path,
+        &StageReportJson {
+            schema_version: 1,
+            stage: "prove".to_string(),
+            field_profile: format!("{:?}", compiled.field_profile),
+            base_modulus: compiled.field_profile.base_modulus(),
+            rows: res.public.rows,
+            cols: res.public.cols,
+            case_digest_hex: digest_to_hex(res.public.case_digest),
+            context_fingerprint_hex: digest_to_hex(res.public.context_fingerprint),
+            runtime_ms: prove_ms,
+            prove_breakdown: Some(timings_to_json(&res.timings)),
+            payload_bytes: Some(payload_bytes_from_proof(&res.proof)),
+        },
+    )?;
 
     println!("prove-k: ok");
     println!("  k={}", k);
@@ -648,6 +768,8 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     println!("  public={}", public_path.display());
     println!("  public_wire={}", public_wire.display());
     println!("  timings={}", timing_path.display());
+    println!("  compile_report={}", compile_report_path.display());
+    println!("  prove_report={}", prove_report_path.display());
     println!("  compile_ms={:.3}", compile_ms);
     println!("  prove_end_to_end_ms={:.3}", prove_ms);
     println!(
@@ -688,11 +810,29 @@ fn run_verify(args: &[String]) -> Result<()> {
     let started = Instant::now();
     verify_with_compiled(&compiled, &proof, &public)?;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
+    let report_path = proof_path.with_extension("verify.report.json");
+    write_stage_report(
+        &report_path,
+        &StageReportJson {
+            schema_version: 1,
+            stage: "verify".to_string(),
+            field_profile: format!("{:?}", compiled.field_profile),
+            base_modulus: compiled.field_profile.base_modulus(),
+            rows: public.rows,
+            cols: public.cols,
+            case_digest_hex: digest_to_hex(public.case_digest),
+            context_fingerprint_hex: digest_to_hex(public.context_fingerprint),
+            runtime_ms: elapsed_ms,
+            prove_breakdown: None,
+            payload_bytes: Some(payload_bytes_from_proof(&proof)),
+        },
+    )?;
 
     println!("verify: ok");
     println!("  compiled={}", compiled_path.display());
     println!("  proof={}", proof_path.display());
     println!("  public={}", public_path.display());
+    println!("  report={}", report_path.display());
     println!("  runtime_ms={:.3}", elapsed_ms);
     Ok(())
 }

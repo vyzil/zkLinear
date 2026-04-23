@@ -104,6 +104,8 @@ cargo run --bin spark_e2e_cli -- prove /tmp/zklinear_compiled.json tests/inner_s
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_compiled.json /tmp/zklinear_proof.json /tmp/zklinear_public.json
 ```
 Each step also emits binary sidecars (`*.wire`) for machine metrics and size reporting.
+It also writes stage reports (`*.compile.report.json`, `*.prove.report.json`, `*.verify.report.json`)
+with a shared schema (profile/modulus/digest/fingerprint/runtime/payload).
 
 Size-driven run + proof inspection:
 ```bash
