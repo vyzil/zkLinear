@@ -39,7 +39,8 @@
 - `src/nizk/`
   - research full-style path with single-transcript flow and transcript-bound masking
 - `src/spartan/`
-  - matrix-vector inner-sumcheck orchestration/reporting
+  - `data.rs`: matrix-vector inner-sumcheck data/orchestration
+  - `report.rs`: human-readable trace formatting
 - `src/pcs/`
   - `traits.rs`: lightweight PCS trait (`commit/open/verify`)
   - `brakedown/`: modular mini Brakedown-style path
