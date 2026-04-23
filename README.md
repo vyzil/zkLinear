@@ -104,6 +104,13 @@ cargo run --bin spark_e2e_cli -- prove /tmp/zklinear_compiled.json tests/inner_s
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_compiled.json /tmp/zklinear_proof.json /tmp/zklinear_public.json
 ```
 
+Size-driven run + proof inspection:
+```bash
+cargo run --bin spark_e2e_cli -- prove-k 17 /tmp/zklinear_run_k17 m61
+cargo run --bin spark_e2e_cli -- inspect /tmp/zklinear_run_k17/proof.json
+cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_run_k17/compiled.json /tmp/zklinear_run_k17/proof.json /tmp/zklinear_run_k17/public.json
+```
+
 ## Input Format
 Example matrix file:
 ```text

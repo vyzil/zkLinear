@@ -422,6 +422,62 @@ fn run_prove(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn run_prove_k(args: &[String]) -> Result<()> {
+    if args.len() < 3 {
+        bail!("usage: spark_e2e_cli prove-k <k> <out_dir> [profile]");
+    }
+    let k = args[1]
+        .parse::<u32>()
+        .with_context(|| format!("invalid k '{}'", args[1]))?;
+    let out_dir = PathBuf::from(&args[2]);
+    let profile_s = args.get(3).cloned().unwrap_or_else(|| "m61".to_string());
+    let profile = parse_field_profile(&profile_s)
+        .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
+
+    let case_dir = PathBuf::from(format!("tests/generated_cases/circom_repeat_2pow{}/case", k));
+    if !case_dir.exists() {
+        bail!(
+            "case dir not found: {} (generate it first, e.g. with circom_repeat_e2e_demo)",
+            case_dir.display()
+        );
+    }
+
+    let compiled_path = out_dir.join("compiled.json");
+    let proof_path = out_dir.join("proof.json");
+    let public_path = out_dir.join("public.json");
+
+    let t_compile = Instant::now();
+    let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
+    let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
+    write_json(&compiled_path, &compiled_to_json(&compiled))?;
+
+    let t_prove = Instant::now();
+    let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
+    let prove_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
+    write_json(&proof_path, &proof_to_json(&res.proof))?;
+    write_json(&public_path, &public_to_json(&res.public))?;
+    let timing_path = out_dir.join("prove.timings.json");
+    write_json(&timing_path, &timings_to_json(&res.timings))?;
+
+    println!("prove-k: ok");
+    println!("  k={}", k);
+    println!("  case_dir={}", case_dir.display());
+    println!("  compiled={}", compiled_path.display());
+    println!("  proof={}", proof_path.display());
+    println!("  public={}", public_path.display());
+    println!("  timings={}", timing_path.display());
+    println!("  compile_ms={:.3}", compile_ms);
+    println!("  prove_end_to_end_ms={:.3}", prove_ms);
+    println!(
+        "  prove_breakdown_ms: input_parse={:.3}, spartan_core={:.3}, pcs_prove={:.3}, inline_verify={:.3}",
+        res.timings.k0_input_parse_ms,
+        res.timings.k1_spartan_prove_ms,
+        res.timings.k2_pcs_prove_ms,
+        res.timings.k3_verify_ms
+    );
+    Ok(())
+}
+
 fn run_verify(args: &[String]) -> Result<()> {
     if args.len() < 4 {
         bail!("usage: spark_e2e_cli verify <compiled.json> <proof.json> <public.json>");
@@ -447,17 +503,70 @@ fn run_verify(args: &[String]) -> Result<()> {
     Ok(())
 }
 
+fn run_inspect(args: &[String]) -> Result<()> {
+    if args.len() < 2 {
+        bail!("usage: spark_e2e_cli inspect <proof.json>");
+    }
+    let proof_path = PathBuf::from(&args[1]);
+    let proof = read_json::<ProofJson>(&proof_path)?;
+
+    let vc_bytes_raw = hex::decode(&proof.verifier_commitment_hex)
+        .context("invalid verifier_commitment_hex")?;
+    let verifier_commitment = deserialize_verifier_commitment(&vc_bytes_raw)?;
+    let _mod_scope = ModulusScope::enter(verifier_commitment.field_profile.base_modulus());
+    let vc_bytes = vc_bytes_raw.len();
+    let pf_main_bytes = hex::decode(&proof.pcs_proof_main_hex)
+        .context("invalid pcs_proof_main_hex")?
+        ;
+    let pf_b1_bytes = hex::decode(&proof.pcs_proof_blind_1_hex)
+        .context("invalid pcs_proof_blind_1_hex")?
+        ;
+    let pf_b2_bytes = hex::decode(&proof.pcs_proof_blind_2_hex)
+        .context("invalid pcs_proof_blind_2_hex")?
+        ;
+    let main_openings = deserialize_eval_proof(&pf_main_bytes)?.columns.len();
+    let b1_openings = deserialize_eval_proof(&pf_b1_bytes)?.columns.len();
+    let b2_openings = deserialize_eval_proof(&pf_b2_bytes)?.columns.len();
+
+    println!("inspect: {}", proof_path.display());
+    println!(
+        "  rounds: outer={}, inner={}",
+        proof.outer_trace.rounds.len(),
+        proof.inner_trace.rounds.len()
+    );
+    println!("  gamma={}", proof.gamma);
+    println!("  claimed(masked)={}", proof.claimed_value);
+    println!("  blind_eval_1={}", proof.blind_eval_1);
+    println!("  blind_eval_2={}", proof.blind_eval_2);
+    println!("  blind_mix_alpha={}", proof.blind_mix_alpha);
+    println!(
+        "  pcs payload bytes: vc={}, main={}, blind1={}, blind2={}, subtotal={}",
+        vc_bytes,
+        pf_main_bytes.len(),
+        pf_b1_bytes.len(),
+        pf_b2_bytes.len(),
+        vc_bytes + pf_main_bytes.len() + pf_b1_bytes.len() + pf_b2_bytes.len()
+    );
+    println!(
+        "  pcs openings count: main={}, blind1={}, blind2={}",
+        main_openings, b1_openings, b2_openings
+    );
+    Ok(())
+}
+
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         bail!(
-            "usage:\n  spark_e2e_cli compile <case_dir> <compiled.json> [profile]\n  spark_e2e_cli prove <compiled.json> <case_dir> <proof.json> <public.json>\n  spark_e2e_cli verify <compiled.json> <proof.json> <public.json>"
+            "usage:\n  spark_e2e_cli compile <case_dir> <compiled.json> [profile]\n  spark_e2e_cli prove <compiled.json> <case_dir> <proof.json> <public.json>\n  spark_e2e_cli prove-k <k> <out_dir> [profile]\n  spark_e2e_cli inspect <proof.json>\n  spark_e2e_cli verify <compiled.json> <proof.json> <public.json>"
         );
     }
 
     match args[1].as_str() {
         "compile" => run_compile(&args[1..]),
         "prove" => run_prove(&args[1..]),
+        "prove-k" => run_prove_k(&args[1..]),
+        "inspect" => run_inspect(&args[1..]),
         "verify" => run_verify(&args[1..]),
         other => bail!("unknown command '{}'", other),
     }
