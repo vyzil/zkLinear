@@ -1,0 +1,14 @@
+use std::path::Path;
+
+use anyhow::Result;
+
+mod data;
+mod report;
+
+pub use data::{SpartanLikeReportData, build_spartan_like_report_data_from_dir};
+pub use report::format_spartan_like_report;
+
+pub fn build_spartan_like_report_from_dir(case_dir: &Path) -> Result<String> {
+  let data = build_spartan_like_report_data_from_dir(case_dir)?;
+  Ok(format_spartan_like_report(&data))
+}
