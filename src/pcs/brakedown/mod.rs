@@ -20,15 +20,15 @@ use crate::{
 };
 
 use self::{
-    commit::{commit, commit_t},
-    prove::{prove_eval, prove_eval_t},
+    commit::commit_t,
+    prove::prove_eval_t,
     scalar::BrakedownField,
     types::{
         BrakedownEncoding, BrakedownEncoderKind, BrakedownEvalProof, BrakedownFieldProfile,
         BrakedownParams, BrakedownProverCommitment, BrakedownProverCommitmentT,
         BrakedownVerifierCommitment, BrakedownEvalProofT,
     },
-    verify::{verify_eval, verify_eval_t},
+    verify::verify_eval_t,
 };
 
 #[derive(Clone, Debug)]
@@ -147,7 +147,7 @@ impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
 
     fn commit(&self, coeffs: &[Self::Field]) -> Result<Self::ProverCommitment> {
         let _scope = ModulusScope::enter(self.active_modulus());
-        commit(coeffs, &self.encoding)
+        self.commit_generic(coeffs)
     }
 
     fn verifier_commitment(
@@ -164,13 +164,7 @@ impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
         transcript: &mut Transcript,
     ) -> Result<Self::OpeningProof> {
         let _scope = ModulusScope::enter(self.active_modulus());
-        prove_eval(
-            prover_commitment,
-            outer_tensor,
-            &self.encoding,
-            &self.params,
-            transcript,
-        )
+        self.open_generic(prover_commitment, outer_tensor, transcript)
     }
 
     fn verify(
@@ -183,14 +177,12 @@ impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
         transcript: &mut Transcript,
     ) -> Result<()> {
         let _scope = ModulusScope::enter(self.active_modulus());
-        verify_eval(
+        self.verify_generic(
             verifier_commitment,
             proof,
             outer_tensor,
             inner_tensor,
             claimed_value,
-            &self.encoding,
-            &self.params,
             transcript,
         )
     }

@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
 use merlin::Transcript;
 
-use crate::core::field::Fp;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
@@ -9,8 +8,7 @@ use super::{
     commit::open_column_t,
     scalar::BrakedownField,
     types::{
-        BrakedownEncoding, BrakedownEvalProof, BrakedownEvalProofT, BrakedownParams,
-        BrakedownProverCommitment, BrakedownProverCommitmentT,
+        BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownProverCommitmentT,
     },
 };
 
@@ -28,16 +26,6 @@ fn collapse_rows_t<F: BrakedownField>(
         }
     }
     out
-}
-
-pub fn prove_eval(
-    comm: &BrakedownProverCommitment,
-    outer_tensor: &[Fp],
-    enc: &BrakedownEncoding,
-    params: &BrakedownParams,
-    tr: &mut Transcript,
-) -> Result<BrakedownEvalProof> {
-    prove_eval_t(comm, outer_tensor, enc, params, tr)
 }
 
 pub fn prove_eval_t<F: BrakedownField>(

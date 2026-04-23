@@ -1,16 +1,10 @@
 use anyhow::{anyhow, Result};
 
-use crate::core::field::Fp;
-
 use super::{
     merkle::{digest_list_t, merkle_tree},
     scalar::BrakedownField,
-    types::{BrakedownEncoding, BrakedownProverCommitment, BrakedownProverCommitmentT, ColumnOpening, ColumnOpeningT},
+    types::{BrakedownEncoding, BrakedownProverCommitmentT, ColumnOpeningT},
 };
-
-pub fn commit(coeffs_in: &[Fp], enc: &BrakedownEncoding) -> Result<BrakedownProverCommitment> {
-    commit_t(coeffs_in, enc)
-}
 
 pub fn commit_t<F: BrakedownField>(
     coeffs_in: &[F],
@@ -49,10 +43,6 @@ pub fn commit_t<F: BrakedownField>(
         leaf_hashes,
         merkle_nodes,
     })
-}
-
-pub fn open_column(comm: &BrakedownProverCommitment, col_idx: usize) -> Result<ColumnOpening> {
-    open_column_t(comm, col_idx)
 }
 
 pub fn open_column_t<F: BrakedownField>(

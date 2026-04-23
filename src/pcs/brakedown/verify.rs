@@ -1,7 +1,6 @@
 use anyhow::{anyhow, Result};
 use merlin::Transcript;
 
-use crate::core::field::Fp;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
@@ -9,32 +8,9 @@ use super::{
     merkle::verify_column_path_t,
     scalar::BrakedownField,
     types::{
-        BrakedownEncoding, BrakedownEvalProof, BrakedownEvalProofT, BrakedownParams,
-        BrakedownVerifierCommitment,
+        BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownVerifierCommitment,
     },
 };
-
-pub fn verify_eval(
-    commitment: &BrakedownVerifierCommitment,
-    proof: &BrakedownEvalProof,
-    outer_tensor: &[Fp],
-    inner_tensor: &[Fp],
-    claimed_value: Fp,
-    enc: &BrakedownEncoding,
-    params: &BrakedownParams,
-    tr: &mut Transcript,
-) -> Result<()> {
-    verify_eval_t(
-        commitment,
-        proof,
-        outer_tensor,
-        inner_tensor,
-        claimed_value,
-        enc,
-        params,
-        tr,
-    )
-}
 
 pub fn verify_eval_t<F: BrakedownField>(
     commitment: &BrakedownVerifierCommitment,
