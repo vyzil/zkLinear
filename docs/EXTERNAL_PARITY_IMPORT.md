@@ -27,6 +27,16 @@ JSON schema:
 cargo test --test parity_with_external_reference -- --nocapture
 ```
 
+Reference-repo pin check (fast):
+```bash
+cargo test --test external_ref_repos external_ref_repo_revisions_match_snapshot -- --nocapture
+```
+
+Opt-in external repo execution (slow, ignored by default):
+```bash
+cargo test --test external_ref_repos -- --ignored --nocapture
+```
+
 Behavior:
 - if neither file exists, test prints a note and exits successfully
 - if one or both files exist, test compares **must-match** fields only:
@@ -38,3 +48,19 @@ Behavior:
 
 Fields intentionally allowed to differ (by transcript schedule) are documented in:
 - `docs/PARITY_TRACE_MATRIX.md`
+
+## Ref repo location
+
+Default external root:
+- `../ref` (relative to this repository root)
+
+Override with environment variable:
+- `ZKLINEAR_REF_ROOT=/absolute/path/to/ref`
+
+Pinned external revision snapshot:
+- `tests/reference_vectors/external/ref_repo_revisions.json`
+
+Update command:
+```bash
+ZKLINEAR_UPDATE_EXTERNAL_REFS=1 cargo test --test external_ref_repos external_ref_repo_revisions_match_snapshot -- --nocapture
+```
