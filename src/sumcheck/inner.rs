@@ -1,6 +1,8 @@
+use merlin::Transcript;
+
 use crate::core::{
   field::Fp,
-  transcript::derive_round_challenge,
+  transcript::{derive_round_challenge, derive_round_challenge_merlin},
 };
 
 #[derive(Debug, Clone)]
@@ -130,6 +132,84 @@ pub fn prove_inner_sumcheck_with_label(f: &[Fp], g: &[Fp], label: &[u8]) -> Sumc
 
 pub fn prove_inner_sumcheck(f: &[Fp], g: &[Fp]) -> SumcheckTrace {
   prove_inner_sumcheck_with_label(f, g, CHALLENGE_LABEL)
+}
+
+pub fn prove_inner_sumcheck_with_label_and_transcript(
+  f: &[Fp],
+  g: &[Fp],
+  label: &[u8],
+  tr: &mut Transcript,
+) -> SumcheckTrace {
+  assert_eq!(f.len(), g.len());
+  assert!(f.len().is_power_of_two());
+
+  let mut f_cur = f.to_vec();
+  let mut g_cur = g.to_vec();
+
+  let claim_initial = inner_product(&f_cur, &g_cur);
+  let mut claim = claim_initial;
+  let mut rounds = Vec::new();
+
+  let mut round = 0usize;
+  while f_cur.len() > 1 {
+    let half = f_cur.len() / 2;
+    let (f0, f1) = f_cur.split_at(half);
+    let (g0, g1) = g_cur.split_at(half);
+
+    let h0 = inner_product(f0, g0);
+    let h1 = inner_product(f1, g1);
+
+    let f2: Vec<Fp> = f0
+      .iter()
+      .zip(f1.iter())
+      .map(|(l, h)| h.mul(Fp::new(2)).sub(*l))
+      .collect();
+    let g2: Vec<Fp> = g0
+      .iter()
+      .zip(g1.iter())
+      .map(|(l, h)| h.mul(Fp::new(2)).sub(*l))
+      .collect();
+    let h2 = inner_product(&f2, &g2);
+
+    assert_eq!(claim, h0.add(h1));
+
+    let r = derive_round_challenge_merlin(tr, label, round, h0, h1, h2);
+
+    let folded_f: Vec<Fp> = f0
+      .iter()
+      .zip(f1.iter())
+      .map(|(l, h)| l.add(r.mul(h.sub(*l))))
+      .collect();
+    let folded_g: Vec<Fp> = g0
+      .iter()
+      .zip(g1.iter())
+      .map(|(l, h)| l.add(r.mul(h.sub(*l))))
+      .collect();
+
+    claim = inner_product(&folded_f, &folded_g);
+
+    rounds.push(RoundTranscript {
+      round,
+      h_at_0: h0,
+      h_at_1: h1,
+      h_at_2: h2,
+      challenge_r: r,
+      folded_f: folded_f.clone(),
+      folded_g: folded_g.clone(),
+    });
+
+    f_cur = folded_f;
+    g_cur = folded_g;
+    round += 1;
+  }
+
+  SumcheckTrace {
+    claim_initial,
+    rounds,
+    final_f: f_cur[0],
+    final_g: g_cur[0],
+    final_claim: claim,
+  }
 }
 
 pub fn prove_matrix_vector_inner_sumcheck(a: &[Vec<Fp>], y: &[Fp]) -> Vec<SumcheckTrace> {
