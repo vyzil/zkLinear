@@ -105,6 +105,7 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
 - `docs/REFERENCE_DIFF.md`: Spartan2-like vs lcpc/brakedown-like dual-reference boundary
 - `docs/PRODUCTION_CHECKLIST.md`: prioritized production-upgrade checklist
 - `docs/NIZK_MASKING_MODEL.md`: current masked-claim construction and scope notes
+- `docs/PARITY_TRACE_MATRIX.md`: must-match vs may-differ trace comparison matrix
 
 
 ## Demo Caveats (Important)
