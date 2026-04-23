@@ -410,7 +410,11 @@ fn bridge_verify_fails_on_excessive_outer_round_count() {
     let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
     let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
         .expect_err("verify should fail for excessive outer rounds");
-    assert!(err
-        .to_string()
-        .contains("bridge outer round count exceeds machine word capacity"));
+    assert!(
+        err.to_string()
+            .contains("bridge outer rounds do not match public row count")
+            || err
+                .to_string()
+                .contains("bridge outer round count exceeds machine word capacity")
+    );
 }

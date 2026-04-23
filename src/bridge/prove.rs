@@ -42,6 +42,8 @@ pub fn prove_bridge_from_dir_with_profile(
     let claimed = data.joint_trace.claim_initial;
     let case_digest = compute_case_digest(&data.case);
     let query = BridgeVerifierQuery {
+        rows: data.case.a.len(),
+        cols: data.case.a[0].len(),
         field_profile: profile,
         claimed_value: claimed,
         gamma: data.gamma,

@@ -30,6 +30,8 @@ pub struct BridgeProofBundle {
 pub struct BridgeVerifierQuery {
     // Public verifier metadata only.
     // Witness-like tensors are intentionally excluded from this boundary.
+    pub rows: usize,
+    pub cols: usize,
     pub field_profile: BrakedownFieldProfile,
     pub claimed_value: Fp,
     pub gamma: Fp,
