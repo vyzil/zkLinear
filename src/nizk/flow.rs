@@ -22,8 +22,9 @@ use crate::{
     },
     protocol::reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
     protocol::spec_v1::{
-        append_fp_le, append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL,
-        NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL, TRANSCRIPT_DOMAIN,
+        append_fp_le, append_spec_domain, append_u64_le, BLIND_MIX_LABEL,
+        INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
+        TRANSCRIPT_DOMAIN,
     },
     protocol::shared::{
         append_case_digest_to_transcript, bind_rows, build_eq_weights_from_challenges,
@@ -49,6 +50,8 @@ use super::types::{
 fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::default_nizk_profile()
 }
+
+const BLINDED_LAYOUT_ROWS: usize = 6;
 
 fn validate_case_shape(case: &SpartanLikeCase) -> Result<(usize, usize)> {
     if case.a.is_empty() || case.b.is_empty() || case.c.is_empty() {
@@ -92,8 +95,12 @@ fn context_fingerprint(
     let params = params_for_field_profile(cols, field_profile);
     let mut h = Sha256::new();
     h.update(b"zklinear/nizk/context-fingerprint/v1");
+    h.update((BLINDED_LAYOUT_ROWS as u64).to_le_bytes());
     h.update(TRANSCRIPT_DOMAIN);
     h.update(NIZK_TRANSCRIPT_LABEL);
+    h.update(OUTER_SUMCHECK_LABEL);
+    h.update(INNER_SUMCHECK_JOINT_LABEL);
+    h.update(BLIND_MIX_LABEL);
     h.update((rows as u64).to_le_bytes());
     h.update((cols as u64).to_le_bytes());
     h.update(case_digest);
@@ -274,6 +281,9 @@ fn prove_from_dir_impl(
         blind_vec_2,
         case.z.clone(),
     ];
+    if coeff_rows.len() != BLINDED_LAYOUT_ROWS {
+        return Err(anyhow!("internal blinded layout row count mismatch"));
+    }
     let coeffs = flatten_rows(&coeff_rows);
 
     let params = params_for_field_profile(cols, profile);
@@ -457,7 +467,9 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         return Err(anyhow!("inner rounds do not match column count"));
     }
 
-    if proof.verifier_commitment.n_rows != 6 || proof.verifier_commitment.n_per_row != cols {
+    if proof.verifier_commitment.n_rows != BLINDED_LAYOUT_ROWS
+        || proof.verifier_commitment.n_per_row != cols
+    {
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
         ));
@@ -766,10 +778,15 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     if public.reference_profile != proof.reference_profile {
         return Err(anyhow!("reference profile mismatch"));
     }
+    if proof.reference_profile != DUAL_REFERENCE_PROFILE {
+        return Err(anyhow!("unsupported reference profile for this NIZK flow"));
+    }
     if public.context_fingerprint != proof.context_fingerprint {
         return Err(anyhow!("public/proof context fingerprint mismatch"));
     }
-    if proof.verifier_commitment.n_rows != 6 || proof.verifier_commitment.n_per_row != public.cols {
+    if proof.verifier_commitment.n_rows != BLINDED_LAYOUT_ROWS
+        || proof.verifier_commitment.n_per_row != public.cols
+    {
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
         ));

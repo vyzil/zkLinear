@@ -202,6 +202,21 @@ fn spartan_brakedown_full_style_fails_on_reference_profile_mismatch() {
 }
 
 #[test]
+fn spartan_brakedown_full_style_fails_on_non_standard_reference_profile_even_if_matched() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    result.proof.reference_profile.pcs = PcsReference::ExperimentalAlt;
+    result.public.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    result.public.reference_profile.pcs = PcsReference::ExperimentalAlt;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for non-standard reference profile");
+    assert!(err
+        .to_string()
+        .contains("unsupported reference profile for this NIZK flow"));
+}
+
+#[test]
 fn spartan_brakedown_full_style_fails_on_tampered_outer_challenge() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.outer_trace.rounds[0].challenge_r =
