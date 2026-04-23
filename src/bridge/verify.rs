@@ -7,7 +7,7 @@ use crate::{
         brakedown::{profiles::params_for_field_profile, BrakedownPcs},
     },
     protocol::{
-        reference::append_reference_profile_to_transcript,
+        reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         spec_v1::{append_spec_domain, append_u64_le},
     },
     sumcheck::{
@@ -44,6 +44,9 @@ pub fn verify_bridge_bundle(
         return Err(anyhow!(
             "reference profile mismatch between query and proof bundle"
         ));
+    }
+    if bundle.reference_profile != DUAL_REFERENCE_PROFILE {
+        return Err(anyhow!("unsupported reference profile for this bridge flow"));
     }
     if bundle.inner_trace.claim_initial != query.claimed_value {
         return Err(anyhow!(

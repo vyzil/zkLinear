@@ -294,3 +294,20 @@ fn bridge_verify_fails_on_reference_profile_mismatch() {
         .expect_err("verify should fail on reference profile mismatch");
     assert!(err.to_string().contains("reference profile mismatch"));
 }
+
+#[test]
+fn bridge_verify_fails_on_non_standard_reference_profile_even_if_matched() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    built.bundle.reference_profile.pcs = PcsReference::ExperimentalAlt;
+    built.verifier_query.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    built.verifier_query.reference_profile.pcs = PcsReference::ExperimentalAlt;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on non-standard reference profile");
+    assert!(err
+        .to_string()
+        .contains("unsupported reference profile for this bridge flow"));
+}
