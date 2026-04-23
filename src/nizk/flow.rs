@@ -542,6 +542,9 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     if !outer_v.final_consistent {
         return Err(anyhow!("outer sumcheck verification failed"));
     }
+    if proof.outer_trace.final_value != proof.outer_trace.final_claim {
+        return Err(anyhow!("outer final value/claim mismatch"));
+    }
 
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
@@ -890,6 +893,9 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     let outer_v = verify_outer_sumcheck_trace(&proof.outer_trace);
     if !outer_v.final_consistent {
         return Err(anyhow!("outer sumcheck verification failed"));
+    }
+    if proof.outer_trace.final_value != proof.outer_trace.final_claim {
+        return Err(anyhow!("outer final value/claim mismatch"));
     }
 
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);

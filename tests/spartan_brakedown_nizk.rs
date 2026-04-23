@@ -266,6 +266,16 @@ fn spartan_brakedown_full_style_fails_on_outer_folded_length_mismatch() {
 }
 
 #[test]
+fn spartan_brakedown_full_style_fails_on_outer_final_value_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.outer_trace.final_value = result.proof.outer_trace.final_value.add(Fp::new(1));
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for outer final value mismatch");
+    assert!(err.to_string().contains("outer final value/claim mismatch"));
+}
+
+#[test]
 fn spartan_brakedown_full_style_fails_on_inner_round_index_mismatch() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.inner_trace.rounds[0].round += 1;
