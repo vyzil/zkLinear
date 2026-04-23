@@ -5,6 +5,8 @@ use crate::{
     sumcheck::{inner::SumcheckTrace, outer::OuterSumcheckTrace},
 };
 
+pub const NIZK_BLINDED_LAYOUT_ROWS: usize = 6;
+
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownProof {
     pub outer_trace: OuterSumcheckTrace,

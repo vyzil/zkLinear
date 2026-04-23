@@ -45,13 +45,12 @@ use super::report::format_pipeline_report;
 use super::types::{
     KernelTimingMs, SpartanBrakedownPipelineResult, SpartanBrakedownProof, SpartanBrakedownPublic,
     SpartanBrakedownCompiledCircuit, SpartanBrakedownProver, SpartanBrakedownVerifier, VerifyMode,
+    NIZK_BLINDED_LAYOUT_ROWS,
 };
 
 fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::default_nizk_profile()
 }
-
-const BLINDED_LAYOUT_ROWS: usize = 6;
 
 fn validate_case_shape(case: &SpartanLikeCase) -> Result<(usize, usize)> {
     if case.a.is_empty() || case.b.is_empty() || case.c.is_empty() {
@@ -95,7 +94,7 @@ fn context_fingerprint(
     let params = params_for_field_profile(cols, field_profile);
     let mut h = Sha256::new();
     h.update(b"zklinear/nizk/context-fingerprint/v1");
-    h.update((BLINDED_LAYOUT_ROWS as u64).to_le_bytes());
+    h.update((NIZK_BLINDED_LAYOUT_ROWS as u64).to_le_bytes());
     h.update(TRANSCRIPT_DOMAIN);
     h.update(NIZK_TRANSCRIPT_LABEL);
     h.update(OUTER_SUMCHECK_LABEL);
@@ -281,7 +280,7 @@ fn prove_from_dir_impl(
         blind_vec_2,
         case.z.clone(),
     ];
-    if coeff_rows.len() != BLINDED_LAYOUT_ROWS {
+    if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
         return Err(anyhow!("internal blinded layout row count mismatch"));
     }
     let coeffs = flatten_rows(&coeff_rows);
@@ -467,7 +466,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         return Err(anyhow!("inner rounds do not match column count"));
     }
 
-    if proof.verifier_commitment.n_rows != BLINDED_LAYOUT_ROWS
+    if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
         || proof.verifier_commitment.n_per_row != cols
     {
         return Err(anyhow!(
@@ -784,7 +783,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     if public.context_fingerprint != proof.context_fingerprint {
         return Err(anyhow!("public/proof context fingerprint mismatch"));
     }
-    if proof.verifier_commitment.n_rows != BLINDED_LAYOUT_ROWS
+    if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
         || proof.verifier_commitment.n_per_row != public.cols
     {
         return Err(anyhow!(

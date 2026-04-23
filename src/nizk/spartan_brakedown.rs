@@ -19,4 +19,5 @@ pub use super::types::{
     KernelTimingMs, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
     SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic,
     SpartanBrakedownVerifier, VerifyMode,
+    NIZK_BLINDED_LAYOUT_ROWS,
 };
