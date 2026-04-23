@@ -513,7 +513,10 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
     append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
 
-    for r in &proof.outer_trace.rounds {
+    for (i, r) in proof.outer_trace.rounds.iter().enumerate() {
+        if r.round != i {
+            return Err(anyhow!("outer round index mismatch at position {}", i));
+        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             OUTER_SUMCHECK_LABEL,
@@ -537,7 +540,10 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
     }
 
-    for r in &proof.inner_trace.rounds {
+    for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
+        if r.round != i {
+            return Err(anyhow!("inner round index mismatch at position {}", i));
+        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             INNER_SUMCHECK_JOINT_LABEL,
@@ -833,7 +839,10 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
 
-    for r in &proof.outer_trace.rounds {
+    for (i, r) in proof.outer_trace.rounds.iter().enumerate() {
+        if r.round != i {
+            return Err(anyhow!("outer round index mismatch at position {}", i));
+        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             OUTER_SUMCHECK_LABEL,
@@ -857,7 +866,10 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
     }
 
-    for r in &proof.inner_trace.rounds {
+    for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
+        if r.round != i {
+            return Err(anyhow!("inner round index mismatch at position {}", i));
+        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             INNER_SUMCHECK_JOINT_LABEL,

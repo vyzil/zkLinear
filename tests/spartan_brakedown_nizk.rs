@@ -228,6 +228,18 @@ fn spartan_brakedown_full_style_fails_on_tampered_outer_challenge() {
 }
 
 #[test]
+fn spartan_brakedown_full_style_fails_on_outer_round_index_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.outer_trace.rounds[0].round += 1;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for outer round index mismatch");
+    assert!(err
+        .to_string()
+        .contains("outer round index mismatch at position"));
+}
+
+#[test]
 fn spartan_brakedown_full_style_fails_on_tampered_outer_folded_values() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.outer_trace.rounds[0].folded_values[0] =
@@ -238,6 +250,18 @@ fn spartan_brakedown_full_style_fails_on_tampered_outer_folded_values() {
     assert!(err
         .to_string()
         .contains("outer sumcheck verification failed"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_inner_round_index_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.inner_trace.rounds[0].round += 1;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for inner round index mismatch");
+    assert!(err
+        .to_string()
+        .contains("inner round index mismatch at position"));
 }
 
 #[test]
