@@ -311,3 +311,31 @@ fn bridge_verify_fails_on_non_standard_reference_profile_even_if_matched() {
         .to_string()
         .contains("unsupported reference profile for this bridge flow"));
 }
+
+#[test]
+fn bridge_verify_fails_on_outer_final_value_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.outer_trace.final_value = built.bundle.outer_trace.final_value.add(Fp::new(1));
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on outer final value mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge outer final value/claim mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_pcs_param_contract_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.pcs_params.n_col_opens += 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on pcs param contract mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge PCS parameter contract mismatch"));
+}

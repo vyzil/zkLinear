@@ -53,14 +53,62 @@ pub fn verify_bridge_bundle(
             "inner-sumcheck claim and verifier claimed value mismatch"
         ));
     }
+    if bundle.verifier_commitment.n_per_row == 0 || !bundle.verifier_commitment.n_per_row.is_power_of_two() {
+        return Err(anyhow!(
+            "bridge verifier commitment n_per_row must be a non-zero power of two"
+        ));
+    }
+    if bundle.inner_trace.rounds.len()
+        != bundle.verifier_commitment.n_per_row.trailing_zeros() as usize
+    {
+        return Err(anyhow!(
+            "bridge inner rounds do not match verifier commitment width"
+        ));
+    }
+    let outer_rounds = bundle.outer_trace.rounds.len();
+    for (i, r) in bundle.outer_trace.rounds.iter().enumerate() {
+        if r.round != i {
+            return Err(anyhow!("bridge outer round index mismatch at position {}", i));
+        }
+        let expected_fold_len = 1usize << (outer_rounds - i - 1);
+        if r.folded_values.len() != expected_fold_len {
+            return Err(anyhow!(
+                "bridge outer folded vector length mismatch at round {}",
+                i
+            ));
+        }
+    }
+    for (i, r) in bundle.inner_trace.rounds.iter().enumerate() {
+        if r.round != i {
+            return Err(anyhow!("bridge inner round index mismatch at position {}", i));
+        }
+        let expected_fold_len = bundle.verifier_commitment.n_per_row >> (i + 1);
+        if r.folded_f.len() != expected_fold_len
+            || r.folded_g.len() != expected_fold_len
+            || r.folded_f.len() != r.folded_g.len()
+        {
+            return Err(anyhow!(
+                "bridge inner folded vector length mismatch at round {}",
+                i
+            ));
+        }
+    }
     let outer_v = verify_outer_sumcheck_trace(&bundle.outer_trace);
     if !outer_v.final_consistent {
         return Err(anyhow!("outer sumcheck verification failed"));
+    }
+    if bundle.outer_trace.final_value != bundle.outer_trace.final_claim {
+        return Err(anyhow!("bridge outer final value/claim mismatch"));
     }
 
     let inner_v = verify_inner_sumcheck_trace(&bundle.inner_trace);
     if !inner_v.final_consistent {
         return Err(anyhow!("inner sumcheck verification failed"));
+    }
+    if bundle.inner_trace.final_claim
+        != bundle.inner_trace.final_f.mul(bundle.inner_trace.final_g)
+    {
+        return Err(anyhow!("bridge inner final claim mismatch vs final_f*final_g"));
     }
 
     append_spec_domain(tr);
@@ -74,8 +122,23 @@ pub fn verify_bridge_bundle(
         bundle.verifier_commitment.n_per_row,
         bundle.verifier_commitment.field_profile,
     );
-    if expected_params.field_profile != bundle.pcs_params.field_profile {
-        return Err(anyhow!("bridge params/profile mismatch"));
+    if bundle.verifier_commitment.field_profile != bundle.pcs_params.field_profile {
+        return Err(anyhow!("bridge commitment/params field profile mismatch"));
+    }
+    if bundle.pcs_params.n_per_row != expected_params.n_per_row
+        || bundle.pcs_params.n_degree_tests != expected_params.n_degree_tests
+        || bundle.pcs_params.n_col_opens != expected_params.n_col_opens
+        || bundle.pcs_params.security_bits != expected_params.security_bits
+        || bundle.pcs_params.field_profile != expected_params.field_profile
+        || bundle.pcs_params.auto_tune_security != expected_params.auto_tune_security
+        || bundle.pcs_params.encoder_kind != expected_params.encoder_kind
+        || bundle.pcs_params.encoder_seed != expected_params.encoder_seed
+        || bundle.pcs_params.spel_layers != expected_params.spel_layers
+        || bundle.pcs_params.spel_pre_density != expected_params.spel_pre_density
+        || bundle.pcs_params.spel_post_density != expected_params.spel_post_density
+        || bundle.pcs_params.spel_base_rs_parity != expected_params.spel_base_rs_parity
+    {
+        return Err(anyhow!("bridge PCS parameter contract mismatch"));
     }
     let pcs = BrakedownPcs::new(bundle.pcs_params.clone());
     let outer_tensor = vec![Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
