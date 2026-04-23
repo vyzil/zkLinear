@@ -6,7 +6,12 @@ use crate::{
   pcs::traits::PolynomialCommitmentScheme,
 };
 
-use super::{BrakedownPcs, merkle::merkle_root, types::BrakedownParams};
+use super::{
+  BrakedownPcs,
+  challenges::{sample_field_vec, sample_unique_cols},
+  merkle::{merkle_root, verify_column_path},
+  types::BrakedownParams,
+};
 
 pub fn build_brakedown_demo_report() -> Result<String> {
   let params = BrakedownParams::new(8);
@@ -49,6 +54,29 @@ pub fn build_brakedown_demo_report() -> Result<String> {
     .iter()
     .zip(proof.p_eval.iter())
     .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+
+  let mut tr_v_detail = Transcript::new(b"mini-brakedown-demo");
+  tr_v_detail.append_message(b"polycommit", &root);
+  tr_v_detail.append_message(b"ncols", &(pcs.encoding.n_cols as u64).to_be_bytes());
+  let mut rand_tensors = Vec::new();
+  for p_rand in &proof.p_random_vec {
+    let t = sample_field_vec(&mut tr_v_detail, b"lcpc_deg_test", prover_commitment.n_rows);
+    rand_tensors.push(t);
+    for v in p_rand {
+      tr_v_detail.append_message(b"p_random", &v.0.to_le_bytes());
+    }
+  }
+  for v in &proof.p_eval {
+    tr_v_detail.append_message(b"p_eval", &v.0.to_le_bytes());
+  }
+  let expected_cols = sample_unique_cols(&mut tr_v_detail, pcs.encoding.n_cols, params.n_col_opens)?;
+  let p_eval_enc = pcs.encoding.encode_row(&proof.p_eval);
+  let p_rand_enc: Vec<Vec<Fp>> = proof.p_random_vec.iter().map(|v| pcs.encoding.encode_row(v)).collect();
+  let recomputed_eval = inner
+    .iter()
+    .zip(proof.p_eval.iter())
+    .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+
   pcs.verify(
     &verifier_commitment,
     &proof,
@@ -156,8 +184,86 @@ pub fn build_brakedown_demo_report() -> Result<String> {
     ));
   }
 
+  out.push_str("\n[Payload: Prover -> Verifier]\n");
+  out.push_str(&format!("commitment root: {}\n", hex::encode(verifier_commitment.root)));
+  out.push_str(&format!(
+    "p_random vectors ({}):\n",
+    proof.p_random_vec.len()
+  ));
+  for (i, p_rand) in proof.p_random_vec.iter().enumerate() {
+    out.push_str(&format!(
+      "  p_random[{}]: {:?}\n",
+      i,
+      p_rand.iter().map(|x| x.0).collect::<Vec<_>>()
+    ));
+  }
+  out.push_str(&format!(
+    "p_eval: {:?}\n",
+    proof.p_eval.iter().map(|x| x.0).collect::<Vec<_>>()
+  ));
+  out.push_str("openings:\n");
+  for (i, col) in proof.columns.iter().enumerate() {
+    out.push_str(&format!(
+      "  opening[{}]: col_idx={}, values={:?}\n",
+      i,
+      col.col_idx,
+      col.values.iter().map(|x| x.0).collect::<Vec<_>>()
+    ));
+    for (d, sib) in col.merkle_path.iter().enumerate() {
+      out.push_str(&format!("    path[{}]: {}\n", d, hex::encode(sib)));
+    }
+  }
+
+  out.push_str("\n[Verify Details]\n");
+  out.push_str(&format!(
+    "expected opened cols from transcript: {:?}\n",
+    expected_cols
+  ));
+  for (i, col) in proof.columns.iter().enumerate() {
+    out.push_str(&format!(
+      "  opening[{}] col={} | expected={} | idx_ok={}\n",
+      i,
+      col.col_idx,
+      expected_cols[i],
+      col.col_idx == expected_cols[i]
+    ));
+    for j in 0..proof.p_random_vec.len() {
+      let dot = rand_tensors[j]
+        .iter()
+        .zip(col.values.iter())
+        .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+      out.push_str(&format!(
+        "    degree-test {}: <rand_t, opened_col>={} | encoded[p_random][col]={} | ok={}\n",
+        j,
+        dot.0,
+        p_rand_enc[j][col.col_idx].0,
+        dot == p_rand_enc[j][col.col_idx]
+      ));
+    }
+    let dot_eval = outer
+      .iter()
+      .zip(col.values.iter())
+      .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+    out.push_str(&format!(
+      "    eval-check: <outer_t, opened_col>={} | encoded[p_eval][col]={} | ok={}\n",
+      dot_eval.0,
+      p_eval_enc[col.col_idx].0,
+      dot_eval == p_eval_enc[col.col_idx]
+    ));
+    let merkle_ok = verify_column_path(verifier_commitment.root, col);
+    out.push_str(&format!("    merkle path check: ok={}\n", merkle_ok));
+  }
+
   out.push_str("\n[Verify]\n");
   out.push_str(&format!("claimed eval: {}\n", claimed_eval.0));
+  out.push_str(&format!(
+    "recomputed eval from (inner tensor · p_eval): {}\n",
+    recomputed_eval.0
+  ));
+  out.push_str(&format!(
+    "claimed==recomputed: {}\n",
+    claimed_eval == recomputed_eval
+  ));
   out.push_str("verify: success (claimed evaluation accepted)\n");
   out.push_str(
     "meaning: opened columns are Merkle-authenticated and consistent with collapsed checks\n",
