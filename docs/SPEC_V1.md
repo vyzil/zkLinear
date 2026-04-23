@@ -133,3 +133,14 @@ where `lambda = security_bits`.
 
 This pinning applies to the protocol skeleton and verification boundary in this repository.
 It does not claim full production cryptographic equivalence to Spartan2 or lcpc reference code.
+
+## 9. Transcript Snapshot Vectors
+
+Pinned local transcript snapshot vector:
+- `tests/reference_vectors/transcript_case_01.json`
+
+Generation/update command:
+- `ZKLINEAR_UPDATE_TRANSCRIPT_REF=1 cargo test --test transcript_vectors`
+
+Verification command:
+- `cargo test --test transcript_vectors`
