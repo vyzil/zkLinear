@@ -67,6 +67,19 @@ fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::Mersenne61Ext2
 }
 
+pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
+    match s.to_ascii_lowercase().as_str() {
+        "toy" | "toyf97" | "f97" => Some(BrakedownFieldProfile::ToyF97),
+        "m61" | "mersenne61" | "mersenne61ext2" | "ext2-m61" => {
+            Some(BrakedownFieldProfile::Mersenne61Ext2)
+        }
+        "gold" | "goldilocks" | "goldilocks64ext2" | "ext2-gold" => {
+            Some(BrakedownFieldProfile::Goldilocks64Ext2)
+        }
+        _ => None,
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownProof {
     pub outer_trace: OuterSumcheckTrace,
@@ -505,7 +518,14 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
 }
 
 pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
-    let result = prove_from_dir(case_dir)?;
+    build_pipeline_report_from_dir_with_profile(case_dir, default_profile())
+}
+
+pub fn build_pipeline_report_from_dir_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<String> {
+    let result = prove_from_dir_with_profile(case_dir, profile)?;
     let proof = &result.proof;
     let public = &result.public;
     let t = &result.timings;
