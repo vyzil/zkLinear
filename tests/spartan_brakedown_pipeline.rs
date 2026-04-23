@@ -4,6 +4,7 @@ use merlin::Transcript;
 use zk_linear::{
     bridge::{prove_bridge_from_dir, verify_bridge_bundle, BRIDGE_TRANSCRIPT_LABEL},
     core::field::Fp,
+    pcs::brakedown::types::BrakedownFieldProfile,
     protocol::reference::{PcsReference, ProtocolReference},
 };
 
@@ -310,6 +311,21 @@ fn bridge_verify_fails_on_non_standard_reference_profile_even_if_matched() {
     assert!(err
         .to_string()
         .contains("unsupported reference profile for this bridge flow"));
+}
+
+#[test]
+fn bridge_verify_fails_on_field_profile_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.field_profile = BrakedownFieldProfile::Goldilocks64Ext2;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on field profile mismatch");
+    assert!(err
+        .to_string()
+        .contains("field profile mismatch between query and proof bundle"));
 }
 
 #[test]
