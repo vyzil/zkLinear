@@ -12,4 +12,5 @@ rand_chacha = "0.3"
 sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+bincode = "1"
 zkinterface = { git = "https://github.com/QED-it/zkinterface.git", rev = "4f8d9785871ddf959500458d5f5d9912c0a851f7" }

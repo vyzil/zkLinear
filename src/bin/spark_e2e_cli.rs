@@ -1,4 +1,8 @@
-use std::{fs, path::PathBuf, time::Instant};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    time::Instant,
+};
 
 use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
@@ -103,6 +107,46 @@ struct PublicJson {
     case_digest_hex: String,
     claimed_value_masked: u64,
     context_fingerprint_hex: String,
+    reference_profile: RefProfileJson,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct CompiledWire {
+    rows: usize,
+    cols: usize,
+    case_digest: [u8; 32],
+    context_fingerprint: [u8; 32],
+    field_profile: String,
+    reference_profile: RefProfileJson,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ProofWire {
+    outer_trace: OuterTraceJson,
+    inner_trace: InnerTraceJson,
+    gamma: u64,
+    claimed_value_unblinded: u64,
+    claimed_value: u64,
+    blind_eval_1: u64,
+    blind_eval_2: u64,
+    blind_mix_alpha: u64,
+    reference_profile: RefProfileJson,
+    verifier_commitment: Vec<u8>,
+    pcs_proof_main: Vec<u8>,
+    pcs_proof_blind_1: Vec<u8>,
+    pcs_proof_blind_2: Vec<u8>,
+    pcs_proof_joint_eval_at_r: Vec<u8>,
+    pcs_proof_z_eval_at_r: Vec<u8>,
+    context_fingerprint: [u8; 32],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PublicWire {
+    rows: usize,
+    cols: usize,
+    case_digest: [u8; 32],
+    claimed_value_masked: u64,
+    context_fingerprint: [u8; 32],
     reference_profile: RefProfileJson,
 }
 
@@ -261,6 +305,17 @@ fn compiled_to_json(c: &SpartanBrakedownCompiledCircuit) -> CompiledJson {
     }
 }
 
+fn compiled_to_wire(c: &SpartanBrakedownCompiledCircuit) -> CompiledWire {
+    CompiledWire {
+        rows: c.rows,
+        cols: c.cols,
+        case_digest: c.case_digest,
+        context_fingerprint: c.context_fingerprint,
+        field_profile: format!("{:?}", c.field_profile),
+        reference_profile: ref_to_json(c.reference_profile),
+    }
+}
+
 fn compiled_from_json(j: &CompiledJson) -> Result<SpartanBrakedownCompiledCircuit> {
     let field_profile = parse_field_profile(&j.field_profile)
         .ok_or_else(|| anyhow!("unknown field profile '{}'", j.field_profile))?;
@@ -269,6 +324,19 @@ fn compiled_from_json(j: &CompiledJson) -> Result<SpartanBrakedownCompiledCircui
         cols: j.cols,
         case_digest: digest_from_hex(&j.case_digest_hex)?,
         context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
+        field_profile,
+        reference_profile: ref_from_json(&j.reference_profile)?,
+    })
+}
+
+fn compiled_from_wire(j: &CompiledWire) -> Result<SpartanBrakedownCompiledCircuit> {
+    let field_profile = parse_field_profile(&j.field_profile)
+        .ok_or_else(|| anyhow!("unknown field profile '{}'", j.field_profile))?;
+    Ok(SpartanBrakedownCompiledCircuit {
+        rows: j.rows,
+        cols: j.cols,
+        case_digest: j.case_digest,
+        context_fingerprint: j.context_fingerprint,
         field_profile,
         reference_profile: ref_from_json(&j.reference_profile)?,
     })
@@ -292,6 +360,27 @@ fn proof_to_json(p: &SpartanBrakedownProof) -> ProofJson {
         pcs_proof_joint_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_joint_eval_at_r)),
         pcs_proof_z_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_z_eval_at_r)),
         context_fingerprint_hex: digest_to_hex(p.context_fingerprint),
+    }
+}
+
+fn proof_to_wire(p: &SpartanBrakedownProof) -> ProofWire {
+    ProofWire {
+        outer_trace: outer_trace_to_json(&p.outer_trace),
+        inner_trace: inner_trace_to_json(&p.inner_trace),
+        gamma: fp_to_u64(p.gamma),
+        claimed_value_unblinded: fp_to_u64(p.claimed_value_unblinded),
+        claimed_value: fp_to_u64(p.claimed_value),
+        blind_eval_1: fp_to_u64(p.blind_eval_1),
+        blind_eval_2: fp_to_u64(p.blind_eval_2),
+        blind_mix_alpha: fp_to_u64(p.blind_mix_alpha),
+        reference_profile: ref_to_json(p.reference_profile),
+        verifier_commitment: serialize_verifier_commitment(&p.verifier_commitment),
+        pcs_proof_main: serialize_eval_proof(&p.pcs_proof_main),
+        pcs_proof_blind_1: serialize_eval_proof(&p.pcs_proof_blind_1),
+        pcs_proof_blind_2: serialize_eval_proof(&p.pcs_proof_blind_2),
+        pcs_proof_joint_eval_at_r: serialize_eval_proof(&p.pcs_proof_joint_eval_at_r),
+        pcs_proof_z_eval_at_r: serialize_eval_proof(&p.pcs_proof_z_eval_at_r),
+        context_fingerprint: p.context_fingerprint,
     }
 }
 
@@ -330,6 +419,27 @@ fn proof_from_json(j: &ProofJson) -> Result<SpartanBrakedownProof> {
     })
 }
 
+fn proof_from_wire(j: &ProofWire) -> Result<SpartanBrakedownProof> {
+    Ok(SpartanBrakedownProof {
+        outer_trace: outer_trace_from_json(&j.outer_trace),
+        inner_trace: inner_trace_from_json(&j.inner_trace),
+        gamma: u64_to_fp(j.gamma),
+        claimed_value_unblinded: u64_to_fp(j.claimed_value_unblinded),
+        claimed_value: u64_to_fp(j.claimed_value),
+        blind_eval_1: u64_to_fp(j.blind_eval_1),
+        blind_eval_2: u64_to_fp(j.blind_eval_2),
+        blind_mix_alpha: u64_to_fp(j.blind_mix_alpha),
+        reference_profile: ref_from_json(&j.reference_profile)?,
+        verifier_commitment: deserialize_verifier_commitment(&j.verifier_commitment)?,
+        pcs_proof_main: deserialize_eval_proof(&j.pcs_proof_main)?,
+        pcs_proof_blind_1: deserialize_eval_proof(&j.pcs_proof_blind_1)?,
+        pcs_proof_blind_2: deserialize_eval_proof(&j.pcs_proof_blind_2)?,
+        pcs_proof_joint_eval_at_r: deserialize_eval_proof(&j.pcs_proof_joint_eval_at_r)?,
+        pcs_proof_z_eval_at_r: deserialize_eval_proof(&j.pcs_proof_z_eval_at_r)?,
+        context_fingerprint: j.context_fingerprint,
+    })
+}
+
 fn public_to_json(p: &SpartanBrakedownPublic) -> PublicJson {
     PublicJson {
         rows: p.rows,
@@ -341,6 +451,17 @@ fn public_to_json(p: &SpartanBrakedownPublic) -> PublicJson {
     }
 }
 
+fn public_to_wire(p: &SpartanBrakedownPublic) -> PublicWire {
+    PublicWire {
+        rows: p.rows,
+        cols: p.cols,
+        case_digest: p.case_digest,
+        claimed_value_masked: fp_to_u64(p.claimed_value_masked),
+        context_fingerprint: p.context_fingerprint,
+        reference_profile: ref_to_json(p.reference_profile),
+    }
+}
+
 fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
     Ok(SpartanBrakedownPublic {
         rows: j.rows,
@@ -348,6 +469,17 @@ fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
         case_digest: digest_from_hex(&j.case_digest_hex)?,
         claimed_value_masked: u64_to_fp(j.claimed_value_masked),
         context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
+        reference_profile: ref_from_json(&j.reference_profile)?,
+    })
+}
+
+fn public_from_wire(j: &PublicWire) -> Result<SpartanBrakedownPublic> {
+    Ok(SpartanBrakedownPublic {
+        rows: j.rows,
+        cols: j.cols,
+        case_digest: j.case_digest,
+        claimed_value_masked: u64_to_fp(j.claimed_value_masked),
+        context_fingerprint: j.context_fingerprint,
         reference_profile: ref_from_json(&j.reference_profile)?,
     })
 }
@@ -378,6 +510,25 @@ fn read_json<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T> {
     Ok(serde_json::from_str(&body)?)
 }
 
+fn write_wire<T: Serialize>(path: &PathBuf, v: &T) -> Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)
+            .with_context(|| format!("failed to create {}", parent.display()))?;
+    }
+    let body = bincode::serialize(v).context("failed to serialize wire payload")?;
+    fs::write(path, body).with_context(|| format!("failed to write {}", path.display()))?;
+    Ok(())
+}
+
+fn read_wire<T: for<'de> Deserialize<'de>>(path: &PathBuf) -> Result<T> {
+    let body = fs::read(path).with_context(|| format!("failed to read {}", path.display()))?;
+    bincode::deserialize(&body).context("failed to deserialize wire payload")
+}
+
+fn sidecar_wire_path(path: &Path) -> PathBuf {
+    path.with_extension("wire")
+}
+
 fn run_compile(args: &[String]) -> Result<()> {
     if args.len() < 3 {
         bail!("usage: spark_e2e_cli compile <case_dir> <compiled.json> [profile]");
@@ -388,10 +539,13 @@ fn run_compile(args: &[String]) -> Result<()> {
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
     let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
+    let compiled_wire = sidecar_wire_path(&out_compiled);
     write_json(&out_compiled, &compiled_to_json(&compiled))?;
+    write_wire(&compiled_wire, &compiled_to_wire(&compiled))?;
     println!("compile: ok");
     println!("  case_dir={}", case_dir.display());
     println!("  compiled={}", out_compiled.display());
+    println!("  compiled_wire={}", compiled_wire.display());
     println!("  field_profile={:?}", compiled.field_profile);
     println!("  rows={}, cols={}", compiled.rows, compiled.cols);
     Ok(())
@@ -399,21 +553,29 @@ fn run_compile(args: &[String]) -> Result<()> {
 
 fn run_prove(args: &[String]) -> Result<()> {
     if args.len() < 5 {
-        bail!("usage: spark_e2e_cli prove <compiled.json> <case_dir> <proof.json> <public.json>");
+        bail!("usage: spark_e2e_cli prove <compiled.json|compiled.wire> <case_dir> <proof.json> <public.json>");
     }
     let compiled_path = PathBuf::from(&args[1]);
     let case_dir = PathBuf::from(&args[2]);
     let proof_path = PathBuf::from(&args[3]);
     let public_path = PathBuf::from(&args[4]);
 
-    let compiled_json: CompiledJson = read_json(&compiled_path)?;
-    let compiled = compiled_from_json(&compiled_json)?;
+    let compiled = if compiled_path.extension().and_then(|s| s.to_str()) == Some("wire") {
+        compiled_from_wire(&read_wire::<CompiledWire>(&compiled_path)?)?
+    } else {
+        let compiled_json: CompiledJson = read_json(&compiled_path)?;
+        compiled_from_json(&compiled_json)?
+    };
     let started = Instant::now();
     let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
 
     write_json(&proof_path, &proof_to_json(&res.proof))?;
     write_json(&public_path, &public_to_json(&res.public))?;
+    let proof_wire = sidecar_wire_path(&proof_path);
+    let public_wire = sidecar_wire_path(&public_path);
+    write_wire(&proof_wire, &proof_to_wire(&res.proof))?;
+    write_wire(&public_wire, &public_to_wire(&res.public))?;
     let timing = timings_to_json(&res.timings);
     let timing_path = proof_path.with_extension("timings.json");
     write_json(&timing_path, &timing)?;
@@ -422,7 +584,9 @@ fn run_prove(args: &[String]) -> Result<()> {
     println!("  compiled={}", compiled_path.display());
     println!("  case_dir={}", case_dir.display());
     println!("  proof={}", proof_path.display());
+    println!("  proof_wire={}", proof_wire.display());
     println!("  public={}", public_path.display());
+    println!("  public_wire={}", public_wire.display());
     println!("  timings={}", timing_path.display());
     println!(
         "  runtime_ms={:.3} (k1={:.3}, k2={:.3}, k3={:.3})",
@@ -454,17 +618,23 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     let compiled_path = out_dir.join("compiled.json");
     let proof_path = out_dir.join("proof.json");
     let public_path = out_dir.join("public.json");
+    let compiled_wire = sidecar_wire_path(&compiled_path);
+    let proof_wire = sidecar_wire_path(&proof_path);
+    let public_wire = sidecar_wire_path(&public_path);
 
     let t_compile = Instant::now();
     let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
     write_json(&compiled_path, &compiled_to_json(&compiled))?;
+    write_wire(&compiled_wire, &compiled_to_wire(&compiled))?;
 
     let t_prove = Instant::now();
     let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
     let prove_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
     write_json(&proof_path, &proof_to_json(&res.proof))?;
     write_json(&public_path, &public_to_json(&res.public))?;
+    write_wire(&proof_wire, &proof_to_wire(&res.proof))?;
+    write_wire(&public_wire, &public_to_wire(&res.public))?;
     let timing_path = out_dir.join("prove.timings.json");
     write_json(&timing_path, &timings_to_json(&res.timings))?;
 
@@ -472,8 +642,11 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     println!("  k={}", k);
     println!("  case_dir={}", case_dir.display());
     println!("  compiled={}", compiled_path.display());
+    println!("  compiled_wire={}", compiled_wire.display());
     println!("  proof={}", proof_path.display());
+    println!("  proof_wire={}", proof_wire.display());
     println!("  public={}", public_path.display());
+    println!("  public_wire={}", public_wire.display());
     println!("  timings={}", timing_path.display());
     println!("  compile_ms={:.3}", compile_ms);
     println!("  prove_end_to_end_ms={:.3}", prove_ms);
@@ -489,16 +662,28 @@ fn run_prove_k(args: &[String]) -> Result<()> {
 
 fn run_verify(args: &[String]) -> Result<()> {
     if args.len() < 4 {
-        bail!("usage: spark_e2e_cli verify <compiled.json> <proof.json> <public.json>");
+        bail!("usage: spark_e2e_cli verify <compiled.json|compiled.wire> <proof.json|proof.wire> <public.json|public.wire>");
     }
     let compiled_path = PathBuf::from(&args[1]);
     let proof_path = PathBuf::from(&args[2]);
     let public_path = PathBuf::from(&args[3]);
 
-    let compiled = compiled_from_json(&read_json::<CompiledJson>(&compiled_path)?)?;
+    let compiled = if compiled_path.extension().and_then(|s| s.to_str()) == Some("wire") {
+        compiled_from_wire(&read_wire::<CompiledWire>(&compiled_path)?)?
+    } else {
+        compiled_from_json(&read_json::<CompiledJson>(&compiled_path)?)?
+    };
     let _mod_scope = ModulusScope::enter(compiled.field_profile.base_modulus());
-    let proof = proof_from_json(&read_json::<ProofJson>(&proof_path)?)?;
-    let public = public_from_json(&read_json::<PublicJson>(&public_path)?)?;
+    let proof = if proof_path.extension().and_then(|s| s.to_str()) == Some("wire") {
+        proof_from_wire(&read_wire::<ProofWire>(&proof_path)?)?
+    } else {
+        proof_from_json(&read_json::<ProofJson>(&proof_path)?)?
+    };
+    let public = if public_path.extension().and_then(|s| s.to_str()) == Some("wire") {
+        public_from_wire(&read_wire::<PublicWire>(&public_path)?)?
+    } else {
+        public_from_json(&read_json::<PublicJson>(&public_path)?)?
+    };
 
     let started = Instant::now();
     verify_with_compiled(&compiled, &proof, &public)?;
@@ -514,48 +699,47 @@ fn run_verify(args: &[String]) -> Result<()> {
 
 fn run_inspect(args: &[String]) -> Result<()> {
     if args.len() < 2 {
-        bail!("usage: spark_e2e_cli inspect <proof.json>");
+        bail!("usage: spark_e2e_cli inspect <proof.json|proof.wire>");
     }
     let proof_path = PathBuf::from(&args[1]);
-    let proof = read_json::<ProofJson>(&proof_path)?;
+    let proof_wire = if proof_path.extension().and_then(|s| s.to_str()) == Some("wire") {
+        read_wire::<ProofWire>(&proof_path)?
+    } else {
+        let proof_json = read_json::<ProofJson>(&proof_path)?;
+        let proof = proof_from_json(&proof_json)?;
+        proof_to_wire(&proof)
+    };
 
-    let vc_bytes_raw = hex::decode(&proof.verifier_commitment_hex)
-        .context("invalid verifier_commitment_hex")?;
+    let vc_bytes_raw = proof_wire.verifier_commitment.clone();
     let verifier_commitment = deserialize_verifier_commitment(&vc_bytes_raw)?;
     let _mod_scope = ModulusScope::enter(verifier_commitment.field_profile.base_modulus());
     let vc_bytes = vc_bytes_raw.len();
-    let pf_main_bytes = hex::decode(&proof.pcs_proof_main_hex)
-        .context("invalid pcs_proof_main_hex")?
-        ;
-    let pf_b1_bytes = hex::decode(&proof.pcs_proof_blind_1_hex)
-        .context("invalid pcs_proof_blind_1_hex")?
-        ;
-    let pf_b2_bytes = hex::decode(&proof.pcs_proof_blind_2_hex)
-        .context("invalid pcs_proof_blind_2_hex")?
-        ;
-    let pf_joint_r_bytes = hex::decode(&proof.pcs_proof_joint_eval_at_r_hex)
-        .context("invalid pcs_proof_joint_eval_at_r_hex")?
-        ;
-    let pf_z_r_bytes = hex::decode(&proof.pcs_proof_z_eval_at_r_hex)
-        .context("invalid pcs_proof_z_eval_at_r_hex")?
-        ;
+    let pf_main_bytes = proof_wire.pcs_proof_main.clone();
+    let pf_b1_bytes = proof_wire.pcs_proof_blind_1.clone();
+    let pf_b2_bytes = proof_wire.pcs_proof_blind_2.clone();
+    let pf_joint_r_bytes = proof_wire.pcs_proof_joint_eval_at_r.clone();
+    let pf_z_r_bytes = proof_wire.pcs_proof_z_eval_at_r.clone();
     let main_openings = deserialize_eval_proof(&pf_main_bytes)?.columns.len();
     let b1_openings = deserialize_eval_proof(&pf_b1_bytes)?.columns.len();
     let b2_openings = deserialize_eval_proof(&pf_b2_bytes)?.columns.len();
     let joint_r_openings = deserialize_eval_proof(&pf_joint_r_bytes)?.columns.len();
     let z_r_openings = deserialize_eval_proof(&pf_z_r_bytes)?.columns.len();
+    let proof_wire_bytes = bincode::serialize(&proof_wire)
+        .context("failed to encode proof wire for sizing")?
+        .len();
 
     println!("inspect: {}", proof_path.display());
     println!(
         "  rounds: outer={}, inner={}",
-        proof.outer_trace.rounds.len(),
-        proof.inner_trace.rounds.len()
+        proof_wire.outer_trace.rounds.len(),
+        proof_wire.inner_trace.rounds.len()
     );
-    println!("  gamma={}", proof.gamma);
-    println!("  claimed(masked)={}", proof.claimed_value);
-    println!("  blind_eval_1={}", proof.blind_eval_1);
-    println!("  blind_eval_2={}", proof.blind_eval_2);
-    println!("  blind_mix_alpha={}", proof.blind_mix_alpha);
+    println!("  gamma={}", proof_wire.gamma);
+    println!("  claimed(masked)={}", proof_wire.claimed_value);
+    println!("  blind_eval_1={}", proof_wire.blind_eval_1);
+    println!("  blind_eval_2={}", proof_wire.blind_eval_2);
+    println!("  blind_mix_alpha={}", proof_wire.blind_mix_alpha);
+    println!("  proof_wire_bytes={}", proof_wire_bytes);
     println!(
         "  pcs payload bytes: vc={}, main={}, blind1={}, blind2={}, joint_r={}, z_r={}, subtotal={}",
         vc_bytes,
@@ -582,7 +766,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         bail!(
-            "usage:\n  spark_e2e_cli compile <case_dir> <compiled.json> [profile]\n  spark_e2e_cli prove <compiled.json> <case_dir> <proof.json> <public.json>\n  spark_e2e_cli prove-k <k> <out_dir> [profile]\n  spark_e2e_cli inspect <proof.json>\n  spark_e2e_cli verify <compiled.json> <proof.json> <public.json>"
+            "usage:\n  spark_e2e_cli compile <case_dir> <compiled.json> [profile]\n  spark_e2e_cli prove <compiled.json|compiled.wire> <case_dir> <proof.json> <public.json>\n  spark_e2e_cli prove-k <k> <out_dir> [profile]\n  spark_e2e_cli inspect <proof.json|proof.wire>\n  spark_e2e_cli verify <compiled.json|compiled.wire> <proof.json|proof.wire> <public.json|public.wire>"
         );
     }
 
