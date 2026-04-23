@@ -55,6 +55,20 @@ Compatibility policy:
 
 This repository treats the wire boundary as strict and fail-closed.
 
+## 6.2 Challenge/Query Sampling (Pinned)
+
+Brakedown challenge/query sampling in this repository is transcript-driven and
+deterministic:
+
+- degree-test vectors and column-open queries are derived directly from merlin
+  challenge bytes
+- no external RNG seed injection at verifier boundary
+- bounded integer sampling uses rejection sampling to reduce modulo bias
+- field-element sampling enforces canonical `0 <= x < modulus`
+
+This keeps prover/verifier replay consistent and makes sampling behavior
+explicit for profiling and regression tests.
+
 ## 7. Reference Profile Policy
 
 Default enforced profile:
