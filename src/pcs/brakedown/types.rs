@@ -7,6 +7,10 @@ pub const DEFAULT_SPEL_LAYERS: usize = 2;
 pub const DEFAULT_SPEL_PRE_DENSITY: usize = 3;
 pub const DEFAULT_SPEL_POST_DENSITY: usize = 2;
 pub const DEFAULT_SPEL_BASE_RS_PARITY: usize = 4;
+pub const DEFAULT_PROD_SPEL_LAYERS: usize = 3;
+pub const DEFAULT_PROD_SPEL_PRE_DENSITY: usize = 5;
+pub const DEFAULT_PROD_SPEL_POST_DENSITY: usize = 4;
+pub const DEFAULT_PROD_SPEL_BASE_RS_PARITY: usize = 16;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BrakedownEncoderKind {
@@ -77,6 +81,25 @@ pub struct BrakedownParams {
 
 impl BrakedownParams {
     pub fn new(n_per_row: usize) -> Self {
+        // Production-oriented default profile for end-to-end runs.
+        // Toy profile remains available via `new_toy`.
+        Self {
+            n_per_row,
+            n_degree_tests: DEFAULT_N_DEGREE_TESTS,
+            n_col_opens: DEFAULT_N_COL_OPENS,
+            security_bits: DEFAULT_SECURITY_BITS,
+            field_profile: BrakedownFieldProfile::Mersenne61Ext2,
+            auto_tune_security: true,
+            encoder_kind: BrakedownEncoderKind::SpielmanLike,
+            encoder_seed: 0,
+            spel_layers: DEFAULT_PROD_SPEL_LAYERS,
+            spel_pre_density: DEFAULT_PROD_SPEL_PRE_DENSITY,
+            spel_post_density: DEFAULT_PROD_SPEL_POST_DENSITY,
+            spel_base_rs_parity: DEFAULT_PROD_SPEL_BASE_RS_PARITY,
+        }
+    }
+
+    pub fn new_toy(n_per_row: usize) -> Self {
         Self {
             n_per_row,
             n_degree_tests: DEFAULT_N_DEGREE_TESTS,
@@ -97,7 +120,8 @@ impl BrakedownParams {
     /// - keeps the same encoder path
     /// - enables security-parameter auto-tuning from field profile and encoded column count
     pub fn new_with_field_profile(n_per_row: usize, field_profile: BrakedownFieldProfile) -> Self {
-        let mut p = Self::new(n_per_row);
+        // Keep lcpc-like migration profile distinct from production-pinned defaults.
+        let mut p = Self::new_toy(n_per_row);
         p.field_profile = field_profile;
         p.auto_tune_security = true;
         p

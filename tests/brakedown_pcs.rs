@@ -33,7 +33,7 @@ fn build_tensors(n_rows: usize, n_per_row: usize) -> (Vec<Fp>, Vec<Fp>) {
 }
 
 fn fixture() -> (BrakedownPcs, Vec<Fp>) {
-    let params = BrakedownParams::new(8);
+    let params = BrakedownParams::new_toy(8);
     let pcs = BrakedownPcs::new(params.clone());
     let n_rows = 4;
     let coeffs: Vec<Fp> = (0..(n_rows * params.n_per_row))
@@ -248,7 +248,7 @@ fn brakedown_verify_fails_on_encoder_profile_mismatch() {
         .zip(proof.p_eval.iter())
         .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
 
-    let mut bad_params = BrakedownParams::new(8);
+    let mut bad_params = BrakedownParams::new_toy(8);
     bad_params.encoder_seed = 1234567;
     let bad_pcs = BrakedownPcs::new(bad_params);
 

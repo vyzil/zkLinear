@@ -17,7 +17,7 @@ use super::{
 };
 
 pub fn build_brakedown_demo_report() -> Result<String> {
-    let params = BrakedownParams::new(8);
+    let params = BrakedownParams::new_toy(8);
     let pcs = BrakedownPcs::new(params.clone());
 
     let n_rows = 4;

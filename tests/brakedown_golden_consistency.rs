@@ -55,7 +55,7 @@ fn build_tensors_t<F: BrakedownField>(n_rows: usize, n_per_row: usize) -> (Vec<F
 
 #[test]
 fn brakedown_golden_consistency_toy_path() {
-    let params = BrakedownParams::new(8);
+    let params = BrakedownParams::new_toy(8);
     let pcs = BrakedownPcs::new(params.clone());
     let n_rows = 4;
     let coeffs: Vec<Fp> = (0..(n_rows * params.n_per_row))

@@ -17,7 +17,7 @@ pub enum BrakedownSecurityPreset {
 impl BrakedownSecurityPreset {
     pub fn params(self, n_per_row: usize) -> BrakedownParams {
         match self {
-            BrakedownSecurityPreset::DemoToy => BrakedownParams::new(n_per_row),
+            BrakedownSecurityPreset::DemoToy => BrakedownParams::new_toy(n_per_row),
             BrakedownSecurityPreset::LcpcLikeMersenne61Ext2 => {
                 BrakedownParams::new_with_field_profile(
                     n_per_row,

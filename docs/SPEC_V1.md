@@ -61,7 +61,7 @@ PCS openings are verified for:
 
 Verifier-commitment and eval-proof wire payloads are versioned by fixed 8-byte tags:
 - verifier commitment tag: `ZKVCB001`
-- eval proof tag: `ZKPFB001`
+- eval proof tag: `ZKPFB002`
 
 Compatibility policy:
 - unknown tag/version is rejected at decode boundary
@@ -92,6 +92,10 @@ explicit for profiling and regression tests.
 Default enforced profile:
 - protocol: `Spartan2Like`
 - pcs: `LcpcBrakedownLike`
+
+Default runtime field profile in this repository:
+- `Mersenne61Ext2` (`BrakedownParams::new(...)`)
+- toy profile remains available only through explicit constructors/presets (`new_toy`, `DemoToy`)
 
 Any profile mismatch at verification boundary is rejected.
 

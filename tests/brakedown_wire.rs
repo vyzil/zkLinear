@@ -39,7 +39,7 @@ fn build_tensors(n_rows: usize, n_per_row: usize) -> (Vec<Fp>, Vec<Fp>) {
 }
 
 fn fixture() -> (BrakedownPcs, Vec<Fp>) {
-    let params = BrakedownParams::new(8);
+    let params = BrakedownParams::new_toy(8);
     let pcs = BrakedownPcs::new(params.clone());
     let n_rows = 4;
     let coeffs: Vec<Fp> = (0..(n_rows * params.n_per_row))

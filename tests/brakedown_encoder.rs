@@ -15,7 +15,7 @@ fn fixture_coeffs(n_rows: usize, n_per_row: usize) -> Vec<Fp> {
 
 #[test]
 fn spielman_like_encoding_is_deterministic_for_same_seed() {
-    let mut params = BrakedownParams::new(8);
+    let mut params = BrakedownParams::new_toy(8);
     params.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     params.encoder_seed = 42;
 
@@ -33,11 +33,11 @@ fn spielman_like_encoding_is_deterministic_for_same_seed() {
 
 #[test]
 fn spielman_like_encoding_changes_with_seed() {
-    let mut p0 = BrakedownParams::new(8);
+    let mut p0 = BrakedownParams::new_toy(8);
     p0.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     p0.encoder_seed = 1;
 
-    let mut p1 = BrakedownParams::new(8);
+    let mut p1 = BrakedownParams::new_toy(8);
     p1.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     p1.encoder_seed = 2;
 
@@ -51,4 +51,3 @@ fn spielman_like_encoding_changes_with_seed() {
     assert_ne!(comm_0.encoded, comm_1.encoded);
     assert_ne!(comm_0.merkle_nodes.last(), comm_1.merkle_nodes.last());
 }
-

@@ -7,10 +7,18 @@ use zk_linear::{
     field_profiles::{BaseField64, Mersenne61},
     pcs::{
         brakedown::profiles::auto_tuned_counts, traits::PolynomialCommitmentScheme, BrakedownPcs,
-        BrakedownPcsT,
+        BrakedownPcsT, BrakedownParams, BrakedownFieldProfile,
     },
     protocol::spec_v1::{append_spec_domain, append_u64_le, PCS_DEMO_TRANSCRIPT_LABEL},
 };
+
+#[test]
+fn default_params_are_production_m61_ext2() {
+    let p = BrakedownParams::new(8);
+    assert_eq!(p.field_profile, BrakedownFieldProfile::Mersenne61Ext2);
+    assert!(p.auto_tune_security);
+    assert!(p.is_spec_v1_production_candidate());
+}
 
 #[test]
 fn auto_tune_security_profiles_increase_degree_tests_vs_toy() {
