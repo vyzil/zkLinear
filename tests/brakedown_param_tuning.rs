@@ -1,6 +1,7 @@
 mod common;
 
 use zk_linear::pcs::BrakedownSecurityPreset;
+use zk_linear::{field_profiles::Mersenne61, pcs::BrakedownPcsT};
 
 #[test]
 fn auto_tune_security_profiles_increase_degree_tests_vs_toy() {
@@ -19,4 +20,10 @@ fn auto_tune_security_produces_valid_open_count() {
     let pcs = common::pcs_from_preset(BrakedownSecurityPreset::LcpcLikeMersenne61Ext2);
     assert!(pcs.params.n_col_opens <= pcs.encoding.n_cols);
     assert!(pcs.params.n_degree_tests >= 1);
+}
+
+#[test]
+fn generic_pcs_type_is_constructible_for_alt_field_profile() {
+    let _pcs_generic: BrakedownPcsT<Mersenne61> =
+        BrakedownPcsT::new(BrakedownSecurityPreset::LcpcLikeMersenne61Ext2.params(8));
 }

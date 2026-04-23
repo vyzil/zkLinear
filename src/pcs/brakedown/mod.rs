@@ -11,6 +11,7 @@ pub mod wire;
 
 use anyhow::Result;
 use merlin::Transcript;
+use std::marker::PhantomData;
 
 use crate::{
     core::field::{Fp, ModulusScope},
@@ -30,12 +31,15 @@ use self::{
 };
 
 #[derive(Clone, Debug)]
-pub struct BrakedownPcs {
+pub struct BrakedownPcsT<F = Fp> {
     pub params: BrakedownParams,
     pub encoding: BrakedownEncoding,
+    _field: PhantomData<F>,
 }
 
-impl BrakedownPcs {
+pub type BrakedownPcs = BrakedownPcsT<Fp>;
+
+impl<F> BrakedownPcsT<F> {
     pub fn new(params: BrakedownParams) -> Self {
         let mut tuned = params.clone();
         let encoding = BrakedownEncoding::from_params(&tuned);
@@ -51,6 +55,7 @@ impl BrakedownPcs {
         Self {
             params: tuned,
             encoding,
+            _field: PhantomData,
         }
     }
 
@@ -84,7 +89,7 @@ fn code_distance_hint(kind: BrakedownEncoderKind) -> f64 {
     }
 }
 
-impl PolynomialCommitmentScheme for BrakedownPcs {
+impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
     type Field = Fp;
     type ProverCommitment = BrakedownProverCommitment;
     type VerifierCommitment = BrakedownVerifierCommitment;
