@@ -92,15 +92,17 @@ pub struct BrakedownEncoding {
 }
 
 #[derive(Clone, Debug)]
-pub struct BrakedownProverCommitment {
-    pub coeffs: Vec<Fp>,
-    pub encoded: Vec<Fp>,
+pub struct BrakedownProverCommitmentT<F> {
+    pub coeffs: Vec<F>,
+    pub encoded: Vec<F>,
     pub n_rows: usize,
     pub n_per_row: usize,
     pub n_cols: usize,
     pub leaf_hashes: Vec<[u8; 32]>,
     pub merkle_nodes: Vec<[u8; 32]>,
 }
+
+pub type BrakedownProverCommitment = BrakedownProverCommitmentT<Fp>;
 
 #[derive(Clone, Debug)]
 pub struct BrakedownVerifierCommitment {
@@ -117,7 +119,7 @@ pub struct BrakedownVerifierCommitment {
     pub spel_base_rs_parity: usize,
 }
 
-impl BrakedownProverCommitment {
+impl<F> BrakedownProverCommitmentT<F> {
     pub fn verifier_view(
         &self,
         enc: &BrakedownEncoding,
@@ -140,15 +142,19 @@ impl BrakedownProverCommitment {
 }
 
 #[derive(Clone, Debug)]
-pub struct ColumnOpening {
+pub struct ColumnOpeningT<F> {
     pub col_idx: usize,
-    pub values: Vec<Fp>,
+    pub values: Vec<F>,
     pub merkle_path: Vec<[u8; 32]>,
 }
 
+pub type ColumnOpening = ColumnOpeningT<Fp>;
+
 #[derive(Clone, Debug)]
-pub struct BrakedownEvalProof {
-    pub p_eval: Vec<Fp>,
-    pub p_random_vec: Vec<Vec<Fp>>,
-    pub columns: Vec<ColumnOpening>,
+pub struct BrakedownEvalProofT<F> {
+    pub p_eval: Vec<F>,
+    pub p_random_vec: Vec<Vec<F>>,
+    pub columns: Vec<ColumnOpeningT<F>>,
 }
+
+pub type BrakedownEvalProof = BrakedownEvalProofT<Fp>;

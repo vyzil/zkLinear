@@ -1,11 +1,12 @@
 use anyhow::{anyhow, Result};
 
-use crate::core::field::{Fp, MODULUS};
+use crate::core::field::Fp;
 
 use super::types::{
-    BrakedownEncoderKind, BrakedownEvalProof, BrakedownFieldProfile, BrakedownVerifierCommitment,
-    ColumnOpening,
+    BrakedownEncoderKind, BrakedownEvalProof, BrakedownEvalProofT, BrakedownFieldProfile,
+    BrakedownVerifierCommitment, ColumnOpeningT,
 };
+use super::scalar::BrakedownField;
 
 const VC_TAG: &[u8; 8] = b"ZKVCB001";
 const PF_TAG: &[u8; 8] = b"ZKPFB001";
@@ -92,16 +93,16 @@ fn decode_field_profile(v: u8) -> Result<BrakedownFieldProfile> {
     }
 }
 
-fn encode_fp(out: &mut Vec<u8>, v: Fp) {
-    push_u64_le(out, v.0);
+fn encode_field_t<F: BrakedownField>(out: &mut Vec<u8>, v: F) {
+    push_u64_le(out, v.to_u64());
 }
 
-fn decode_fp(r: &mut Reader<'_>) -> Result<Fp> {
+fn decode_field_t<F: BrakedownField>(r: &mut Reader<'_>) -> Result<F> {
     let v = r.read_u64_le()?;
-    if v >= MODULUS {
+    if v >= F::modulus() {
         return Err(anyhow!("wire: invalid field element encoding"));
     }
-    Ok(Fp(v))
+    Ok(F::new(v))
 }
 
 pub fn serialize_verifier_commitment(vc: &BrakedownVerifierCommitment) -> Vec<u8> {
@@ -157,19 +158,23 @@ pub fn deserialize_verifier_commitment(bytes: &[u8]) -> Result<BrakedownVerifier
 }
 
 pub fn serialize_eval_proof(pf: &BrakedownEvalProof) -> Vec<u8> {
+    serialize_eval_proof_t::<Fp>(pf)
+}
+
+pub fn serialize_eval_proof_t<F: BrakedownField>(pf: &BrakedownEvalProofT<F>) -> Vec<u8> {
     let mut out = Vec::new();
     out.extend_from_slice(PF_TAG);
 
     push_u64_le(&mut out, pf.p_eval.len() as u64);
     for v in &pf.p_eval {
-        encode_fp(&mut out, *v);
+        encode_field_t(&mut out, *v);
     }
 
     push_u64_le(&mut out, pf.p_random_vec.len() as u64);
     for vec in &pf.p_random_vec {
         push_u64_le(&mut out, vec.len() as u64);
         for v in vec {
-            encode_fp(&mut out, *v);
+            encode_field_t(&mut out, *v);
         }
     }
 
@@ -178,7 +183,7 @@ pub fn serialize_eval_proof(pf: &BrakedownEvalProof) -> Vec<u8> {
         push_u64_le(&mut out, c.col_idx as u64);
         push_u64_le(&mut out, c.values.len() as u64);
         for v in &c.values {
-            encode_fp(&mut out, *v);
+            encode_field_t(&mut out, *v);
         }
         push_u64_le(&mut out, c.merkle_path.len() as u64);
         for s in &c.merkle_path {
@@ -190,6 +195,10 @@ pub fn serialize_eval_proof(pf: &BrakedownEvalProof) -> Vec<u8> {
 }
 
 pub fn deserialize_eval_proof(bytes: &[u8]) -> Result<BrakedownEvalProof> {
+    deserialize_eval_proof_t::<Fp>(bytes)
+}
+
+pub fn deserialize_eval_proof_t<F: BrakedownField>(bytes: &[u8]) -> Result<BrakedownEvalProofT<F>> {
     let mut r = Reader::new(bytes);
     if r.read_exact(8)? != PF_TAG {
         return Err(anyhow!("wire: wrong eval-proof tag"));
@@ -198,7 +207,7 @@ pub fn deserialize_eval_proof(bytes: &[u8]) -> Result<BrakedownEvalProof> {
     let p_eval_len = r.read_u64_le()? as usize;
     let mut p_eval = Vec::with_capacity(p_eval_len);
     for _ in 0..p_eval_len {
-        p_eval.push(decode_fp(&mut r)?);
+        p_eval.push(decode_field_t::<F>(&mut r)?);
     }
 
     let rand_count = r.read_u64_le()? as usize;
@@ -207,7 +216,7 @@ pub fn deserialize_eval_proof(bytes: &[u8]) -> Result<BrakedownEvalProof> {
         let len = r.read_u64_le()? as usize;
         let mut v = Vec::with_capacity(len);
         for _ in 0..len {
-            v.push(decode_fp(&mut r)?);
+            v.push(decode_field_t::<F>(&mut r)?);
         }
         p_random_vec.push(v);
     }
@@ -219,14 +228,14 @@ pub fn deserialize_eval_proof(bytes: &[u8]) -> Result<BrakedownEvalProof> {
         let values_len = r.read_u64_le()? as usize;
         let mut values = Vec::with_capacity(values_len);
         for _ in 0..values_len {
-            values.push(decode_fp(&mut r)?);
+            values.push(decode_field_t::<F>(&mut r)?);
         }
         let path_len = r.read_u64_le()? as usize;
         let mut merkle_path = Vec::with_capacity(path_len);
         for _ in 0..path_len {
             merkle_path.push(r.read_arr32()?);
         }
-        columns.push(ColumnOpening {
+        columns.push(ColumnOpeningT {
             col_idx,
             values,
             merkle_path,
@@ -237,7 +246,7 @@ pub fn deserialize_eval_proof(bytes: &[u8]) -> Result<BrakedownEvalProof> {
         return Err(anyhow!("wire: trailing bytes in eval proof"));
     }
 
-    Ok(BrakedownEvalProof {
+    Ok(BrakedownEvalProofT {
         p_eval,
         p_random_vec,
         columns,

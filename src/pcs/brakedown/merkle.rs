@@ -2,15 +2,19 @@ use sha2::{Digest, Sha256};
 
 use crate::core::field::Fp;
 
-use super::types::ColumnOpening;
+use super::{scalar::BrakedownField, types::ColumnOpeningT};
 
-pub fn digest_fp_list(values: &[Fp]) -> [u8; 32] {
+pub fn digest_list_t<F: BrakedownField>(values: &[F]) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update([0u8; 32]);
     for v in values {
-        h.update(v.0.to_le_bytes());
+        h.update(v.to_u64().to_le_bytes());
     }
     h.finalize().into()
+}
+
+pub fn digest_fp_list(values: &[Fp]) -> [u8; 32] {
+    digest_list_t(values)
 }
 
 pub fn merkle_tree(leaves: &[[u8; 32]]) -> Vec<[u8; 32]> {
@@ -44,8 +48,8 @@ pub fn merkle_root(nodes: &[[u8; 32]]) -> [u8; 32] {
     *nodes.last().unwrap_or(&[0u8; 32])
 }
 
-pub fn verify_column_path(root: [u8; 32], opening: &ColumnOpening) -> bool {
-    let mut cur = digest_fp_list(&opening.values);
+pub fn verify_column_path_t<F: BrakedownField>(root: [u8; 32], opening: &ColumnOpeningT<F>) -> bool {
+    let mut cur = digest_list_t(&opening.values);
     let mut idx = opening.col_idx;
     for s in &opening.merkle_path {
         let mut h = Sha256::new();
@@ -60,4 +64,8 @@ pub fn verify_column_path(root: [u8; 32], opening: &ColumnOpening) -> bool {
         idx >>= 1;
     }
     cur == root
+}
+
+pub fn verify_column_path(root: [u8; 32], opening: &ColumnOpeningT<Fp>) -> bool {
+    verify_column_path_t(root, opening)
 }

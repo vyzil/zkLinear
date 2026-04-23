@@ -5,6 +5,7 @@ pub mod encoding;
 pub mod merkle;
 pub mod profiles;
 pub mod prove;
+pub mod scalar;
 pub mod types;
 pub mod verify;
 pub mod wire;
@@ -19,15 +20,15 @@ use crate::{
 };
 
 use self::{
-    commit::commit,
-    prove::prove_eval,
+    commit::{commit, commit_t},
+    prove::{prove_eval, prove_eval_t},
+    scalar::BrakedownField,
     types::{
         BrakedownEncoding, BrakedownEncoderKind, BrakedownEvalProof, BrakedownFieldProfile,
-        BrakedownParams,
-        BrakedownProverCommitment,
-        BrakedownVerifierCommitment,
+        BrakedownParams, BrakedownProverCommitment, BrakedownProverCommitmentT,
+        BrakedownVerifierCommitment, BrakedownEvalProofT,
     },
-    verify::verify_eval,
+    verify::{verify_eval, verify_eval_t},
 };
 
 #[derive(Clone, Debug)]
@@ -65,6 +66,55 @@ impl<F> BrakedownPcsT<F> {
             BrakedownFieldProfile::Mersenne61Ext2 => (1u64 << 61) - 1,
             BrakedownFieldProfile::Goldilocks64Ext2 => 18446744069414584321,
         }
+    }
+}
+
+impl<F: BrakedownField> BrakedownPcsT<F> {
+    pub fn commit_generic(&self, coeffs: &[F]) -> Result<BrakedownProverCommitmentT<F>> {
+        commit_t(coeffs, &self.encoding)
+    }
+
+    pub fn verifier_commitment_generic(
+        &self,
+        prover_commitment: &BrakedownProverCommitmentT<F>,
+    ) -> BrakedownVerifierCommitment {
+        prover_commitment.verifier_view(&self.encoding, self.params.field_profile)
+    }
+
+    pub fn open_generic(
+        &self,
+        prover_commitment: &BrakedownProverCommitmentT<F>,
+        outer_tensor: &[F],
+        transcript: &mut Transcript,
+    ) -> Result<BrakedownEvalProofT<F>> {
+        prove_eval_t(
+            prover_commitment,
+            outer_tensor,
+            &self.encoding,
+            &self.params,
+            transcript,
+        )
+    }
+
+    pub fn verify_generic(
+        &self,
+        verifier_commitment: &BrakedownVerifierCommitment,
+        proof: &BrakedownEvalProofT<F>,
+        outer_tensor: &[F],
+        inner_tensor: &[F],
+        claimed_value: F,
+        transcript: &mut Transcript,
+    ) -> Result<()> {
+        verify_eval_t(
+            verifier_commitment,
+            proof,
+            outer_tensor,
+            inner_tensor,
+            claimed_value,
+            &self.encoding,
+            &self.params,
+            transcript,
+        )
     }
 }
 

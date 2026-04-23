@@ -3,21 +3,29 @@ use anyhow::{anyhow, Result};
 use crate::core::field::Fp;
 
 use super::{
-    merkle::{digest_fp_list, merkle_tree},
-    types::{BrakedownEncoding, BrakedownProverCommitment, ColumnOpening},
+    merkle::{digest_list_t, merkle_tree},
+    scalar::BrakedownField,
+    types::{BrakedownEncoding, BrakedownProverCommitment, BrakedownProverCommitmentT, ColumnOpening, ColumnOpeningT},
 };
 
 pub fn commit(coeffs_in: &[Fp], enc: &BrakedownEncoding) -> Result<BrakedownProverCommitment> {
+    commit_t(coeffs_in, enc)
+}
+
+pub fn commit_t<F: BrakedownField>(
+    coeffs_in: &[F],
+    enc: &BrakedownEncoding,
+) -> Result<BrakedownProverCommitmentT<F>> {
     if coeffs_in.len() % enc.n_per_row != 0 {
         return Err(anyhow!("coeff length must be multiple of n_per_row"));
     }
 
     let n_rows = coeffs_in.len() / enc.n_per_row;
-    let mut encoded = vec![Fp::zero(); n_rows * enc.n_cols];
+    let mut encoded = vec![F::zero(); n_rows * enc.n_cols];
 
     for r in 0..n_rows {
         let row = &coeffs_in[r * enc.n_per_row..(r + 1) * enc.n_per_row];
-        let enc_row = enc.encode_row(row);
+        let enc_row = enc.encode_row_t(row);
         encoded[r * enc.n_cols..(r + 1) * enc.n_cols].copy_from_slice(&enc_row);
     }
 
@@ -27,12 +35,12 @@ pub fn commit(coeffs_in: &[Fp], enc: &BrakedownEncoding) -> Result<BrakedownProv
         for r in 0..n_rows {
             col.push(encoded[r * enc.n_cols + c]);
         }
-        leaf_hashes.push(digest_fp_list(&col));
+        leaf_hashes.push(digest_list_t(&col));
     }
 
     let merkle_nodes = merkle_tree(&leaf_hashes);
 
-    Ok(BrakedownProverCommitment {
+    Ok(BrakedownProverCommitmentT {
         coeffs: coeffs_in.to_vec(),
         encoded,
         n_rows,
@@ -44,6 +52,13 @@ pub fn commit(coeffs_in: &[Fp], enc: &BrakedownEncoding) -> Result<BrakedownProv
 }
 
 pub fn open_column(comm: &BrakedownProverCommitment, col_idx: usize) -> Result<ColumnOpening> {
+    open_column_t(comm, col_idx)
+}
+
+pub fn open_column_t<F: BrakedownField>(
+    comm: &BrakedownProverCommitmentT<F>,
+    col_idx: usize,
+) -> Result<ColumnOpeningT<F>> {
     if col_idx >= comm.n_cols {
         return Err(anyhow!("opened column out of range"));
     }
@@ -67,7 +82,7 @@ pub fn open_column(comm: &BrakedownProverCommitment, col_idx: usize) -> Result<C
         width >>= 1;
     }
 
-    Ok(ColumnOpening {
+    Ok(ColumnOpeningT {
         col_idx,
         values,
         merkle_path: path,

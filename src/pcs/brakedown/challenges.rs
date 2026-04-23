@@ -4,13 +4,22 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha20Rng;
 
 use crate::core::field::Fp;
+use super::scalar::BrakedownField;
 use crate::protocol::spec_v1::LCPC_COL_OPEN_LABEL;
 
 pub fn sample_field_vec(tr: &mut Transcript, label: &'static [u8], n: usize) -> Vec<Fp> {
+    sample_field_vec_t(tr, label, n)
+}
+
+pub fn sample_field_vec_t<F: BrakedownField>(
+    tr: &mut Transcript,
+    label: &'static [u8],
+    n: usize,
+) -> Vec<F> {
     let mut seed = [0u8; 32];
     tr.challenge_bytes(label, &mut seed);
     let mut rng = ChaCha20Rng::from_seed(seed);
-    (0..n).map(|_| Fp::new(rng.r#gen::<u64>())).collect()
+    (0..n).map(|_| F::new(rng.r#gen::<u64>())).collect()
 }
 
 pub fn sample_unique_cols(tr: &mut Transcript, n_cols: usize, n_open: usize) -> Result<Vec<usize>> {

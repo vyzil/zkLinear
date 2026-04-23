@@ -3,7 +3,10 @@ use rand_chacha::ChaCha20Rng;
 
 use crate::core::field::Fp;
 
-use super::types::{BrakedownEncoderKind, BrakedownEncoding, BrakedownParams};
+use super::{
+    scalar::BrakedownField,
+    types::{BrakedownEncoderKind, BrakedownEncoding, BrakedownParams},
+};
 
 impl BrakedownEncoding {
     pub fn from_params(params: &BrakedownParams) -> Self {
@@ -41,13 +44,17 @@ impl BrakedownEncoding {
     }
 
     pub fn encode_row(&self, row: &[Fp]) -> Vec<Fp> {
+        self.encode_row_t::<Fp>(row)
+    }
+
+    pub fn encode_row_t<F: BrakedownField>(&self, row: &[F]) -> Vec<F> {
         match self.kind {
-            BrakedownEncoderKind::ToyHybrid => self.encode_row_toy_hybrid(row),
-            BrakedownEncoderKind::SpielmanLike => self.encode_row_spielman_like(row),
+            BrakedownEncoderKind::ToyHybrid => self.encode_row_toy_hybrid_t(row),
+            BrakedownEncoderKind::SpielmanLike => self.encode_row_spielman_like_t(row),
         }
     }
 
-    fn encode_row_toy_hybrid(&self, row: &[Fp]) -> Vec<Fp> {
+    fn encode_row_toy_hybrid_t<F: BrakedownField>(&self, row: &[F]) -> Vec<F> {
         let k = self.n_per_row;
         assert_eq!(row.len(), k);
         assert!(
@@ -55,15 +62,15 @@ impl BrakedownEncoding {
             "demo encoder requires at least 8 coefficients per row"
         );
 
-        let mut out = vec![Fp::zero(); self.n_cols];
+        let mut out = vec![F::zero(); self.n_cols];
 
         // systematic part
         out[..k].copy_from_slice(row);
 
         // RS-like parity: evaluate polynomial at x = 1..4
         for t in 0..4 {
-            let x = Fp::new((t + 1) as u64);
-            let mut eval = Fp::zero();
+            let x = F::new((t + 1) as u64);
+            let mut eval = F::zero();
             for c in row.iter().rev() {
                 eval = eval.mul(x).add(*c);
             }
@@ -79,13 +86,13 @@ impl BrakedownEncoding {
         ];
         for (j, triple) in idx.iter().enumerate() {
             out[k + 4 + j] = row[triple[0]]
-                .add(row[triple[1]].mul(Fp::new(2)))
-                .add(row[triple[2]].mul(Fp::new(3)));
+                .add(row[triple[1]].mul(F::new(2)))
+                .add(row[triple[2]].mul(F::new(3)));
         }
         out
     }
 
-    fn encode_row_spielman_like(&self, row: &[Fp]) -> Vec<Fp> {
+    fn encode_row_spielman_like_t<F: BrakedownField>(&self, row: &[F]) -> Vec<F> {
         assert_eq!(row.len(), self.n_per_row);
         assert!(
             self.spel_layers > 0,
@@ -120,8 +127,8 @@ impl BrakedownEncoding {
 
         // Base-case RS-like expansion on deepest precode output
         for t in 0..self.spel_base_rs_parity {
-            let x = Fp::new((t + 1) as u64);
-            let mut eval = Fp::zero();
+            let x = F::new((t + 1) as u64);
+            let mut eval = F::zero();
             for c in cur.iter().rev() {
                 eval = eval.mul(x).add(*c);
             }
@@ -155,16 +162,21 @@ fn ceil_div(a: usize, b: usize) -> usize {
     (a + b - 1) / b
 }
 
-fn sparse_layer_map(input: &[Fp], out_len: usize, density: usize, seed: u64) -> Vec<Fp> {
+fn sparse_layer_map<F: BrakedownField>(
+    input: &[F],
+    out_len: usize,
+    density: usize,
+    seed: u64,
+) -> Vec<F> {
     let mut rng =
         ChaCha20Rng::seed_from_u64(seed ^ (input.len() as u64) ^ ((out_len as u64) << 16));
-    let mut out = vec![Fp::zero(); out_len];
+    let mut out = vec![F::zero(); out_len];
 
     for o in &mut out {
-        let mut acc = Fp::zero();
+        let mut acc = F::zero();
         for _ in 0..density {
             let idx = rng.gen_range(0..input.len());
-            let coeff = Fp::new((rng.gen_range(1..=7)) as u64);
+            let coeff = F::new((rng.gen_range(1..=7)) as u64);
             acc = acc.add(input[idx].mul(coeff));
         }
         *o = acc;

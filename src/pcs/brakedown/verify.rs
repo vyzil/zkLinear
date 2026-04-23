@@ -5,9 +5,13 @@ use crate::core::field::Fp;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
-    challenges::{sample_field_vec, sample_unique_cols},
-    merkle::verify_column_path,
-    types::{BrakedownEncoding, BrakedownEvalProof, BrakedownParams, BrakedownVerifierCommitment},
+    challenges::{sample_field_vec_t, sample_unique_cols},
+    merkle::verify_column_path_t,
+    scalar::BrakedownField,
+    types::{
+        BrakedownEncoding, BrakedownEvalProof, BrakedownEvalProofT, BrakedownParams,
+        BrakedownVerifierCommitment,
+    },
 };
 
 pub fn verify_eval(
@@ -16,6 +20,28 @@ pub fn verify_eval(
     outer_tensor: &[Fp],
     inner_tensor: &[Fp],
     claimed_value: Fp,
+    enc: &BrakedownEncoding,
+    params: &BrakedownParams,
+    tr: &mut Transcript,
+) -> Result<()> {
+    verify_eval_t(
+        commitment,
+        proof,
+        outer_tensor,
+        inner_tensor,
+        claimed_value,
+        enc,
+        params,
+        tr,
+    )
+}
+
+pub fn verify_eval_t<F: BrakedownField>(
+    commitment: &BrakedownVerifierCommitment,
+    proof: &BrakedownEvalProofT<F>,
+    outer_tensor: &[F],
+    inner_tensor: &[F],
+    claimed_value: F,
     enc: &BrakedownEncoding,
     params: &BrakedownParams,
     tr: &mut Transcript,
@@ -58,24 +84,24 @@ pub fn verify_eval(
             return Err(anyhow!("degree-test vector length mismatch"));
         }
 
-        let t = sample_field_vec(tr, LCPC_DEG_TEST_LABEL, commitment.n_rows);
+        let t: Vec<F> = sample_field_vec_t(tr, LCPC_DEG_TEST_LABEL, commitment.n_rows);
         rand_tensors.push(t);
         for v in p_rand {
-            tr.append_message(b"p_random", &v.0.to_le_bytes());
+            tr.append_message(b"p_random", &v.to_u64().to_le_bytes());
         }
     }
 
     for v in &proof.p_eval {
-        tr.append_message(b"p_eval", &v.0.to_le_bytes());
+        tr.append_message(b"p_eval", &v.to_u64().to_le_bytes());
     }
 
     let cols_expected = sample_unique_cols(tr, enc.n_cols, params.n_col_opens)?;
 
-    let p_eval_enc = enc.encode_row(&proof.p_eval);
-    let p_rand_enc: Vec<Vec<Fp>> = proof
+    let p_eval_enc = enc.encode_row_t(&proof.p_eval);
+    let p_rand_enc: Vec<Vec<F>> = proof
         .p_random_vec
         .iter()
-        .map(|v| enc.encode_row(v))
+        .map(|v| enc.encode_row_t(v))
         .collect();
 
     let expected_path_len = enc.n_cols.next_power_of_two().trailing_zeros() as usize;
@@ -95,7 +121,7 @@ pub fn verify_eval(
             let dot = rand_tensors[j]
                 .iter()
                 .zip(op.values.iter())
-                .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+                .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
             if dot != p_rand_enc[j][op.col_idx] {
                 return Err(anyhow!("degree-test column check failed"));
             }
@@ -104,12 +130,12 @@ pub fn verify_eval(
         let dot_eval = outer_tensor
             .iter()
             .zip(op.values.iter())
-            .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+            .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
         if dot_eval != p_eval_enc[op.col_idx] {
             return Err(anyhow!("eval column check failed"));
         }
 
-        if !verify_column_path(commitment.root, op) {
+        if !verify_column_path_t(commitment.root, op) {
             return Err(anyhow!("merkle path failed"));
         }
     }
@@ -117,7 +143,7 @@ pub fn verify_eval(
     let eval = inner_tensor
         .iter()
         .zip(proof.p_eval.iter())
-        .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+        .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
     if eval != claimed_value {
         return Err(anyhow!("claimed evaluation mismatch"));
     }
