@@ -45,6 +45,9 @@ pub fn append_case_digest_to_transcript(
 }
 
 pub fn compute_case_digest(case: &SpartanLikeCase) -> [u8; 32] {
+    // Circuit digest binds only fixed circuit shape/content (A,B,C + dims).
+    // Witness-dependent values (z) are intentionally excluded so the digest
+    // can be used as a compile-time artifact boundary.
     let mut h = Sha256::new();
     h.update((case.a.len() as u64).to_le_bytes());
     h.update((case.a[0].len() as u64).to_le_bytes());
@@ -62,9 +65,6 @@ pub fn compute_case_digest(case: &SpartanLikeCase) -> [u8; 32] {
         for v in row {
             h.update(v.0.to_le_bytes());
         }
-    }
-    for z in &case.z {
-        h.update(z.0.to_le_bytes());
     }
     h.finalize().into()
 }

@@ -6,9 +6,11 @@
 
 pub use super::flow::{
     build_pipeline_report_from_dir, build_pipeline_report_from_dir_with_profile, parse_field_profile,
-    prove_from_dir, prove_from_dir_with_profile, verify_from_dir, verify_public,
+    compile_from_dir, compile_from_dir_with_profile, prove_from_dir, prove_from_dir_with_profile,
+    prove_with_compiled_from_dir, verify_from_dir, verify_public, verify_with_compiled,
 };
 pub use super::types::{
-    KernelTimingMs, SpartanBrakedownPipelineResult, SpartanBrakedownProof, SpartanBrakedownProver,
-    SpartanBrakedownPublic, SpartanBrakedownVerifier, VerifyMode,
+    KernelTimingMs, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
+    SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic,
+    SpartanBrakedownVerifier, VerifyMode,
 };

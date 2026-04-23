@@ -36,6 +36,15 @@ pub struct SpartanBrakedownPublic {
 }
 
 #[derive(Debug, Clone)]
+pub struct SpartanBrakedownCompiledCircuit {
+    pub rows: usize,
+    pub cols: usize,
+    pub case_digest: [u8; 32],
+    pub field_profile: BrakedownFieldProfile,
+    pub reference_profile: ReferenceProfile,
+}
+
+#[derive(Debug, Clone)]
 pub struct KernelTimingMs {
     pub k0_input_parse_ms: f64,
     pub k1_spartan_prove_ms: f64,

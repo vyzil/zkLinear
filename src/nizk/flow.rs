@@ -8,7 +8,7 @@ use crate::{
         field::{Fp, ModulusScope},
         transcript::derive_round_challenge_merlin,
     },
-    io::case_format::load_spartan_like_case_from_dir,
+    io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
     pcs::{
         brakedown::{
             profiles::params_for_field_profile,
@@ -41,7 +41,7 @@ use crate::{
 use super::report::format_pipeline_report;
 use super::types::{
     KernelTimingMs, SpartanBrakedownPipelineResult, SpartanBrakedownProof, SpartanBrakedownPublic,
-    SpartanBrakedownProver, SpartanBrakedownVerifier, VerifyMode,
+    SpartanBrakedownCompiledCircuit, SpartanBrakedownProver, SpartanBrakedownVerifier, VerifyMode,
 };
 
 fn default_profile() -> BrakedownFieldProfile {
@@ -50,6 +50,35 @@ fn default_profile() -> BrakedownFieldProfile {
 
 pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
     BrakedownFieldProfile::parse(s)
+}
+
+pub fn compile_from_dir(case_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
+    compile_from_dir_with_profile(case_dir, default_profile())
+}
+
+pub fn compile_from_dir_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<SpartanBrakedownCompiledCircuit> {
+    let _mod_scope = ModulusScope::enter(profile.base_modulus());
+    let case = load_spartan_like_case_from_dir(case_dir)?;
+    Ok(SpartanBrakedownCompiledCircuit {
+        rows: case.a.len(),
+        cols: case.a[0].len(),
+        case_digest: compute_case_digest(&case),
+        field_profile: profile,
+        reference_profile: DUAL_REFERENCE_PROFILE,
+    })
+}
+
+pub fn prove_with_compiled_from_dir(
+    compiled: &SpartanBrakedownCompiledCircuit,
+    case_dir: &Path,
+) -> Result<SpartanBrakedownPipelineResult> {
+    let _mod_scope = ModulusScope::enter(compiled.field_profile.base_modulus());
+    let case = load_spartan_like_case_from_dir(case_dir)?;
+    validate_compiled_case(compiled, &case)?;
+    prove_from_dir_impl(case_dir, compiled.field_profile)
 }
 
 pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
@@ -238,6 +267,15 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
 
 pub fn verify_public(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
     SpartanBrakedownVerifier::new(VerifyMode::Succinct).verify_public(proof, public)
+}
+
+pub fn verify_with_compiled(
+    compiled: &SpartanBrakedownCompiledCircuit,
+    proof: &SpartanBrakedownProof,
+    public: &SpartanBrakedownPublic,
+) -> Result<()> {
+    validate_compiled_public(compiled, proof, public)?;
+    verify_public(proof, public)
 }
 
 impl SpartanBrakedownVerifier {
@@ -507,6 +545,44 @@ fn verify_from_dir_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Res
         &mut tr_v,
     )?;
 
+    Ok(())
+}
+
+fn validate_compiled_case(
+    compiled: &SpartanBrakedownCompiledCircuit,
+    case: &SpartanLikeCase,
+) -> Result<()> {
+    if compiled.reference_profile != DUAL_REFERENCE_PROFILE {
+        return Err(anyhow!("unsupported reference profile in compiled circuit"));
+    }
+    if case.a.len() != compiled.rows || case.a[0].len() != compiled.cols {
+        return Err(anyhow!("compiled circuit shape mismatch"));
+    }
+    if compute_case_digest(case) != compiled.case_digest {
+        return Err(anyhow!("compiled circuit digest mismatch"));
+    }
+    Ok(())
+}
+
+fn validate_compiled_public(
+    compiled: &SpartanBrakedownCompiledCircuit,
+    proof: &SpartanBrakedownProof,
+    public: &SpartanBrakedownPublic,
+) -> Result<()> {
+    if compiled.reference_profile != public.reference_profile
+        || compiled.reference_profile != proof.reference_profile
+    {
+        return Err(anyhow!("compiled/reference profile mismatch"));
+    }
+    if public.rows != compiled.rows || public.cols != compiled.cols {
+        return Err(anyhow!("compiled/public shape mismatch"));
+    }
+    if public.case_digest != compiled.case_digest {
+        return Err(anyhow!("compiled/public case digest mismatch"));
+    }
+    if proof.verifier_commitment.field_profile != compiled.field_profile {
+        return Err(anyhow!("compiled/proof field profile mismatch"));
+    }
     Ok(())
 }
 
