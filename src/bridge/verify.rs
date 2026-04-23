@@ -27,7 +27,6 @@ pub fn verify_bridge_bundle(
     query: &BridgeVerifierQuery,
     tr: &mut Transcript,
 ) -> Result<BridgeVerifyReport> {
-    let _mod_scope = ModulusScope::enter(bundle.verifier_commitment.field_profile.base_modulus());
     if query.claimed_value != bundle.claimed_evaluation {
         return Err(anyhow!(
             "claimed value mismatch between query and proof bundle"
@@ -59,6 +58,7 @@ pub fn verify_bridge_bundle(
     if bundle.reference_profile != DUAL_REFERENCE_PROFILE {
         return Err(anyhow!("unsupported reference profile for this bridge flow"));
     }
+    let _mod_scope = ModulusScope::enter(query.field_profile.base_modulus());
     if bundle.inner_trace.claim_initial != query.claimed_value {
         return Err(anyhow!(
             "inner-sumcheck claim and verifier claimed value mismatch"
