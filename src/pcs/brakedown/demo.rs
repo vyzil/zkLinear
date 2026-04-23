@@ -60,6 +60,10 @@ pub fn build_brakedown_demo_report() -> Result<String> {
 
   let mut out = String::new();
   out.push_str("=== Independent Mini Brakedown-style Trace ===\n");
+  out.push_str("\n[Demo Scope]\n");
+  out.push_str("this is a research/demo PCS trace, not a production Brakedown parameter set\n");
+  out.push_str("encoder: systematic + RS-like parity + fixed sparse linear parity (toy hybrid)\n");
+  out.push_str("purpose: inspect commit/open/verify boundaries and transcript flow\n");
   out.push_str("\n[Input]\n");
   out.push_str(&format!("field: F_{}\n", MODULUS));
   out.push_str(&format!(
@@ -92,8 +96,40 @@ pub fn build_brakedown_demo_report() -> Result<String> {
     "security params (demo): n_col_opens={}, n_degree_tests={}\n",
     params.n_col_opens, params.n_degree_tests
   ));
-  out.push_str(&format!("Merkle root(hex): {}\n", hex::encode(root)));
-  out.push_str(&format!("leaf count: {}\n", prover_commitment.leaf_hashes.len()));
+  out.push_str("\n[Commit: Encode]\n");
+  for r in 0..prover_commitment.n_rows {
+    let coeff_row = &prover_commitment.coeffs
+      [r * prover_commitment.n_per_row..(r + 1) * prover_commitment.n_per_row];
+    let enc_row = &prover_commitment.encoded
+      [r * prover_commitment.n_cols..(r + 1) * prover_commitment.n_cols];
+    out.push_str(&format!(
+      "  row {} coeffs: {:?}\n",
+      r,
+      coeff_row.iter().map(|x| x.0).collect::<Vec<_>>()
+    ));
+    out.push_str(&format!(
+      "  row {} encoded: {:?}\n",
+      r,
+      enc_row.iter().map(|x| x.0).collect::<Vec<_>>()
+    ));
+  }
+
+  out.push_str("\n[Commit: Hash/Merkle]\n");
+  out.push_str("  leaf input is each encoded column vector\n");
+  for c in 0..prover_commitment.n_cols {
+    let mut col = Vec::with_capacity(prover_commitment.n_rows);
+    for r in 0..prover_commitment.n_rows {
+      col.push(prover_commitment.encoded[r * prover_commitment.n_cols + c].0);
+    }
+    out.push_str(&format!("  col {} values: {:?}\n", c, col));
+    out.push_str(&format!(
+      "    leaf_hash[{}]: {}\n",
+      c,
+      hex::encode(prover_commitment.leaf_hashes[c])
+    ));
+  }
+  out.push_str(&format!("  leaf count: {}\n", prover_commitment.leaf_hashes.len()));
+  out.push_str(&format!("  Merkle root(hex): {}\n", hex::encode(root)));
 
   out.push_str("\n[Prove]\n");
   out.push_str(&format!(

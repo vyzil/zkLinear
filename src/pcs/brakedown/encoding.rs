@@ -4,7 +4,9 @@ use super::types::MiniEncoding;
 
 impl MiniEncoding {
   pub fn new(n_per_row: usize) -> Self {
-    // systematic n_per_row + rs(4) + sparse parity(4)
+    // Demo-only hybrid layout:
+    // systematic n_per_row + RS-like parity(4) + fixed sparse linear parity(4).
+    // This is intentionally inspection-friendly and not a production Brakedown code choice.
     Self {
       n_per_row,
       n_cols: n_per_row + 8,

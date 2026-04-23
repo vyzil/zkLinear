@@ -71,3 +71,13 @@ data:
 ## Notes
 This repository is intentionally modular and inspection-friendly.
 It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
+
+## Demo Caveats (Important)
+- The current Brakedown path is a **research/demo implementation** for inspection and testing.
+- The encoder in `src/pcs/brakedown/encoding.rs` is a **toy hybrid**:
+  - systematic copy
+  - small RS-like parity block
+  - fixed sparse linear parity block
+- It is **not** a full production Brakedown encoder, and it is **not** a strict Spielman-code implementation.
+- Tensors/challenges in tests are chosen for reproducible protocol tracing, not for production parameterization.
+- Use this repo to understand flow and verify invariants; do not treat current parameters/encoding as final cryptographic settings.
