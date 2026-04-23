@@ -373,6 +373,44 @@ fn bridge_verify_fails_on_tampered_inner_challenge() {
 }
 
 #[test]
+fn bridge_verify_fails_on_public_cols_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.cols += 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on public cols mismatch");
+    assert!(
+        err.to_string()
+            .contains("bridge public shape must be non-zero powers of two")
+            || err
+                .to_string()
+                .contains("bridge verifier commitment width mismatch vs public query")
+    );
+}
+
+#[test]
+fn bridge_verify_fails_on_public_rows_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.rows += 2;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on public rows mismatch");
+    assert!(
+        err.to_string()
+            .contains("bridge public shape must be non-zero powers of two")
+            || err
+                .to_string()
+                .contains("bridge outer rounds do not match public row count")
+    );
+}
+
+#[test]
 fn bridge_verify_fails_on_outer_final_value_mismatch() {
     let dir = case_dir();
     let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");

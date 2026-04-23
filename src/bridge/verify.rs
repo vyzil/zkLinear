@@ -174,10 +174,7 @@ pub fn verify_bridge_bundle(
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);
     append_u64_le(tr, b"ncols", bundle.verifier_commitment.n_cols as u64);
 
-    let expected_params = params_for_field_profile(
-        bundle.verifier_commitment.n_per_row,
-        bundle.verifier_commitment.field_profile,
-    );
+    let expected_params = params_for_field_profile(query.cols, query.field_profile);
     if bundle.verifier_commitment.field_profile != bundle.pcs_params.field_profile {
         return Err(anyhow!("bridge commitment/params field profile mismatch"));
     }
