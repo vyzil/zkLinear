@@ -41,6 +41,20 @@ Verifier accepts/rejects caller-provided `claimed_value`.
 - field element encoding: `u64` little-endian
 - integer scalar encoding (e.g. round/ncols): `u64` little-endian
 
+## 6.1 Brakedown Wire Envelope (Pinned)
+
+Verifier-commitment and eval-proof wire payloads are versioned by fixed 8-byte tags:
+- verifier commitment tag: `ZKVCB001`
+- eval proof tag: `ZKPFB001`
+
+Compatibility policy:
+- unknown tag/version is rejected at decode boundary
+- trailing bytes are rejected at decode boundary
+- field element decode enforces canonical range: `0 <= x < modulus`
+  - encoded `u64` values `>= modulus` are rejected
+
+This repository treats the wire boundary as strict and fail-closed.
+
 ## 7. Reference Profile Policy
 
 Default enforced profile:

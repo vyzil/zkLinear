@@ -183,3 +183,55 @@ fn brakedown_wire_roundtrip_generic_mersenne61() {
     pcs.verify_generic(&vc2, &pf2, &outer, &inner, claim, &mut tr_v)
         .expect("generic verify after wire roundtrip should succeed");
 }
+
+#[test]
+fn brakedown_wire_rejects_wrong_tags() {
+    let (pcs, coeffs) = fixture();
+    let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
+    let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
+    let (outer, _inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
+
+    let root = merkle_root(&prover_commitment.merkle_nodes);
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
+    tr_p.append_message(b"polycommit", &root);
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
+    let proof = pcs
+        .open(&prover_commitment, &outer, &mut tr_p)
+        .expect("open should succeed");
+
+    let mut vc_bytes = serialize_verifier_commitment(&verifier_commitment);
+    vc_bytes[0] ^= 0x01;
+    let err_vc = deserialize_verifier_commitment(&vc_bytes).expect_err("tag mismatch must fail");
+    assert!(err_vc.to_string().contains("wrong verifier commitment tag"));
+
+    let mut pf_bytes = serialize_eval_proof(&proof);
+    pf_bytes[0] ^= 0x01;
+    let err_pf = deserialize_eval_proof(&pf_bytes).expect_err("tag mismatch must fail");
+    assert!(err_pf.to_string().contains("wrong eval-proof tag"));
+}
+
+#[test]
+fn brakedown_wire_rejects_out_of_range_field_element() {
+    let (pcs, coeffs) = fixture();
+    let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
+    let (outer, _inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
+
+    let root = merkle_root(&prover_commitment.merkle_nodes);
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
+    tr_p.append_message(b"polycommit", &root);
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
+    let proof = pcs
+        .open(&prover_commitment, &outer, &mut tr_p)
+        .expect("open should succeed");
+
+    let mut pf_bytes = serialize_eval_proof(&proof);
+    // wire layout: tag(8) | p_eval_len(8) | p_eval[0](8) | ...
+    // Set p_eval[0] = MODULUS, which must be rejected (valid values are < MODULUS).
+    let bad = MODULUS.to_le_bytes();
+    pf_bytes[16..24].copy_from_slice(&bad);
+
+    let err = deserialize_eval_proof(&pf_bytes).expect_err("out-of-range field encoding must fail");
+    assert!(err.to_string().contains("invalid field element encoding"));
+}
