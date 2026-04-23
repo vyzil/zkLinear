@@ -33,6 +33,17 @@ pub fn append_case_to_transcript(tr: &mut Transcript, case: &SpartanLikeCase) {
     }
 }
 
+pub fn append_case_digest_to_transcript(
+    tr: &mut Transcript,
+    rows: usize,
+    cols: usize,
+    digest: [u8; 32],
+) {
+    append_u64_le(tr, b"rows", rows as u64);
+    append_u64_le(tr, b"cols", cols as u64);
+    tr.append_message(b"case_digest", &digest);
+}
+
 pub fn compute_case_digest(case: &SpartanLikeCase) -> [u8; 32] {
     let mut h = Sha256::new();
     h.update((case.a.len() as u64).to_le_bytes());
@@ -69,6 +80,13 @@ pub fn sample_gamma_from_transcript(tr: &mut Transcript, az: &[Fp], bz: &[Fp], c
     for v in cz {
         append_fp_le(tr, b"Cz", *v);
     }
+    let mut out = [0u8; 32];
+    tr.challenge_bytes(GAMMA_LABEL, &mut out);
+    Fp::from_challenge(out)
+}
+
+pub fn sample_gamma_from_transcript_light(tr: &mut Transcript) -> Fp {
+    tr.append_message(b"gamma_domain", GAMMA_DOMAIN);
     let mut out = [0u8; 32];
     tr.challenge_bytes(GAMMA_LABEL, &mut out);
     Fp::from_challenge(out)

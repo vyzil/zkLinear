@@ -23,9 +23,10 @@ use crate::{
         NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
     },
     protocol::shared::{
-        append_case_to_transcript, bind_rows, build_eq_weights_from_challenges,
-        derive_outer_tau_sha, flatten_rows, matrix_vec_mul, sample_blind_mix_alpha_from_transcript,
-        sample_blind_vec_from_transcript, sample_gamma_from_transcript,
+        append_case_digest_to_transcript, bind_rows, build_eq_weights_from_challenges,
+        compute_case_digest, derive_outer_tau_sha, flatten_rows, matrix_vec_mul,
+        sample_blind_mix_alpha_from_transcript, sample_blind_vec_from_transcript,
+        sample_gamma_from_transcript_light,
     },
     sumcheck::{
         inner::{
@@ -40,6 +41,7 @@ use crate::{
 use super::report::format_pipeline_report;
 use super::types::{
     KernelTimingMs, SpartanBrakedownPipelineResult, SpartanBrakedownProof, SpartanBrakedownPublic,
+    SpartanBrakedownProver, SpartanBrakedownVerifier, VerifyMode,
 };
 
 fn default_profile() -> BrakedownFieldProfile {
@@ -51,10 +53,23 @@ pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
 }
 
 pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-    prove_from_dir_with_profile(case_dir, default_profile())
+    SpartanBrakedownProver::new(default_profile()).prove_from_dir(case_dir)
 }
 
 pub fn prove_from_dir_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<SpartanBrakedownPipelineResult> {
+    SpartanBrakedownProver::new(profile).prove_from_dir(case_dir)
+}
+
+impl SpartanBrakedownProver {
+    pub fn prove_from_dir(self, case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+        prove_from_dir_impl(case_dir, self.profile)
+    }
+}
+
+fn prove_from_dir_impl(
     case_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownPipelineResult> {
@@ -83,11 +98,12 @@ pub fn prove_from_dir_with_profile(
         .zip(eq_tau.iter())
         .map(|(r, w)| r.mul(*w))
         .collect();
+    let case_digest = compute_case_digest(&case);
 
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &DUAL_REFERENCE_PROFILE);
-    append_case_to_transcript(&mut tr_p, &case);
+    append_case_digest_to_transcript(&mut tr_p, case.a.len(), case.a[0].len(), case_digest);
 
     let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
     let r_x = outer_trace
@@ -97,7 +113,7 @@ pub fn prove_from_dir_with_profile(
         .collect::<Vec<_>>();
     let row_weights = build_eq_weights_from_challenges(&r_x);
 
-    let gamma = sample_gamma_from_transcript(&mut tr_p, &az, &bz, &cz);
+    let gamma = sample_gamma_from_transcript_light(&mut tr_p);
     let gamma_sq = gamma.mul(gamma);
 
     let a_bound = bind_rows(&case.a, &row_weights);
@@ -188,6 +204,9 @@ pub fn prove_from_dir_with_profile(
     };
 
     let public = SpartanBrakedownPublic {
+        rows: case.a.len(),
+        cols: case.a[0].len(),
+        case_digest,
         outer_tensor_main,
         outer_tensor_blind_1,
         outer_tensor_blind_2,
@@ -198,7 +217,7 @@ pub fn prove_from_dir_with_profile(
     };
 
     let t3 = Instant::now();
-    verify_from_dir(case_dir, &proof)?;
+    verify_public(&proof, &public)?;
     let k3_ms = t3.elapsed().as_secs_f64() * 1000.0;
 
     Ok(SpartanBrakedownPipelineResult {
@@ -214,6 +233,68 @@ pub fn prove_from_dir_with_profile(
 }
 
 pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    SpartanBrakedownVerifier::new(VerifyMode::StrictReplay).verify_from_dir(case_dir, proof)
+}
+
+pub fn verify_public(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
+    SpartanBrakedownVerifier::new(VerifyMode::Succinct).verify_public(proof, public)
+}
+
+impl SpartanBrakedownVerifier {
+    pub fn verify_from_dir(self, case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+        match self.mode {
+            VerifyMode::StrictReplay => verify_from_dir_strict(case_dir, proof),
+            VerifyMode::Succinct => {
+                let case = load_spartan_like_case_from_dir(case_dir)?;
+                let public = SpartanBrakedownPublic {
+                    rows: case.a.len(),
+                    cols: case.a[0].len(),
+                    case_digest: compute_case_digest(&case),
+                    outer_tensor_main: vec![
+                        Fp::new(1),
+                        proof.gamma,
+                        proof.gamma.mul(proof.gamma),
+                        Fp::new(1),
+                        proof.blind_mix_alpha,
+                    ],
+                    outer_tensor_blind_1: vec![
+                        Fp::zero(),
+                        Fp::zero(),
+                        Fp::zero(),
+                        Fp::new(1),
+                        Fp::zero(),
+                    ],
+                    outer_tensor_blind_2: vec![
+                        Fp::zero(),
+                        Fp::zero(),
+                        Fp::zero(),
+                        Fp::zero(),
+                        Fp::new(1),
+                    ],
+                    inner_tensor: case.z,
+                    claimed_value_unblinded: proof
+                        .claimed_value
+                        .sub(proof.blind_eval_1)
+                        .sub(proof.blind_mix_alpha.mul(proof.blind_eval_2)),
+                    claimed_value_masked: proof.claimed_value,
+                    reference_profile: proof.reference_profile,
+                };
+                self.verify_public(proof, &public)
+            }
+        }
+    }
+
+    pub fn verify_public(
+        self,
+        proof: &SpartanBrakedownProof,
+        public: &SpartanBrakedownPublic,
+    ) -> Result<()> {
+        let _ = self;
+        verify_public_succinct(proof, public)
+    }
+}
+
+fn verify_from_dir_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
     let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let rows = case.a.len();
@@ -261,7 +342,8 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
-    append_case_to_transcript(&mut tr_v, &case);
+    let case_digest = compute_case_digest(&case);
+    append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
 
     for r in &proof.outer_trace.rounds {
         let expected_r = derive_round_challenge_merlin(
@@ -282,7 +364,7 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         return Err(anyhow!("outer sumcheck verification failed"));
     }
 
-    let expected_gamma = sample_gamma_from_transcript(&mut tr_v, &az, &bz, &cz);
+    let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
         return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
     }
@@ -421,6 +503,144 @@ pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result
         &proof.pcs_proof_blind_2,
         &outer_tensor_blind_2,
         &inner_tensor,
+        proof.blind_eval_2,
+        &mut tr_v,
+    )?;
+
+    Ok(())
+}
+
+fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
+    let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
+
+    if public.reference_profile != proof.reference_profile {
+        return Err(anyhow!("reference profile mismatch"));
+    }
+    if proof.verifier_commitment.n_rows != 5 || proof.verifier_commitment.n_per_row != public.cols {
+        return Err(anyhow!(
+            "verifier commitment dimensions mismatch for blinded layout"
+        ));
+    }
+    if proof.outer_trace.rounds.len() != public.rows.trailing_zeros() as usize {
+        return Err(anyhow!("outer rounds do not match row count"));
+    }
+    if proof.inner_trace.rounds.len() != public.cols.trailing_zeros() as usize {
+        return Err(anyhow!("inner rounds do not match column count"));
+    }
+    if public.outer_tensor_main.len() != proof.verifier_commitment.n_rows {
+        return Err(anyhow!("public outer main tensor size mismatch"));
+    }
+    if public.inner_tensor.len() != public.cols {
+        return Err(anyhow!("public inner tensor size mismatch"));
+    }
+
+    let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
+    append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
+    append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
+
+    for r in &proof.outer_trace.rounds {
+        let expected_r = derive_round_challenge_merlin(
+            &mut tr_v,
+            OUTER_SUMCHECK_LABEL,
+            r.round,
+            r.g_at_0,
+            r.g_at_2,
+            r.g_at_3,
+        );
+        if expected_r != r.challenge_r {
+            return Err(anyhow!("outer challenge mismatch at round {}", r.round));
+        }
+    }
+
+    let outer_v = verify_outer_sumcheck_trace(&proof.outer_trace);
+    if !outer_v.final_consistent {
+        return Err(anyhow!("outer sumcheck verification failed"));
+    }
+
+    let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
+    if expected_gamma != proof.gamma {
+        return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
+    }
+
+    for r in &proof.inner_trace.rounds {
+        let expected_r = derive_round_challenge_merlin(
+            &mut tr_v,
+            INNER_SUMCHECK_JOINT_LABEL,
+            r.round,
+            r.h_at_0,
+            r.h_at_1,
+            r.h_at_2,
+        );
+        if expected_r != r.challenge_r {
+            return Err(anyhow!("inner challenge mismatch at round {}", r.round));
+        }
+    }
+
+    let inner_v = verify_inner_sumcheck_trace(&proof.inner_trace);
+    if !inner_v.final_consistent {
+        return Err(anyhow!("inner sumcheck verification failed"));
+    }
+
+    // Consume transcript challenges to stay aligned with prover path.
+    let _blind_vec_1 = sample_blind_vec_from_transcript(&mut tr_v, public.inner_tensor.len());
+    let _blind_vec_2 = sample_blind_vec_from_transcript(&mut tr_v, public.inner_tensor.len());
+    let expected_blind_mix_alpha = sample_blind_mix_alpha_from_transcript(&mut tr_v);
+    if expected_blind_mix_alpha != proof.blind_mix_alpha {
+        return Err(anyhow!(
+            "blind mix alpha mismatch vs transcript-derived challenge"
+        ));
+    }
+
+    let expected_masked = public
+        .claimed_value_unblinded
+        .add(proof.blind_eval_1)
+        .add(proof.blind_mix_alpha.mul(proof.blind_eval_2));
+    if expected_masked != public.claimed_value_masked || expected_masked != proof.claimed_value {
+        return Err(anyhow!("masked claimed value mismatch"));
+    }
+
+    append_fp_le(
+        &mut tr_v,
+        b"claimed_value_unblinded",
+        public.claimed_value_unblinded,
+    );
+    append_fp_le(&mut tr_v, b"blind_eval_1", proof.blind_eval_1);
+    append_fp_le(&mut tr_v, b"blind_eval_2", proof.blind_eval_2);
+    append_fp_le(&mut tr_v, b"blind_mix_alpha", proof.blind_mix_alpha);
+    append_fp_le(&mut tr_v, b"claimed_value_masked", proof.claimed_value);
+
+    tr_v.append_message(b"nizk_opening_label", b"masked_main_opening");
+    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
+
+    let params = params_for_field_profile(public.cols, proof.verifier_commitment.field_profile);
+    let pcs = BrakedownPcs::new(params);
+    pcs.verify(
+        &proof.verifier_commitment,
+        &proof.pcs_proof_main,
+        &public.outer_tensor_main,
+        &public.inner_tensor,
+        public.claimed_value_masked,
+        &mut tr_v,
+    )?;
+
+    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_1");
+    pcs.verify(
+        &proof.verifier_commitment,
+        &proof.pcs_proof_blind_1,
+        &public.outer_tensor_blind_1,
+        &public.inner_tensor,
+        proof.blind_eval_1,
+        &mut tr_v,
+    )?;
+
+    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_2");
+    pcs.verify(
+        &proof.verifier_commitment,
+        &proof.pcs_proof_blind_2,
+        &public.outer_tensor_blind_2,
+        &public.inner_tensor,
         proof.blind_eval_2,
         &mut tr_v,
     )?;

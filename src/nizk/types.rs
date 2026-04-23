@@ -1,6 +1,6 @@
 use crate::{
     core::field::Fp,
-    pcs::brakedown::types::{BrakedownEvalProof, BrakedownVerifierCommitment},
+    pcs::brakedown::types::{BrakedownEvalProof, BrakedownFieldProfile, BrakedownVerifierCommitment},
     protocol::reference::ReferenceProfile,
     sumcheck::{inner::SumcheckTrace, outer::OuterSumcheckTrace},
 };
@@ -23,6 +23,9 @@ pub struct SpartanBrakedownProof {
 
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownPublic {
+    pub rows: usize,
+    pub cols: usize,
+    pub case_digest: [u8; 32],
     pub outer_tensor_main: Vec<Fp>,
     pub outer_tensor_blind_1: Vec<Fp>,
     pub outer_tensor_blind_2: Vec<Fp>,
@@ -60,4 +63,34 @@ pub struct SpartanBrakedownPipelineResult {
     pub proof: SpartanBrakedownProof,
     pub public: SpartanBrakedownPublic,
     pub timings: KernelTimingMs,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VerifyMode {
+    // Full replay against case inputs; strongest debug/invariant checks.
+    StrictReplay,
+    // Proof/public-only verification path.
+    Succinct,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SpartanBrakedownProver {
+    pub profile: BrakedownFieldProfile,
+}
+
+impl SpartanBrakedownProver {
+    pub fn new(profile: BrakedownFieldProfile) -> Self {
+        Self { profile }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct SpartanBrakedownVerifier {
+    pub mode: VerifyMode,
+}
+
+impl SpartanBrakedownVerifier {
+    pub fn new(mode: VerifyMode) -> Self {
+        Self { mode }
+    }
 }
