@@ -253,6 +253,18 @@ fn spartan_brakedown_full_style_fails_on_tampered_outer_folded_values() {
 }
 
 #[test]
+fn spartan_brakedown_full_style_fails_on_outer_folded_length_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    let _ = result.proof.outer_trace.rounds[0].folded_values.pop();
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for outer folded length mismatch");
+    assert!(err
+        .to_string()
+        .contains("outer folded vector length mismatch at round"));
+}
+
+#[test]
 fn spartan_brakedown_full_style_fails_on_inner_round_index_mismatch() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.inner_trace.rounds[0].round += 1;
@@ -275,6 +287,18 @@ fn spartan_brakedown_full_style_fails_on_tampered_inner_folded_values() {
     assert!(err
         .to_string()
         .contains("inner sumcheck verification failed"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_inner_folded_length_mismatch() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    let _ = result.proof.inner_trace.rounds[0].folded_f.pop();
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for inner folded length mismatch");
+    assert!(err
+        .to_string()
+        .contains("inner folded vector length mismatch at round"));
 }
 
 #[test]

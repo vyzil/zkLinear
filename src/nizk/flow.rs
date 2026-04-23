@@ -517,6 +517,13 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         if r.round != i {
             return Err(anyhow!("outer round index mismatch at position {}", i));
         }
+        let expected_fold_len = rows >> (i + 1);
+        if r.folded_values.len() != expected_fold_len {
+            return Err(anyhow!(
+                "outer folded vector length mismatch at round {}",
+                i
+            ));
+        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             OUTER_SUMCHECK_LABEL,
@@ -543,6 +550,16 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
         if r.round != i {
             return Err(anyhow!("inner round index mismatch at position {}", i));
+        }
+        let expected_fold_len = cols >> (i + 1);
+        if r.folded_f.len() != expected_fold_len
+            || r.folded_g.len() != expected_fold_len
+            || r.folded_f.len() != r.folded_g.len()
+        {
+            return Err(anyhow!(
+                "inner folded vector length mismatch at round {}",
+                i
+            ));
         }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
@@ -843,6 +860,13 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         if r.round != i {
             return Err(anyhow!("outer round index mismatch at position {}", i));
         }
+        let expected_fold_len = public.rows >> (i + 1);
+        if r.folded_values.len() != expected_fold_len {
+            return Err(anyhow!(
+                "outer folded vector length mismatch at round {}",
+                i
+            ));
+        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             OUTER_SUMCHECK_LABEL,
@@ -869,6 +893,16 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
         if r.round != i {
             return Err(anyhow!("inner round index mismatch at position {}", i));
+        }
+        let expected_fold_len = public.cols >> (i + 1);
+        if r.folded_f.len() != expected_fold_len
+            || r.folded_g.len() != expected_fold_len
+            || r.folded_f.len() != r.folded_g.len()
+        {
+            return Err(anyhow!(
+                "inner folded vector length mismatch at round {}",
+                i
+            ));
         }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
