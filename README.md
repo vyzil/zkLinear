@@ -54,7 +54,8 @@
     - `demo.rs`: human-readable demo trace
   - staged parameter tuning:
     - `BrakedownParams::new_with_field_profile(...)`
-    - auto-tunes `n_degree_tests` and `n_col_opens` from field profile + security bits
+    - lcpc-like profiles auto-tune `n_degree_tests` / `n_col_opens`
+    - production profiles pin verifier-friendly counts (`n_degree_tests=8`, `n_col_opens=16`)
     - `BrakedownSecurityPreset` for cleaner preset-driven setup
 - `src/lcpc_trace.rs`
   - backward-compatible wrapper that calls `src/pcs/brakedown/demo.rs`
@@ -94,6 +95,13 @@ cargo run --bin profile_e2e_demo -- gold tests/inner_sumcheck_spartan
 Profile matrix metrics (timing + wire payload sizes):
 ```bash
 cargo run --bin profile_matrix_metrics -- tests/inner_sumcheck_spartan 5 toy,m61,gold
+```
+
+File-based SPARK-like workflow (compile -> prove -> verify):
+```bash
+cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/zklinear_compiled.json m61
+cargo run --bin spark_e2e_cli -- prove /tmp/zklinear_compiled.json tests/inner_sumcheck_spartan /tmp/zklinear_proof.json /tmp/zklinear_public.json
+cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_compiled.json /tmp/zklinear_proof.json /tmp/zklinear_public.json
 ```
 
 ## Input Format
