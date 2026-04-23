@@ -193,6 +193,12 @@ pub fn verify_bridge_bundle(
     {
         return Err(anyhow!("bridge PCS parameter contract mismatch"));
     }
+    let expected_n_cols = BrakedownPcs::new(expected_params.clone()).encoding.n_cols;
+    if bundle.verifier_commitment.n_cols != expected_n_cols {
+        return Err(anyhow!(
+            "bridge verifier commitment encoded column count mismatch"
+        ));
+    }
     let pcs = BrakedownPcs::new(bundle.pcs_params.clone());
     let outer_tensor = vec![Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
     // Research-succinct boundary: verifier avoids witness-like inner tensor input
