@@ -21,6 +21,14 @@
   - input case parser (`_A.data`, `_B.data`, `_C.data`, `_y.data`, `_z.data`)
 - `src/api/`
   - API entrypoints used by tests/binaries
+- `src/bridge/`
+  - protocol-skeleton bridge for Spartan-like + Brakedown-style flow
+  - includes:
+    - proof bundle type
+    - verifier query boundary type
+    - top-level bridge verify function
+- `src/nizk/`
+  - research full-style path with single-transcript flow and toy blinding
 - `src/spartan/`
   - matrix-vector inner-sumcheck orchestration/reporting
 - `src/pcs/`
@@ -36,7 +44,11 @@
 - `src/lcpc_trace.rs`
   - backward-compatible wrapper that calls `src/pcs/brakedown/demo.rs`
 - `tests/`
-  - integration test shims: `tests/inner_sumcheck_naive.rs`, `tests/inner_sumcheck_spartan.rs`, `tests/brakedown_pcs.rs`
+  - `tests/inner_sumcheck_naive.rs`: naive inner-sumcheck trace from file inputs
+  - `tests/inner_sumcheck_spartan.rs`: Spartan-like outer+inner trace
+  - `tests/brakedown_pcs.rs`: standalone Brakedown-style PCS checks
+  - `tests/spartan_brakedown_pipeline.rs`: staged bridge (protocol-skeleton)
+  - `tests/spartan_brakedown_nizk.rs`: research full-style single-transcript path
   - per-test folders with code+data: `tests/<part>/test.rs` and `tests/<part>/*.data`
 
 ## Run
@@ -50,6 +62,8 @@ cargo test -q
 cargo test --test inner_sumcheck_naive -- --nocapture
 cargo test --test inner_sumcheck_spartan -- --nocapture
 cargo test --test brakedown_pcs -- --nocapture
+cargo test --test spartan_brakedown_pipeline -- --nocapture
+cargo test --test spartan_brakedown_nizk -- --nocapture
 ```
 
 ## Input Format
@@ -81,3 +95,6 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
 - It is **not** a full production Brakedown encoder, and it is **not** a strict Spielman-code implementation.
 - Tensors/challenges in tests are chosen for reproducible protocol tracing, not for production parameterization.
 - Use this repo to understand flow and verify invariants; do not treat current parameters/encoding as final cryptographic settings.
+- The bridge and NIZK paths are still **protocol skeletons**:
+  - useful for phase-by-phase analysis and interface validation
+  - not a production-ready Spartan2 integration

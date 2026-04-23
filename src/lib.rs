@@ -1,4 +1,5 @@
 pub mod api;
+pub mod bridge;
 pub mod core;
 pub mod io;
 pub mod lcpc_trace;

@@ -29,6 +29,9 @@ data:
 ```bash
 cargo test --test inner_sumcheck_naive -- --nocapture
 cargo test --test inner_sumcheck_spartan -- --nocapture
+cargo test --test brakedown_pcs -- --nocapture
+cargo test --test spartan_brakedown_pipeline -- --nocapture
+cargo test --test spartan_brakedown_nizk -- --nocapture
 ```
 
 ## Adding a New Part
@@ -37,3 +40,7 @@ cargo test --test inner_sumcheck_spartan -- --nocapture
 3. Add `tests/<new_part>/test.rs` that calls API functions from `src/api/`
 4. Add a thin integration test shim `tests/<new_part>.rs`:
    `#[path = "<new_part>/test.rs"] mod test;`
+
+Note:
+- Some tests are direct integration tests (single-file), while others use the folder + shim pattern.
+- Keep test naming explicit (`*_pipeline`, `*_nizk`) for protocol-layer clarity.
