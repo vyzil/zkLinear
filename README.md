@@ -37,7 +37,7 @@
     - verifier query boundary type
     - top-level bridge verify function
 - `src/nizk/`
-  - research full-style path with single-transcript flow and toy blinding
+  - research full-style path with single-transcript flow and transcript-bound masking
 - `src/spartan/`
   - matrix-vector inner-sumcheck orchestration/reporting
 - `src/pcs/`
@@ -119,4 +119,7 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
   - not a production-ready Spartan2 integration
 - In the NIZK skeleton:
   - outer/inner/PCS use transcript-shaped flow
-  - masking/blinding is still research-oriented (toy layering), not final production ZK construction
+  - masking uses transcript-bound two-component form:
+    - `masked_claim = unblinded_claim + blind_eval_1 + alpha_blind * blind_eval_2`
+    - with dedicated PCS openings for main / blind1 / blind2 checks
+  - despite stronger masking flow, this path is still research-oriented and not a final audited ZK construction
