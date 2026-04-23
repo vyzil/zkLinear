@@ -51,6 +51,11 @@ pub fn verify_bridge_bundle(
             "field profile mismatch between query and proof bundle"
         ));
     }
+    if bundle.verifier_commitment.n_rows != 3 {
+        return Err(anyhow!(
+            "bridge verifier commitment row count mismatch (expected 3)"
+        ));
+    }
     if bundle.reference_profile != DUAL_REFERENCE_PROFILE {
         return Err(anyhow!("unsupported reference profile for this bridge flow"));
     }

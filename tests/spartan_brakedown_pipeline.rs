@@ -329,6 +329,20 @@ fn bridge_verify_fails_on_field_profile_mismatch() {
 }
 
 #[test]
+fn bridge_verify_fails_on_commitment_row_count_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.verifier_commitment.n_rows = 4;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on commitment row count mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge verifier commitment row count mismatch"));
+}
+
+#[test]
 fn bridge_verify_fails_on_outer_final_value_mismatch() {
     let dir = case_dir();
     let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
