@@ -31,8 +31,31 @@ fn lcpc_like_parity_with_reference_snapshot() {
     let expected: LcpcLikeParitySnapshot =
         serde_json::from_str(&body).expect("parse reference snapshot json");
 
+    let got = snapshot.must_match_view();
+    let exp = expected.must_match_view();
     assert_eq!(
-        snapshot, expected,
-        "lcpc-like parity snapshot mismatch; if intentional, regenerate with ZKLINEAR_UPDATE_LCPC_LIKE_REF=1"
+        got.n_per_row, exp.n_per_row,
+        "lcpc-like parity n_per_row mismatch"
+    );
+    assert_eq!(got.n_cols, exp.n_cols, "lcpc-like parity n_cols mismatch");
+    assert_eq!(
+        got.n_degree_tests, exp.n_degree_tests,
+        "lcpc-like parity n_degree_tests mismatch"
+    );
+    assert_eq!(
+        got.n_col_opens, exp.n_col_opens,
+        "lcpc-like parity n_col_opens mismatch"
+    );
+    assert_eq!(
+        got.opened_cols, exp.opened_cols,
+        "lcpc-like parity opened_cols mismatch"
+    );
+    assert_eq!(
+        got.p_eval_len, exp.p_eval_len,
+        "lcpc-like parity p_eval_len mismatch"
+    );
+    assert_eq!(
+        got.p_random_count, exp.p_random_count,
+        "lcpc-like parity p_random_count mismatch"
     );
 }

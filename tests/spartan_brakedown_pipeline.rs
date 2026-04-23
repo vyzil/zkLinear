@@ -116,11 +116,12 @@ fn spartan_brakedown_style_pipeline_main_like() {
 
     println!("payload -> pcs_commit_open_prove:");
     println!("  coeff rows=[A_bound, B_bound, C_bound] [source=spartan_prove_core row binding]");
+    let derived_outer_tensor = [Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
     println!(
         "  outer tensor=[1, gamma, gamma^2] [source=spartan_prove_core challenge] => {:?}",
-        query.outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>()
+        derived_outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>()
     );
-    println!("  inner tensor=z [source=input_parse input]");
+    println!("  inner tensor=z [source=input_parse input, verifier-side hidden in bridge query]");
     println!(
         "  claimed value=<joint_bound,z>={} [source=spartan_prove_core inner claim]",
         query.claimed_value.0
@@ -158,8 +159,8 @@ fn spartan_brakedown_style_pipeline_main_like() {
     println!("payload -> verify:");
     println!("  proof_bundle: outer/inner sumcheck traces + PCS commitment/opening");
     println!(
-        "  verifier_query: outer_tensor={:?}, claimed_value={}, case_digest={}",
-        query.outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>(),
+        "  verifier_query: gamma={}, claimed_value={}, case_digest={}",
+        query.gamma.0,
         query.claimed_value.0,
         hex::encode(query.public_case_digest)
     );

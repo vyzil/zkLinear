@@ -35,16 +35,8 @@ struct NizkTranscriptVector {
     reference_profile: String,
     gamma: u64,
     claimed_unblinded: u64,
-    claimed_masked: u64,
-    blind_eval_1: u64,
-    blind_eval_2: u64,
-    blind_mix_alpha: u64,
     outer_challenges: Vec<u64>,
     inner_challenges: Vec<u64>,
-    pcs_root_hex: String,
-    pcs_main_open_cols: Vec<usize>,
-    pcs_blind1_open_cols: Vec<usize>,
-    pcs_blind2_open_cols: Vec<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -110,11 +102,7 @@ fn build_snapshot() -> TranscriptVectorSnapshot {
         inner_label: as_utf8(INNER_SUMCHECK_JOINT_LABEL),
         reference_profile: format!("{:?}", nizk.proof.reference_profile),
         gamma: nizk.proof.gamma.0,
-        claimed_unblinded: nizk.public.claimed_value_unblinded.0,
-        claimed_masked: nizk.proof.claimed_value.0,
-        blind_eval_1: nizk.proof.blind_eval_1.0,
-        blind_eval_2: nizk.proof.blind_eval_2.0,
-        blind_mix_alpha: nizk.proof.blind_mix_alpha.0,
+        claimed_unblinded: nizk.proof.claimed_value_unblinded.0,
         outer_challenges: nizk
             .proof
             .outer_trace
@@ -128,28 +116,6 @@ fn build_snapshot() -> TranscriptVectorSnapshot {
             .rounds
             .iter()
             .map(|r| r.challenge_r.0)
-            .collect(),
-        pcs_root_hex: hex::encode(nizk.proof.verifier_commitment.root),
-        pcs_main_open_cols: nizk
-            .proof
-            .pcs_proof_main
-            .columns
-            .iter()
-            .map(|c| c.col_idx)
-            .collect(),
-        pcs_blind1_open_cols: nizk
-            .proof
-            .pcs_proof_blind_1
-            .columns
-            .iter()
-            .map(|c| c.col_idx)
-            .collect(),
-        pcs_blind2_open_cols: nizk
-            .proof
-            .pcs_proof_blind_2
-            .columns
-            .iter()
-            .map(|c| c.col_idx)
             .collect(),
     };
 

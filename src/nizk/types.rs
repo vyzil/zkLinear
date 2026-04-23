@@ -10,6 +10,8 @@ pub struct SpartanBrakedownProof {
     pub outer_trace: OuterSumcheckTrace,
     pub inner_trace: SumcheckTrace,
     pub gamma: Fp,
+    // Transcript-bound inner claim carried inside proof (not public input).
+    pub claimed_value_unblinded: Fp,
     pub claimed_value: Fp,
     pub blind_eval_1: Fp,
     pub blind_eval_2: Fp,
@@ -19,6 +21,8 @@ pub struct SpartanBrakedownProof {
     pub pcs_proof_main: BrakedownEvalProof,
     pub pcs_proof_blind_1: BrakedownEvalProof,
     pub pcs_proof_blind_2: BrakedownEvalProof,
+    pub pcs_proof_joint_eval_at_r: BrakedownEvalProof,
+    pub pcs_proof_z_eval_at_r: BrakedownEvalProof,
 }
 
 #[derive(Debug, Clone)]
@@ -26,11 +30,8 @@ pub struct SpartanBrakedownPublic {
     pub rows: usize,
     pub cols: usize,
     pub case_digest: [u8; 32],
-    pub outer_tensor_main: Vec<Fp>,
-    pub outer_tensor_blind_1: Vec<Fp>,
-    pub outer_tensor_blind_2: Vec<Fp>,
-    pub inner_tensor: Vec<Fp>,
-    pub claimed_value_unblinded: Fp,
+    // Public claims only (no witness-like evaluation tensors on this boundary).
+    // Masking/claim-binding remains research/demo and is not a production ZK construction.
     pub claimed_value_masked: Fp,
     pub reference_profile: ReferenceProfile,
 }
@@ -76,9 +77,10 @@ pub struct SpartanBrakedownPipelineResult {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VerifyMode {
-    // Full replay against case inputs; strongest debug/invariant checks.
+    // Full replay against case inputs (including z); debug/invariant mode.
     StrictReplay,
-    // Proof/public-only verification path.
+    // Proof/public-only path: no witness-like tensors on public boundary.
+    // This remains research/demo-level succinct verification.
     Succinct,
 }
 

@@ -12,12 +12,36 @@ use super::{
     },
 };
 
+#[allow(clippy::too_many_arguments)]
 pub fn verify_eval_t<F: BrakedownField>(
     commitment: &BrakedownVerifierCommitment,
     proof: &BrakedownEvalProofT<F>,
     outer_tensor: &[F],
     inner_tensor: &[F],
     claimed_value: F,
+    enc: &BrakedownEncoding,
+    params: &BrakedownParams,
+    tr: &mut Transcript,
+) -> Result<()> {
+    verify_eval_structure_t(commitment, proof, outer_tensor, enc, params, tr)?;
+
+    if inner_tensor.len() != enc.n_per_row {
+        return Err(anyhow!("inner tensor size mismatch"));
+    }
+    let eval = inner_tensor
+        .iter()
+        .zip(proof.p_eval.iter())
+        .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+    if eval != claimed_value {
+        return Err(anyhow!("claimed evaluation mismatch"));
+    }
+    Ok(())
+}
+
+pub fn verify_eval_structure_t<F: BrakedownField>(
+    commitment: &BrakedownVerifierCommitment,
+    proof: &BrakedownEvalProofT<F>,
+    outer_tensor: &[F],
     enc: &BrakedownEncoding,
     params: &BrakedownParams,
     tr: &mut Transcript,
@@ -40,9 +64,6 @@ pub fn verify_eval_t<F: BrakedownField>(
 
     if outer_tensor.len() != commitment.n_rows {
         return Err(anyhow!("outer tensor size mismatch"));
-    }
-    if inner_tensor.len() != enc.n_per_row {
-        return Err(anyhow!("inner tensor size mismatch"));
     }
     if proof.columns.len() != params.n_col_opens {
         return Err(anyhow!("num openings mismatch"));
@@ -123,14 +144,6 @@ pub fn verify_eval_t<F: BrakedownField>(
         if !verify_column_path_t(commitment.root, op) {
             return Err(anyhow!("merkle path failed"));
         }
-    }
-
-    let eval = inner_tensor
-        .iter()
-        .zip(proof.p_eval.iter())
-        .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
-    if eval != claimed_value {
-        return Err(anyhow!("claimed evaluation mismatch"));
     }
     Ok(())
 }

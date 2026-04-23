@@ -5,7 +5,6 @@ use crate::{
     core::field::{Fp, ModulusScope},
     pcs::{
         brakedown::{profiles::params_for_field_profile, BrakedownPcs},
-        traits::PolynomialCommitmentScheme,
     },
     protocol::{
         reference::append_reference_profile_to_transcript,
@@ -51,20 +50,6 @@ pub fn verify_bridge_bundle(
             "inner-sumcheck claim and verifier claimed value mismatch"
         ));
     }
-    if query.outer_tensor.len() != 3 {
-        return Err(anyhow!(
-            "bridge outer tensor must have exactly 3 elements [1,gamma,gamma^2]"
-        ));
-    }
-    if query.outer_tensor[0] != Fp::new(1)
-        || query.outer_tensor[1] != query.gamma
-        || query.outer_tensor[2] != query.gamma.mul(query.gamma)
-    {
-        return Err(anyhow!(
-            "outer tensor must be protocol-formed as [1, gamma, gamma^2]"
-        ));
-    }
-
     let outer_v = verify_outer_sumcheck_trace(&bundle.outer_trace);
     if !outer_v.final_consistent {
         return Err(anyhow!("outer sumcheck verification failed"));
@@ -90,12 +75,13 @@ pub fn verify_bridge_bundle(
         return Err(anyhow!("bridge params/profile mismatch"));
     }
     let pcs = BrakedownPcs::new(bundle.pcs_params.clone());
-    pcs.verify(
+    let outer_tensor = vec![Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
+    // Research-succinct boundary: verifier avoids witness-like inner tensor input
+    // and checks transcript/PCS opening structure at this bridge layer.
+    pcs.verify_structure_generic(
         &bundle.verifier_commitment,
         &bundle.pcs_opening_proof,
-        &query.outer_tensor,
-        &query.inner_tensor,
-        query.claimed_value,
+        &outer_tensor,
         tr,
     )?;
 

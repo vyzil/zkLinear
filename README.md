@@ -111,6 +111,17 @@ cargo run --bin spark_e2e_cli -- inspect /tmp/zklinear_run_k17/proof.json
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_run_k17/compiled.json /tmp/zklinear_run_k17/proof.json /tmp/zklinear_run_k17/public.json
 ```
 
+Generate circom repeat case only (no prove/verify run):
+```bash
+cargo run --bin circom_repeat_casegen -- 17
+```
+
+One-shot compile/prove/verify with cache flush between phases:
+```bash
+scripts/run_e2e_with_cache_flush.sh tests/inner_sumcheck_spartan /tmp/zklinear_e2e m61
+scripts/run_e2e_with_cache_flush.sh --k 17 /tmp/zklinear_run_k17 m61
+```
+
 ## Input Format
 Example matrix file:
 ```text
@@ -158,5 +169,9 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
   - outer/inner/PCS use transcript-shaped flow
   - masking uses transcript-bound two-component form:
     - `masked_claim = unblinded_claim + blind_eval_1 + alpha_blind * blind_eval_2`
-    - with dedicated PCS openings for main / blind1 / blind2 checks
+    - with dedicated PCS openings for:
+      - main / blind1 / blind2 checks
+      - joint-at-r / z-at-r binding checks (`inner_trace.final_f/final_g`)
+  - default verifier API is `verify_public(proof, public)`
+  - `verify_from_dir_strict` is a debug/full-replay path
   - despite stronger masking flow, this path is still research-oriented and not a final audited ZK construction

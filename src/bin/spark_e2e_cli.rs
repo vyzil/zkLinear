@@ -80,6 +80,7 @@ struct ProofJson {
     outer_trace: OuterTraceJson,
     inner_trace: InnerTraceJson,
     gamma: u64,
+    claimed_value_unblinded: u64,
     claimed_value: u64,
     blind_eval_1: u64,
     blind_eval_2: u64,
@@ -89,6 +90,8 @@ struct ProofJson {
     pcs_proof_main_hex: String,
     pcs_proof_blind_1_hex: String,
     pcs_proof_blind_2_hex: String,
+    pcs_proof_joint_eval_at_r_hex: String,
+    pcs_proof_z_eval_at_r_hex: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,11 +99,6 @@ struct PublicJson {
     rows: usize,
     cols: usize,
     case_digest_hex: String,
-    outer_tensor_main: Vec<u64>,
-    outer_tensor_blind_1: Vec<u64>,
-    outer_tensor_blind_2: Vec<u64>,
-    inner_tensor: Vec<u64>,
-    claimed_value_unblinded: u64,
     claimed_value_masked: u64,
     reference_profile: RefProfileJson,
 }
@@ -276,6 +274,7 @@ fn proof_to_json(p: &SpartanBrakedownProof) -> ProofJson {
         outer_trace: outer_trace_to_json(&p.outer_trace),
         inner_trace: inner_trace_to_json(&p.inner_trace),
         gamma: fp_to_u64(p.gamma),
+        claimed_value_unblinded: fp_to_u64(p.claimed_value_unblinded),
         claimed_value: fp_to_u64(p.claimed_value),
         blind_eval_1: fp_to_u64(p.blind_eval_1),
         blind_eval_2: fp_to_u64(p.blind_eval_2),
@@ -285,6 +284,8 @@ fn proof_to_json(p: &SpartanBrakedownProof) -> ProofJson {
         pcs_proof_main_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_main)),
         pcs_proof_blind_1_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_blind_1)),
         pcs_proof_blind_2_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_blind_2)),
+        pcs_proof_joint_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_joint_eval_at_r)),
+        pcs_proof_z_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_z_eval_at_r)),
     }
 }
 
@@ -293,6 +294,7 @@ fn proof_from_json(j: &ProofJson) -> Result<SpartanBrakedownProof> {
         outer_trace: outer_trace_from_json(&j.outer_trace),
         inner_trace: inner_trace_from_json(&j.inner_trace),
         gamma: u64_to_fp(j.gamma),
+        claimed_value_unblinded: u64_to_fp(j.claimed_value_unblinded),
         claimed_value: u64_to_fp(j.claimed_value),
         blind_eval_1: u64_to_fp(j.blind_eval_1),
         blind_eval_2: u64_to_fp(j.blind_eval_2),
@@ -310,6 +312,14 @@ fn proof_from_json(j: &ProofJson) -> Result<SpartanBrakedownProof> {
         pcs_proof_blind_2: deserialize_eval_proof(
             &hex::decode(&j.pcs_proof_blind_2_hex).context("bad pcs_proof_blind_2 hex")?,
         )?,
+        pcs_proof_joint_eval_at_r: deserialize_eval_proof(
+            &hex::decode(&j.pcs_proof_joint_eval_at_r_hex)
+                .context("bad pcs_proof_joint_eval_at_r hex")?,
+        )?,
+        pcs_proof_z_eval_at_r: deserialize_eval_proof(
+            &hex::decode(&j.pcs_proof_z_eval_at_r_hex)
+                .context("bad pcs_proof_z_eval_at_r hex")?,
+        )?,
     })
 }
 
@@ -318,11 +328,6 @@ fn public_to_json(p: &SpartanBrakedownPublic) -> PublicJson {
         rows: p.rows,
         cols: p.cols,
         case_digest_hex: digest_to_hex(p.case_digest),
-        outer_tensor_main: p.outer_tensor_main.iter().map(|v| fp_to_u64(*v)).collect(),
-        outer_tensor_blind_1: p.outer_tensor_blind_1.iter().map(|v| fp_to_u64(*v)).collect(),
-        outer_tensor_blind_2: p.outer_tensor_blind_2.iter().map(|v| fp_to_u64(*v)).collect(),
-        inner_tensor: p.inner_tensor.iter().map(|v| fp_to_u64(*v)).collect(),
-        claimed_value_unblinded: fp_to_u64(p.claimed_value_unblinded),
         claimed_value_masked: fp_to_u64(p.claimed_value_masked),
         reference_profile: ref_to_json(p.reference_profile),
     }
@@ -333,11 +338,6 @@ fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
         rows: j.rows,
         cols: j.cols,
         case_digest: digest_from_hex(&j.case_digest_hex)?,
-        outer_tensor_main: j.outer_tensor_main.iter().map(|v| u64_to_fp(*v)).collect(),
-        outer_tensor_blind_1: j.outer_tensor_blind_1.iter().map(|v| u64_to_fp(*v)).collect(),
-        outer_tensor_blind_2: j.outer_tensor_blind_2.iter().map(|v| u64_to_fp(*v)).collect(),
-        inner_tensor: j.inner_tensor.iter().map(|v| u64_to_fp(*v)).collect(),
-        claimed_value_unblinded: u64_to_fp(j.claimed_value_unblinded),
         claimed_value_masked: u64_to_fp(j.claimed_value_masked),
         reference_profile: ref_from_json(&j.reference_profile)?,
     })
@@ -524,9 +524,17 @@ fn run_inspect(args: &[String]) -> Result<()> {
     let pf_b2_bytes = hex::decode(&proof.pcs_proof_blind_2_hex)
         .context("invalid pcs_proof_blind_2_hex")?
         ;
+    let pf_joint_r_bytes = hex::decode(&proof.pcs_proof_joint_eval_at_r_hex)
+        .context("invalid pcs_proof_joint_eval_at_r_hex")?
+        ;
+    let pf_z_r_bytes = hex::decode(&proof.pcs_proof_z_eval_at_r_hex)
+        .context("invalid pcs_proof_z_eval_at_r_hex")?
+        ;
     let main_openings = deserialize_eval_proof(&pf_main_bytes)?.columns.len();
     let b1_openings = deserialize_eval_proof(&pf_b1_bytes)?.columns.len();
     let b2_openings = deserialize_eval_proof(&pf_b2_bytes)?.columns.len();
+    let joint_r_openings = deserialize_eval_proof(&pf_joint_r_bytes)?.columns.len();
+    let z_r_openings = deserialize_eval_proof(&pf_z_r_bytes)?.columns.len();
 
     println!("inspect: {}", proof_path.display());
     println!(
@@ -540,16 +548,23 @@ fn run_inspect(args: &[String]) -> Result<()> {
     println!("  blind_eval_2={}", proof.blind_eval_2);
     println!("  blind_mix_alpha={}", proof.blind_mix_alpha);
     println!(
-        "  pcs payload bytes: vc={}, main={}, blind1={}, blind2={}, subtotal={}",
+        "  pcs payload bytes: vc={}, main={}, blind1={}, blind2={}, joint_r={}, z_r={}, subtotal={}",
         vc_bytes,
         pf_main_bytes.len(),
         pf_b1_bytes.len(),
         pf_b2_bytes.len(),
-        vc_bytes + pf_main_bytes.len() + pf_b1_bytes.len() + pf_b2_bytes.len()
+        pf_joint_r_bytes.len(),
+        pf_z_r_bytes.len(),
+        vc_bytes
+            + pf_main_bytes.len()
+            + pf_b1_bytes.len()
+            + pf_b2_bytes.len()
+            + pf_joint_r_bytes.len()
+            + pf_z_r_bytes.len()
     );
     println!(
-        "  pcs openings count: main={}, blind1={}, blind2={}",
-        main_openings, b1_openings, b2_openings
+        "  pcs openings count: main={}, blind1={}, blind2={}, joint_r={}, z_r={}",
+        main_openings, b1_openings, b2_openings, joint_r_openings, z_r_openings
     );
     Ok(())
 }

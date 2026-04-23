@@ -40,12 +40,8 @@ pub fn prove_bridge_from_dir_with_profile(
 
     let t1 = Instant::now();
     let claimed = data.joint_trace.claim_initial;
-    let outer_tensor = vec![Fp::new(1), data.gamma, data.gamma_sq];
-    let inner_tensor = data.case.z.clone();
     let case_digest = compute_case_digest(&data.case);
     let query = BridgeVerifierQuery {
-        outer_tensor,
-        inner_tensor,
         claimed_value: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
@@ -71,7 +67,8 @@ pub fn prove_bridge_from_dir_with_profile(
     tr_p.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
     append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
-    let pcs_opening_proof = pcs.open(&prover_commitment, &query.outer_tensor, &mut tr_p)?;
+    let outer_tensor = vec![Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
+    let pcs_opening_proof = pcs.open(&prover_commitment, &outer_tensor, &mut tr_p)?;
     let k2 = t2.elapsed().as_secs_f64() * 1000.0;
 
     let bundle = BridgeProofBundle {

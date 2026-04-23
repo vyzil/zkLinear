@@ -10,7 +10,7 @@ pub fn commit_t<F: BrakedownField>(
     coeffs_in: &[F],
     enc: &BrakedownEncoding,
 ) -> Result<BrakedownProverCommitmentT<F>> {
-    if coeffs_in.len() % enc.n_per_row != 0 {
+    if !coeffs_in.len().is_multiple_of(enc.n_per_row) {
         return Err(anyhow!("coeff length must be multiple of n_per_row"));
     }
 

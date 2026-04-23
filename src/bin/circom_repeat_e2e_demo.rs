@@ -14,7 +14,7 @@ fn fmt_commas_u64(v: u64) -> String {
     for (i, b) in bytes.iter().enumerate() {
         out.push(*b as char);
         let rem = bytes.len() - i - 1;
-        if rem > 0 && rem % 3 == 0 {
+        if rem > 0 && rem.is_multiple_of(3) {
             out.push(',');
         }
     }

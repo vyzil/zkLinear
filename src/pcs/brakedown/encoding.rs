@@ -159,7 +159,7 @@ impl BrakedownEncoding {
 }
 
 fn ceil_div(a: usize, b: usize) -> usize {
-    (a + b - 1) / b
+    a.div_ceil(b)
 }
 
 fn sparse_layer_map<F: BrakedownField>(

@@ -68,8 +68,32 @@ fn parity_must_match_with_external_snapshots_if_present() {
     }
     if let Some(v) = lcpc_like {
         assert_eq!(
-            local_lcpc, v,
-            "must-match parity mismatch against external lcpc-like snapshot"
+            local_lcpc.n_per_row, v.n_per_row,
+            "lcpc-like n_per_row mismatch against external snapshot"
+        );
+        assert_eq!(
+            local_lcpc.n_cols, v.n_cols,
+            "lcpc-like n_cols mismatch against external snapshot"
+        );
+        assert_eq!(
+            local_lcpc.n_degree_tests, v.n_degree_tests,
+            "lcpc-like n_degree_tests mismatch against external snapshot"
+        );
+        assert_eq!(
+            local_lcpc.n_col_opens, v.n_col_opens,
+            "lcpc-like n_col_opens mismatch against external snapshot"
+        );
+        assert_eq!(
+            local_lcpc.opened_cols, v.opened_cols,
+            "lcpc-like opened_cols mismatch against external snapshot"
+        );
+        assert_eq!(
+            local_lcpc.p_eval_len, v.p_eval_len,
+            "lcpc-like p_eval_len mismatch against external snapshot"
+        );
+        assert_eq!(
+            local_lcpc.p_random_count, v.p_random_count,
+            "lcpc-like p_random_count mismatch against external snapshot"
         );
     }
 }

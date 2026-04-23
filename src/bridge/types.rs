@@ -28,8 +28,8 @@ pub struct BridgeProofBundle {
 
 #[derive(Debug, Clone)]
 pub struct BridgeVerifierQuery {
-    pub outer_tensor: Vec<Fp>,
-    pub inner_tensor: Vec<Fp>,
+    // Public verifier metadata only.
+    // Witness-like tensors are intentionally excluded from this boundary.
     pub claimed_value: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
