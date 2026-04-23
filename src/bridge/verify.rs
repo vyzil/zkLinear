@@ -3,11 +3,13 @@ use merlin::Transcript;
 
 use crate::{
     core::field::{Fp, ModulusScope},
+    core::transcript::derive_round_challenge_t,
     pcs::{
         brakedown::{profiles::params_for_field_profile, BrakedownPcs},
     },
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
+        spec_v1::{INNER_SUMCHECK_JOINT_LABEL, OUTER_SUMCHECK_LABEL},
         shared::append_field_profile_to_transcript,
         spec_v1::{append_spec_domain, append_u64_le},
     },
@@ -90,6 +92,16 @@ pub fn verify_bridge_bundle(
         if r.round != i {
             return Err(anyhow!("bridge outer round index mismatch at position {}", i));
         }
+        let expected_r = derive_round_challenge_t(
+            OUTER_SUMCHECK_LABEL,
+            r.round,
+            r.g_at_0,
+            r.g_at_2,
+            r.g_at_3,
+        );
+        if expected_r != r.challenge_r {
+            return Err(anyhow!("bridge outer challenge mismatch at round {}", i));
+        }
         let expected_fold_len = outer_rows
             .checked_shr((i + 1) as u32)
             .ok_or_else(|| anyhow!("bridge outer folded-length shift overflow"))?;
@@ -103,6 +115,16 @@ pub fn verify_bridge_bundle(
     for (i, r) in bundle.inner_trace.rounds.iter().enumerate() {
         if r.round != i {
             return Err(anyhow!("bridge inner round index mismatch at position {}", i));
+        }
+        let expected_r = derive_round_challenge_t(
+            INNER_SUMCHECK_JOINT_LABEL,
+            r.round,
+            r.h_at_0,
+            r.h_at_1,
+            r.h_at_2,
+        );
+        if expected_r != r.challenge_r {
+            return Err(anyhow!("bridge inner challenge mismatch at round {}", i));
         }
         let expected_fold_len = bundle.verifier_commitment.n_per_row >> (i + 1);
         if r.folded_f.len() != expected_fold_len

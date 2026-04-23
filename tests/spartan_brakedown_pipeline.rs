@@ -343,6 +343,36 @@ fn bridge_verify_fails_on_commitment_row_count_mismatch() {
 }
 
 #[test]
+fn bridge_verify_fails_on_tampered_outer_challenge() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.outer_trace.rounds[0].challenge_r =
+        built.bundle.outer_trace.rounds[0].challenge_r.add(Fp::new(1));
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on tampered outer challenge");
+    assert!(err
+        .to_string()
+        .contains("bridge outer challenge mismatch at round"));
+}
+
+#[test]
+fn bridge_verify_fails_on_tampered_inner_challenge() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.inner_trace.rounds[0].challenge_r =
+        built.bundle.inner_trace.rounds[0].challenge_r.add(Fp::new(1));
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on tampered inner challenge");
+    assert!(err
+        .to_string()
+        .contains("bridge inner challenge mismatch at round"));
+}
+
+#[test]
 fn bridge_verify_fails_on_outer_final_value_mismatch() {
     let dir = case_dir();
     let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
