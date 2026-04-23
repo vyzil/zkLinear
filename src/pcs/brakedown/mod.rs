@@ -49,7 +49,7 @@ impl PolynomialCommitmentScheme for BrakedownPcs {
         &self,
         prover_commitment: &Self::ProverCommitment,
     ) -> Self::VerifierCommitment {
-        prover_commitment.verifier_view()
+        prover_commitment.verifier_view(&self.encoding)
     }
 
     fn open(

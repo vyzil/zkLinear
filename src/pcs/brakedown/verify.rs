@@ -20,6 +20,19 @@ pub fn verify_eval(
     params: &BrakedownParams,
     tr: &mut Transcript,
 ) -> Result<()> {
+    if commitment.n_per_row != enc.n_per_row || commitment.n_cols != enc.n_cols {
+        return Err(anyhow!("commitment dimension/encoding mismatch"));
+    }
+    if commitment.encoder_kind != enc.kind
+        || commitment.encoder_seed != enc.seed
+        || commitment.spel_layers != enc.spel_layers
+        || commitment.spel_pre_density != enc.spel_pre_density
+        || commitment.spel_post_density != enc.spel_post_density
+        || commitment.spel_base_rs_parity != enc.spel_base_rs_parity
+    {
+        return Err(anyhow!("commitment encoder profile mismatch"));
+    }
+
     if outer_tensor.len() != commitment.n_rows {
         return Err(anyhow!("outer tensor size mismatch"));
     }

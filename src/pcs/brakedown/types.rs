@@ -7,7 +7,7 @@ pub const DEFAULT_SPEL_PRE_DENSITY: usize = 3;
 pub const DEFAULT_SPEL_POST_DENSITY: usize = 2;
 pub const DEFAULT_SPEL_BASE_RS_PARITY: usize = 4;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BrakedownEncoderKind {
     ToyHybrid,
     SpielmanLike,
@@ -71,15 +71,27 @@ pub struct BrakedownVerifierCommitment {
     pub n_rows: usize,
     pub n_per_row: usize,
     pub n_cols: usize,
+    pub encoder_kind: BrakedownEncoderKind,
+    pub encoder_seed: u64,
+    pub spel_layers: usize,
+    pub spel_pre_density: usize,
+    pub spel_post_density: usize,
+    pub spel_base_rs_parity: usize,
 }
 
 impl BrakedownProverCommitment {
-    pub fn verifier_view(&self) -> BrakedownVerifierCommitment {
+    pub fn verifier_view(&self, enc: &BrakedownEncoding) -> BrakedownVerifierCommitment {
         BrakedownVerifierCommitment {
             root: *self.merkle_nodes.last().unwrap_or(&[0u8; 32]),
             n_rows: self.n_rows,
             n_per_row: self.n_per_row,
             n_cols: self.n_cols,
+            encoder_kind: enc.kind.clone(),
+            encoder_seed: enc.seed,
+            spel_layers: enc.spel_layers,
+            spel_pre_density: enc.spel_pre_density,
+            spel_post_density: enc.spel_post_density,
+            spel_base_rs_parity: enc.spel_base_rs_parity,
         }
     }
 }

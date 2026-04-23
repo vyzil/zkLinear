@@ -228,6 +228,50 @@ fn brakedown_verify_fails_on_wrong_claimed_evaluation() {
 }
 
 #[test]
+fn brakedown_verify_fails_on_encoder_profile_mismatch() {
+    let (pcs, coeffs) = fixture();
+    let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
+    let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
+    let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
+
+    let root = merkle_root(&prover_commitment.merkle_nodes);
+    let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_p);
+    tr_p.append_message(b"polycommit", &root);
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
+    let proof = pcs
+        .open(&prover_commitment, &outer, &mut tr_p)
+        .expect("open should succeed");
+
+    let claimed_eval = inner
+        .iter()
+        .zip(proof.p_eval.iter())
+        .fold(Fp::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+
+    let mut bad_params = BrakedownParams::new(8);
+    bad_params.encoder_seed = 1234567;
+    let bad_pcs = BrakedownPcs::new(bad_params);
+
+    let mut tr_v = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
+    tr_v.append_message(b"polycommit", &root);
+    append_u64_le(&mut tr_v, b"ncols", bad_pcs.encoding.n_cols as u64);
+
+    let err = bad_pcs
+        .verify(
+            &verifier_commitment,
+            &proof,
+            &outer,
+            &inner,
+            claimed_eval,
+            &mut tr_v,
+        )
+        .expect_err("verify should fail for encoder profile mismatch");
+
+    assert!(err.to_string().contains("encoder profile mismatch"));
+}
+
+#[test]
 fn brakedown_verify_fails_on_tampered_commitment_root() {
     let (pcs, coeffs) = fixture();
     let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
