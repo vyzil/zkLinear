@@ -2,6 +2,7 @@ use crate::core::field::Fp;
 
 pub const DEFAULT_N_DEGREE_TESTS: usize = 2;
 pub const DEFAULT_N_COL_OPENS: usize = 3;
+pub const DEFAULT_SECURITY_BITS: usize = 128;
 pub const DEFAULT_SPEL_LAYERS: usize = 2;
 pub const DEFAULT_SPEL_PRE_DENSITY: usize = 3;
 pub const DEFAULT_SPEL_POST_DENSITY: usize = 2;
@@ -13,11 +14,34 @@ pub enum BrakedownEncoderKind {
     SpielmanLike,
 }
 
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+pub enum BrakedownFieldProfile {
+    // Legacy toy path currently used by the existing F_97 pipeline.
+    ToyF97,
+    // Candidate production-oriented paths (base field + D=2 extension).
+    Mersenne61Ext2,
+    Goldilocks64Ext2,
+}
+
+impl BrakedownFieldProfile {
+    /// Returns floor(log2(|F|)) used by lcpc's `n_degree_tests` formula.
+    pub fn flog2(self) -> usize {
+        match self {
+            BrakedownFieldProfile::ToyF97 => 6,
+            BrakedownFieldProfile::Mersenne61Ext2 => 122,
+            BrakedownFieldProfile::Goldilocks64Ext2 => 128,
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct BrakedownParams {
     pub n_per_row: usize,
     pub n_degree_tests: usize,
     pub n_col_opens: usize,
+    pub security_bits: usize,
+    pub field_profile: BrakedownFieldProfile,
+    pub auto_tune_security: bool,
     pub encoder_kind: BrakedownEncoderKind,
     pub encoder_seed: u64,
     pub spel_layers: usize,
@@ -32,6 +56,9 @@ impl BrakedownParams {
             n_per_row,
             n_degree_tests: DEFAULT_N_DEGREE_TESTS,
             n_col_opens: DEFAULT_N_COL_OPENS,
+            security_bits: DEFAULT_SECURITY_BITS,
+            field_profile: BrakedownFieldProfile::ToyF97,
+            auto_tune_security: false,
             encoder_kind: BrakedownEncoderKind::SpielmanLike,
             encoder_seed: 0,
             spel_layers: DEFAULT_SPEL_LAYERS,
@@ -39,6 +66,16 @@ impl BrakedownParams {
             spel_post_density: DEFAULT_SPEL_POST_DENSITY,
             spel_base_rs_parity: DEFAULT_SPEL_BASE_RS_PARITY,
         }
+    }
+
+    /// Profile helper for staged migration:
+    /// - keeps the same encoder path
+    /// - enables security-parameter auto-tuning from field profile and encoded column count
+    pub fn new_with_field_profile(n_per_row: usize, field_profile: BrakedownFieldProfile) -> Self {
+        let mut p = Self::new(n_per_row);
+        p.field_profile = field_profile;
+        p.auto_tune_security = true;
+        p
     }
 }
 

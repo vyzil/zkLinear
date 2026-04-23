@@ -14,6 +14,12 @@
 ## Project Structure
 - `src/core/`
   - shared field and transcript primitives
+- `src/field_profiles/`
+  - staged field-profile module for migration experiments
+  - includes:
+    - `Mersenne61` base field
+    - `Goldilocks64` base field
+    - `Ext2` skeletons for both (`D=2`)
 - `src/protocol/`
   - shared protocol helpers used by both `bridge/` and `nizk/`
   - case/transcript binding, row-binding helpers, shared tensor utilities
@@ -43,7 +49,12 @@
     - `commit.rs`: commitment + column opening
     - `prove.rs`: prover-side opening proof generation
     - `verify.rs`: verifier-side checks
+    - `wire.rs`: explicit LE wire format for verifier commitment / opening proof
     - `demo.rs`: human-readable demo trace
+  - staged parameter tuning:
+    - `BrakedownParams::new_with_field_profile(...)`
+    - auto-tunes `n_degree_tests` and `n_col_opens` from field profile + security bits
+    - `BrakedownSecurityPreset` for cleaner preset-driven setup
 - `src/lcpc_trace.rs`
   - backward-compatible wrapper that calls `src/pcs/brakedown/demo.rs`
 - `tests/`
