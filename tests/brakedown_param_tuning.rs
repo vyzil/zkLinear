@@ -102,7 +102,9 @@ fn production_preset_has_expected_fixed_encoder_knobs() {
     assert_eq!(p.spel_pre_density, 5);
     assert_eq!(p.spel_post_density, 4);
     assert_eq!(p.spel_base_rs_parity, 16);
-    assert!(p.auto_tune_security);
+    assert!(!p.auto_tune_security);
+    assert_eq!(p.n_degree_tests, 8);
+    assert_eq!(p.n_col_opens, 16);
     assert!(p.is_spec_v1_production_candidate());
 }
 
@@ -176,7 +178,7 @@ fn lcpc_like_preset_is_not_spec_v1_production_candidate() {
 
 #[test]
 fn auto_tune_counts_match_profile_formula() {
-    let p = BrakedownSecurityPreset::ProductionMersenne61Ext2.params(8);
+    let p = BrakedownSecurityPreset::LcpcLikeMersenne61Ext2.params(8);
     let pcs: BrakedownPcsT<Mersenne61> = BrakedownPcsT::new(p.clone());
     let (deg, opens) = auto_tuned_counts(
         p.security_bits,
@@ -189,10 +191,10 @@ fn auto_tune_counts_match_profile_formula() {
 }
 
 #[test]
-fn production_mersenne61_n_per_row8_has_expected_tuned_counts() {
+fn production_mersenne61_n_per_row8_has_expected_fixed_counts() {
     let p = BrakedownSecurityPreset::ProductionMersenne61Ext2.params(8);
     let pcs: BrakedownPcsT<Mersenne61> = BrakedownPcsT::new(p);
     assert_eq!(pcs.encoding.n_cols, 35);
-    assert_eq!(pcs.params.n_degree_tests, 2);
-    assert_eq!(pcs.params.n_col_opens, 35);
+    assert_eq!(pcs.params.n_degree_tests, 8);
+    assert_eq!(pcs.params.n_col_opens, 16);
 }

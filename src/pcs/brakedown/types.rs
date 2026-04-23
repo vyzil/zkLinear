@@ -133,14 +133,15 @@ impl BrakedownParams {
     /// deterministic parameter contract used to keep research/profiling runs
     /// aligned and comparable.
     pub fn is_spec_v1_production_candidate(&self) -> bool {
-        self.auto_tune_security
-            && self.field_profile != BrakedownFieldProfile::ToyF97
+        self.field_profile != BrakedownFieldProfile::ToyF97
             && self.encoder_kind == BrakedownEncoderKind::SpielmanLike
             && self.encoder_seed == 0
             && self.spel_layers == 3
             && self.spel_pre_density == 5
             && self.spel_post_density == 4
             && self.spel_base_rs_parity == 16
+            && self.n_degree_tests >= 1
+            && self.n_col_opens >= 1
     }
 }
 

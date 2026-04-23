@@ -141,6 +141,12 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
         "pcs_profile: {:?}\n",
         proof.verifier_commitment.field_profile
     ));
+    out.push_str(&format!(
+        "pcs_params: n_degree_tests={}, n_col_opens={}\n",
+        proof.pcs_proof_main.p_random_vec.len(),
+        proof.pcs_proof_main.columns.len()
+    ));
+    out.push_str("verify_mode: succinct(public+proof)\n");
 
     out
 }

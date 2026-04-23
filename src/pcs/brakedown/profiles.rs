@@ -56,6 +56,12 @@ pub fn params_for_field_profile(n_per_row: usize, profile: BrakedownFieldProfile
 
 fn production_params(n_per_row: usize, field_profile: BrakedownFieldProfile) -> BrakedownParams {
     let mut p = BrakedownParams::new_with_field_profile(n_per_row, field_profile);
+    // Keep production-profile verification succinct in this codebase by
+    // pinning challenge counts instead of auto-tuning to near/full-column opens.
+    // This is a deterministic benchmarking contract, not a universal claim.
+    p.auto_tune_security = false;
+    p.n_degree_tests = 8;
+    p.n_col_opens = 16;
     p.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     p.encoder_seed = 0;
     p.spel_layers = 3;
