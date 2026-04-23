@@ -49,6 +49,17 @@ impl<C: Ext2Config> Ext2<C> {
         let c1 = ad.add(bc);
         Self::new(c0, c1)
     }
+
+    pub fn inv(self) -> Option<Self> {
+        // (a + b u)^-1 = (a - b u) / (a^2 - nr * b^2)
+        let a = self.c0;
+        let b = self.c1;
+        let denom = a.mul(a).sub(b.mul(b).mul(C::non_residue()));
+        let denom_inv = denom.inv()?;
+        let c0 = a.mul(denom_inv);
+        let c1 = C::Base::zero().sub(b).mul(denom_inv);
+        Some(Self::new(c0, c1))
+    }
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -75,4 +86,3 @@ impl Ext2Config for Goldilocks64Ext2Cfg {
 
 pub type Mersenne61Ext2 = Ext2<Mersenne61Ext2Cfg>;
 pub type Goldilocks64Ext2 = Ext2<Goldilocks64Ext2Cfg>;
-

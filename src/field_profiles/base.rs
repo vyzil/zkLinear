@@ -16,6 +16,28 @@ pub trait BaseField64: Copy + Clone + Debug + Eq + PartialEq {
     fn sub(self, rhs: Self) -> Self;
     fn mul(self, rhs: Self) -> Self;
 
+    fn pow_u64(self, mut exp: u64) -> Self {
+        let mut base = self;
+        let mut acc = Self::one();
+        while exp > 0 {
+            if (exp & 1) == 1 {
+                acc = acc.mul(base);
+            }
+            base = base.mul(base);
+            exp >>= 1;
+        }
+        acc
+    }
+
+    fn inv(self) -> Option<Self> {
+        if self == Self::zero() {
+            None
+        } else {
+            // Prime-field inverse by Fermat's little theorem.
+            Some(self.pow_u64(Self::MODULUS - 2))
+        }
+    }
+
     fn from_challenge(bytes: [u8; 32]) -> Self {
         let mut acc = 0u128;
         for b in bytes {
@@ -130,4 +152,3 @@ impl BaseField64 for Goldilocks64 {
         Self((t % Self::P as u128) as u64)
     }
 }
-
