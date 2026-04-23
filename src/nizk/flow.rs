@@ -50,6 +50,38 @@ fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::default_nizk_profile()
 }
 
+fn validate_case_shape(case: &SpartanLikeCase) -> Result<(usize, usize)> {
+    if case.a.is_empty() || case.b.is_empty() || case.c.is_empty() {
+        return Err(anyhow!("case matrices must be non-empty"));
+    }
+    let rows = case.a.len();
+    if case.b.len() != rows || case.c.len() != rows {
+        return Err(anyhow!("A/B/C row count mismatch"));
+    }
+    if case.a[0].is_empty() || case.b[0].is_empty() || case.c[0].is_empty() {
+        return Err(anyhow!("case matrices must have non-empty rows"));
+    }
+    let cols = case.a[0].len();
+    if case.b[0].len() != cols || case.c[0].len() != cols {
+        return Err(anyhow!("A/B/C column count mismatch"));
+    }
+    if case.z.len() != cols {
+        return Err(anyhow!(
+            "witness/input vector length mismatch vs matrix columns"
+        ));
+    }
+    if !case.a.iter().all(|r| r.len() == cols)
+        || !case.b.iter().all(|r| r.len() == cols)
+        || !case.c.iter().all(|r| r.len() == cols)
+    {
+        return Err(anyhow!("A/B/C rows must be rectangular"));
+    }
+    if !rows.is_power_of_two() || !cols.is_power_of_two() {
+        return Err(anyhow!("case shape must be powers of two"));
+    }
+    Ok((rows, cols))
+}
+
 fn context_fingerprint(
     rows: usize,
     cols: usize,
@@ -103,21 +135,16 @@ pub fn compile_from_dir_with_profile(
 ) -> Result<SpartanBrakedownCompiledCircuit> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
+    let (rows, cols) = validate_case_shape(&case)?;
     let case_digest = compute_case_digest(&case);
     let reference_profile = DUAL_REFERENCE_PROFILE;
     Ok(SpartanBrakedownCompiledCircuit {
-        rows: case.a.len(),
-        cols: case.a[0].len(),
+        rows,
+        cols,
         case_digest,
         field_profile: profile,
         reference_profile,
-        context_fingerprint: context_fingerprint(
-            case.a.len(),
-            case.a[0].len(),
-            case_digest,
-            profile,
-            reference_profile,
-        ),
+        context_fingerprint: context_fingerprint(rows, cols, case_digest, profile, reference_profile),
     })
 }
 
@@ -161,6 +188,7 @@ fn prove_from_dir_impl(
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let t0 = Instant::now();
     let case = load_spartan_like_case_from_dir(case_dir)?;
+    let (rows, cols) = validate_case_shape(&case)?;
     let k0_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
     let t1 = Instant::now();
@@ -175,7 +203,7 @@ fn prove_from_dir_impl(
         .map(|((a, b), c)| a.mul(*b).sub(*c))
         .collect();
 
-    let row_vars = case.a.len().trailing_zeros() as usize;
+    let row_vars = rows.trailing_zeros() as usize;
     let tau = derive_outer_tau_sha(row_vars, &az, &bz, &cz, &case.z);
     let eq_tau = build_eq_weights_from_challenges(&tau);
     let weighted_residual: Vec<Fp> = residual
@@ -185,8 +213,8 @@ fn prove_from_dir_impl(
         .collect();
     let case_digest = compute_case_digest(&case);
     let context_fingerprint = context_fingerprint(
-        case.a.len(),
-        case.a[0].len(),
+        rows,
+        cols,
         case_digest,
         profile,
         DUAL_REFERENCE_PROFILE,
@@ -195,7 +223,7 @@ fn prove_from_dir_impl(
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &DUAL_REFERENCE_PROFILE);
-    append_case_digest_to_transcript(&mut tr_p, case.a.len(), case.a[0].len(), case_digest);
+    append_case_digest_to_transcript(&mut tr_p, rows, cols, case_digest);
 
     let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
     let r_x = outer_trace
@@ -248,7 +276,7 @@ fn prove_from_dir_impl(
     ];
     let coeffs = flatten_rows(&coeff_rows);
 
-    let params = params_for_field_profile(case.a[0].len(), profile);
+    let params = params_for_field_profile(cols, profile);
     let pcs = BrakedownPcs::new(params);
     let prover_commitment = pcs.commit(&coeffs)?;
     let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
@@ -340,8 +368,8 @@ fn prove_from_dir_impl(
     };
 
     let public = SpartanBrakedownPublic {
-        rows: case.a.len(),
-        cols: case.a[0].len(),
+        rows,
+        cols,
         case_digest,
         claimed_value_masked,
         reference_profile: DUAL_REFERENCE_PROFILE,
@@ -410,8 +438,7 @@ impl SpartanBrakedownVerifier {
 fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
     let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
-    let rows = case.a.len();
-    let cols = case.a[0].len();
+    let (rows, cols) = validate_case_shape(&case)?;
     let case_digest = compute_case_digest(&case);
     let expected_context = context_fingerprint(
         rows,
@@ -423,10 +450,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     if proof.context_fingerprint != expected_context {
         return Err(anyhow!("proof context fingerprint mismatch"));
     }
-    if rows == 0 || cols == 0 || !rows.is_power_of_two() || !cols.is_power_of_two() {
-        return Err(anyhow!("case shape must be non-zero powers of two"));
-    }
-
     if proof.outer_trace.rounds.len() != rows.trailing_zeros() as usize {
         return Err(anyhow!("outer rounds do not match row count"));
     }
@@ -683,7 +706,8 @@ fn validate_compiled_case(
     if compiled.reference_profile != DUAL_REFERENCE_PROFILE {
         return Err(anyhow!("unsupported reference profile in compiled circuit"));
     }
-    if case.a.len() != compiled.rows || case.a[0].len() != compiled.cols {
+    let (rows, cols) = validate_case_shape(case)?;
+    if rows != compiled.rows || cols != compiled.cols {
         return Err(anyhow!("compiled circuit shape mismatch"));
     }
     if compute_case_digest(case) != compiled.case_digest {

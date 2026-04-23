@@ -12,19 +12,21 @@ pub const DEFAULT_PROD_SPEL_PRE_DENSITY: usize = 5;
 pub const DEFAULT_PROD_SPEL_POST_DENSITY: usize = 4;
 pub const DEFAULT_PROD_SPEL_BASE_RS_PARITY: usize = 16;
 
+#[repr(u8)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BrakedownEncoderKind {
-    ToyHybrid,
-    SpielmanLike,
+    ToyHybrid = 1,
+    SpielmanLike = 2,
 }
 
+#[repr(u8)]
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BrakedownFieldProfile {
     // Legacy toy path currently used by the existing F_97 pipeline.
-    ToyF97,
+    ToyF97 = 1,
     // Candidate production-oriented paths (base field + D=2 extension).
-    Mersenne61Ext2,
-    Goldilocks64Ext2,
+    Mersenne61Ext2 = 2,
+    Goldilocks64Ext2 = 3,
 }
 
 impl BrakedownFieldProfile {

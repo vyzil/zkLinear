@@ -1,15 +1,17 @@
 use merlin::Transcript;
 
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProtocolReference {
-    Spartan2Like,
-    ExperimentalAlt,
+    Spartan2Like = 1,
+    ExperimentalAlt = 2,
 }
 
+#[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PcsReference {
-    LcpcBrakedownLike,
-    ExperimentalAlt,
+    LcpcBrakedownLike = 1,
+    ExperimentalAlt = 2,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
