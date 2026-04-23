@@ -299,6 +299,7 @@ fn eval_quadratic_from_0_1_2_t<F: FieldElement>(h0: F, h1: F, h2: F, r: F) -> F 
 pub fn verify_inner_sumcheck_trace(trace: &SumcheckTrace) -> VerifyTrace {
     let mut claim = trace.claim_initial;
     let mut rounds = Vec::new();
+    let mut all_rounds_consistent = true;
 
     for r in &trace.rounds {
         let expected_claim_from_h01 = r.h_at_0.add(r.h_at_1);
@@ -307,6 +308,7 @@ pub fn verify_inner_sumcheck_trace(trace: &SumcheckTrace) -> VerifyTrace {
         let hr = eval_quadratic_from_0_1_2(r.h_at_0, r.h_at_1, r.h_at_2, r.challenge_r);
         let folded_claim_from_vectors = inner_product(&r.folded_f, &r.folded_g);
         let transition_consistent = hr == folded_claim_from_vectors;
+        all_rounds_consistent &= claim_consistent && transition_consistent;
 
         rounds.push(VerifyRoundTrace {
             round: r.round,
@@ -329,13 +331,14 @@ pub fn verify_inner_sumcheck_trace(trace: &SumcheckTrace) -> VerifyTrace {
         rounds,
         final_claim_from_verifier: claim,
         final_claim_from_trace: trace.final_claim,
-        final_consistent: claim == trace.final_claim,
+        final_consistent: all_rounds_consistent && claim == trace.final_claim,
     }
 }
 
 pub fn verify_inner_sumcheck_trace_t<F: FieldElement>(trace: &SumcheckTrace<F>) -> VerifyTraceT<F> {
     let mut claim = trace.claim_initial;
     let mut rounds = Vec::new();
+    let mut all_rounds_consistent = true;
 
     for r in &trace.rounds {
         let expected_claim_from_h01 = r.h_at_0.add(r.h_at_1);
@@ -344,6 +347,7 @@ pub fn verify_inner_sumcheck_trace_t<F: FieldElement>(trace: &SumcheckTrace<F>) 
         let hr = eval_quadratic_from_0_1_2_t(r.h_at_0, r.h_at_1, r.h_at_2, r.challenge_r);
         let folded_claim_from_vectors = inner_product_t(&r.folded_f, &r.folded_g);
         let transition_consistent = hr == folded_claim_from_vectors;
+        all_rounds_consistent &= claim_consistent && transition_consistent;
 
         rounds.push(VerifyRoundTraceT {
             round: r.round,
@@ -366,6 +370,6 @@ pub fn verify_inner_sumcheck_trace_t<F: FieldElement>(trace: &SumcheckTrace<F>) 
         rounds,
         final_claim_from_verifier: claim,
         final_claim_from_trace: trace.final_claim,
-        final_consistent: claim == trace.final_claim,
+        final_consistent: all_rounds_consistent && claim == trace.final_claim,
     }
 }

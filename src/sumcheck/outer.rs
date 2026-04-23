@@ -229,6 +229,7 @@ pub fn prove_outer_sumcheck_with_transcript_t<F: FieldElement>(
 pub fn verify_outer_sumcheck_trace(trace: &OuterSumcheckTrace) -> OuterVerifyTrace {
     let mut claim = trace.claim_initial;
     let mut rounds = Vec::new();
+    let mut all_rounds_consistent = true;
 
     for r in &trace.rounds {
         let g1_derived = claim.sub(r.g_at_0);
@@ -239,6 +240,7 @@ pub fn verify_outer_sumcheck_trace(trace: &OuterSumcheckTrace) -> OuterVerifyTra
             .iter()
             .fold(Fp::zero(), |acc, v| acc.add(*v));
         let transition_consistent = gr == folded_claim_from_vectors;
+        all_rounds_consistent &= claim_consistent && transition_consistent;
 
         rounds.push(OuterVerifyRoundTrace {
             round: r.round,
@@ -261,7 +263,7 @@ pub fn verify_outer_sumcheck_trace(trace: &OuterSumcheckTrace) -> OuterVerifyTra
         rounds,
         final_claim_from_verifier: claim,
         final_claim_from_trace: trace.final_claim,
-        final_consistent: claim == trace.final_claim,
+        final_consistent: all_rounds_consistent && claim == trace.final_claim,
     }
 }
 
@@ -270,6 +272,7 @@ pub fn verify_outer_sumcheck_trace_t<F: FieldElement>(
 ) -> OuterVerifyTraceT<F> {
     let mut claim = trace.claim_initial;
     let mut rounds = Vec::new();
+    let mut all_rounds_consistent = true;
 
     for r in &trace.rounds {
         let g1_derived = claim.sub(r.g_at_0);
@@ -281,6 +284,7 @@ pub fn verify_outer_sumcheck_trace_t<F: FieldElement>(
             .iter()
             .fold(F::zero(), |acc, v| acc.add(*v));
         let transition_consistent = gr == folded_claim_from_vectors;
+        all_rounds_consistent &= claim_consistent && transition_consistent;
 
         rounds.push(OuterVerifyRoundTraceT {
             round: r.round,
@@ -303,6 +307,6 @@ pub fn verify_outer_sumcheck_trace_t<F: FieldElement>(
         rounds,
         final_claim_from_verifier: claim,
         final_claim_from_trace: trace.final_claim,
-        final_consistent: claim == trace.final_claim,
+        final_consistent: all_rounds_consistent && claim == trace.final_claim,
     }
 }

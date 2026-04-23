@@ -210,3 +210,29 @@ fn spartan_brakedown_full_style_fails_on_tampered_outer_challenge() {
         .expect_err("verify should fail for tampered outer challenge");
     assert!(err.to_string().contains("outer challenge mismatch"));
 }
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_tampered_outer_folded_values() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.outer_trace.rounds[0].folded_values[0] =
+        result.proof.outer_trace.rounds[0].folded_values[0].add(Fp::new(1));
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for tampered outer folded values");
+    assert!(err
+        .to_string()
+        .contains("outer sumcheck verification failed"));
+}
+
+#[test]
+fn spartan_brakedown_full_style_fails_on_tampered_inner_folded_values() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.inner_trace.rounds[0].folded_f[0] =
+        result.proof.inner_trace.rounds[0].folded_f[0].add(Fp::new(1));
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for tampered inner folded values");
+    assert!(err
+        .to_string()
+        .contains("inner sumcheck verification failed"));
+}

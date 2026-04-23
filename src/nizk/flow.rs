@@ -356,6 +356,9 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let rows = case.a.len();
     let cols = case.a[0].len();
+    if rows == 0 || cols == 0 || !rows.is_power_of_two() || !cols.is_power_of_two() {
+        return Err(anyhow!("case shape must be non-zero powers of two"));
+    }
 
     if proof.outer_trace.rounds.len() != rows.trailing_zeros() as usize {
         return Err(anyhow!("outer rounds do not match row count"));
@@ -647,6 +650,13 @@ fn validate_compiled_public(
 
 fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
     let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
+    if public.rows == 0
+        || public.cols == 0
+        || !public.rows.is_power_of_two()
+        || !public.cols.is_power_of_two()
+    {
+        return Err(anyhow!("public shape must be non-zero powers of two"));
+    }
 
     if public.reference_profile != proof.reference_profile {
         return Err(anyhow!("reference profile mismatch"));
