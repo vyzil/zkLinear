@@ -25,6 +25,20 @@ pub struct ParitySnapshot {
     pub nizk_gamma: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct MustMatchParityView {
+    pub rows: usize,
+    pub cols: usize,
+    pub z_len: usize,
+    pub az: Vec<u64>,
+    pub bz: Vec<u64>,
+    pub cz: Vec<u64>,
+    pub residual: Vec<u64>,
+    pub outer_claim_initial: u64,
+    pub outer_rounds: usize,
+    pub inner_rounds: usize,
+}
+
 fn fp_vec_to_u64(v: &[Fp]) -> Vec<u64> {
     v.iter().map(|x| x.0).collect()
 }
@@ -55,3 +69,19 @@ pub fn build_local_parity_snapshot(case_dir: &Path) -> Result<ParitySnapshot> {
     })
 }
 
+impl ParitySnapshot {
+    pub fn must_match_view(&self) -> MustMatchParityView {
+        MustMatchParityView {
+            rows: self.rows,
+            cols: self.cols,
+            z_len: self.z_len,
+            az: self.az.clone(),
+            bz: self.bz.clone(),
+            cz: self.cz.clone(),
+            residual: self.residual.clone(),
+            outer_claim_initial: self.outer_claim_initial,
+            outer_rounds: self.outer_rounds,
+            inner_rounds: self.inner_rounds,
+        }
+    }
+}

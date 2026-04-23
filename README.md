@@ -79,6 +79,7 @@ cargo test --test brakedown_pcs -- --nocapture
 cargo test --test spartan_brakedown_pipeline -- --nocapture
 cargo test --test spartan_brakedown_nizk -- --nocapture
 cargo test --test parity_with_reference -- --nocapture
+cargo test --test parity_with_external_reference -- --nocapture
 ```
 
 ## Input Format
@@ -107,6 +108,7 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
 - `docs/PRODUCTION_CHECKLIST.md`: prioritized production-upgrade checklist
 - `docs/NIZK_MASKING_MODEL.md`: current masked-claim construction and scope notes
 - `docs/PARITY_TRACE_MATRIX.md`: must-match vs may-differ trace comparison matrix
+- `docs/EXTERNAL_PARITY_IMPORT.md`: how to compare local parity with external snapshots
 
 `parity_with_reference` test note:
 - set `ZKLINEAR_UPDATE_PARITY_REF=1` once to regenerate `tests/reference_vectors/parity_case_01.json`
