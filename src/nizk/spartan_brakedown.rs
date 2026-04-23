@@ -14,6 +14,7 @@ pub use super::flow::{
     prove_with_compiled_from_dir, verify_from_dir, verify_from_dir_strict, verify_public,
     verify_with_compiled,
 };
+pub use super::metrics::{collect_nizk_metrics, mean as metrics_mean, stddev as metrics_stddev, NizkMeasuredRun, NizkMetricsReport};
 pub use super::types::{
     KernelTimingMs, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
     SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic,

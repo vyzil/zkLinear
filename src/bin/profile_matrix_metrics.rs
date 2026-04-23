@@ -2,8 +2,7 @@ use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
 use zk_linear::{
-    nizk::spartan_brakedown::{parse_field_profile, prove_from_dir_with_profile},
-    pcs::brakedown::wire::{serialize_eval_proof, serialize_verifier_commitment},
+    nizk::spartan_brakedown::{collect_nizk_metrics, parse_field_profile},
 };
 
 fn profile_list_from_arg(s: Option<String>) -> Result<Vec<String>> {
@@ -19,10 +18,6 @@ fn profile_list_from_arg(s: Option<String>) -> Result<Vec<String>> {
         out.push(tok.to_string());
     }
     Ok(out)
-}
-
-fn mean(v: &[f64]) -> f64 {
-    v.iter().sum::<f64>() / v.len() as f64
 }
 
 fn fmt_profile(p: &str) -> &'static str {
@@ -60,42 +55,29 @@ fn main() -> Result<()> {
 
     for pstr in profiles {
         let profile = parse_field_profile(&pstr).expect("validated profile");
-        let mut k0 = Vec::with_capacity(runs);
-        let mut k1 = Vec::with_capacity(runs);
-        let mut k2 = Vec::with_capacity(runs);
-        let mut k3 = Vec::with_capacity(runs);
-        let mut total = Vec::with_capacity(runs);
-
-        let mut vc_bytes = 0usize;
-        let mut pf_main = 0usize;
-        let mut pf_b1 = 0usize;
-        let mut pf_b2 = 0usize;
-
-        for _ in 0..runs {
-            let r = prove_from_dir_with_profile(&case_dir, profile)?;
-            k0.push(r.timings.k0_input_parse_ms);
-            k1.push(r.timings.k1_spartan_prove_ms);
-            k2.push(r.timings.k2_pcs_prove_ms);
-            k3.push(r.timings.k3_verify_ms);
-            total.push(r.timings.total_ms());
-
-            vc_bytes = serialize_verifier_commitment(&r.proof.verifier_commitment).len();
-            pf_main = serialize_eval_proof(&r.proof.pcs_proof_main).len();
-            pf_b1 = serialize_eval_proof(&r.proof.pcs_proof_blind_1).len();
-            pf_b2 = serialize_eval_proof(&r.proof.pcs_proof_blind_2).len();
-        }
+        let m = collect_nizk_metrics(&case_dir, profile, 0, runs)?;
+        let mean = |f: fn(&zk_linear::nizk::metrics::NizkMeasuredRun) -> f64| -> f64 {
+            m.runs.iter().map(f).sum::<f64>() / m.runs.len() as f64
+        };
+        let last = m.runs.last().expect("metrics runs should be non-empty");
 
         md.push_str(&format!(
             "| {} | {:.3} | {:.3} | {:.3} | {:.3} | {:.3} |\n",
             fmt_profile(&pstr),
-            mean(&k0),
-            mean(&k1),
-            mean(&k2),
-            mean(&k3),
-            mean(&total)
+            mean(|r| r.input_parse_ms),
+            mean(|r| r.spartan_prove_core_ms),
+            mean(|r| r.pcs_commit_open_prove_ms),
+            mean(|r| r.inline_verify_ms),
+            mean(|r| r.total_kernel_ms)
         ));
 
-        size_rows.push((fmt_profile(&pstr), vc_bytes, pf_main, pf_b1, pf_b2));
+        size_rows.push((
+            fmt_profile(&pstr),
+            last.vc_bytes,
+            last.main_bytes,
+            last.blind1_bytes,
+            last.blind2_bytes,
+        ));
     }
 
     md.push_str("\n## Wire Payload Size (bytes)\n\n");
