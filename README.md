@@ -128,6 +128,11 @@ scripts/run_e2e_with_cache_flush.sh tests/inner_sumcheck_spartan /tmp/zklinear_e
 scripts/run_e2e_with_cache_flush.sh --k 17 /tmp/zklinear_run_k17 m61
 ```
 
+Claims gate (full tests + conformance + metrics sanity + clippy):
+```bash
+scripts/ci_claims_gate.sh tests/inner_sumcheck_spartan m61 /tmp/zklinear_claims_gate
+```
+
 ## Input Format
 Example matrix file:
 ```text
