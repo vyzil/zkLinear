@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -131,6 +131,12 @@ pub fn build_spartan_like_report_data_from_dir_with_modulus(
 ) -> Result<SpartanLikeReportData> {
     let _mod_scope = ModulusScope::enter(modulus);
     let case = load_spartan_like_case_from_dir(case_dir)?;
+    if case.a.is_empty() || case.a[0].is_empty() {
+        bail!("A must be non-empty");
+    }
+    if !case.a.len().is_power_of_two() || !case.a[0].len().is_power_of_two() {
+        bail!("A shape must be power-of-two in rows and columns");
+    }
 
     let az = matrix_vec_mul(&case.a, &case.z);
     let bz = matrix_vec_mul(&case.b, &case.z);
