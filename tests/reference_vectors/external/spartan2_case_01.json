@@ -29,6 +29,6 @@
   "outer_claim_initial": 436122006217600322,
   "outer_rounds": 2,
   "inner_rounds": 3,
-  "spartan_gamma": 1825352804577219694,
-  "nizk_gamma": 1239047239578981423
+  "spartan_gamma": 22,
+  "nizk_gamma": 1
 }

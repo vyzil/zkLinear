@@ -1,0 +1,12 @@
+{
+  "field_profile": "Mersenne61Ext2",
+  "n_rows": 5,
+  "n_per_row": 8,
+  "n_cols": 35,
+  "n_degree_tests": 2,
+  "n_col_opens": 35,
+  "opened_cols": 35,
+  "p_eval_len": 8,
+  "p_random_count": 2,
+  "merkle_root_hex": "bac31e38bc51e7339402e00a55b3a4265ac9d592f92e69826b35a123cf053bed"
+}

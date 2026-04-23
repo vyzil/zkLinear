@@ -32,6 +32,8 @@ cargo test --test inner_sumcheck_spartan -- --nocapture
 cargo test --test brakedown_pcs -- --nocapture
 cargo test --test spartan_brakedown_pipeline -- --nocapture
 cargo test --test spartan_brakedown_nizk -- --nocapture
+cargo test --test r1cs_mtx_pipeline_smoke -- --nocapture
+cargo test --test r1cs_zkif_pipeline_smoke -- --nocapture
 ```
 
 ## Adding a New Part
@@ -44,3 +46,7 @@ cargo test --test spartan_brakedown_nizk -- --nocapture
 Note:
 - Some tests are direct integration tests (single-file), while others use the folder + shim pattern.
 - Keep test naming explicit (`*_pipeline`, `*_nizk`) for protocol-layer clarity.
+- `r1cs_mtx_pipeline_smoke` demonstrates importing sparse Matrix-Market R1CS
+  (`A.mtx/B.mtx/C.mtx + z.vec`) into the existing `_A/_B/_C/_z` case path.
+- `r1cs_zkif_pipeline_smoke` demonstrates importing a zkInterface workspace
+  (`header.zkif/witness.zkif/constraints_*.zkif`) into the same case path.

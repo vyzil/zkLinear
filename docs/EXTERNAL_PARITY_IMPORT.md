@@ -7,10 +7,19 @@ This repository can compare local parity snapshots with external reference snaps
 Place JSON files at:
 
 - `tests/reference_vectors/external/spartan2_case_01.json`
-- `tests/reference_vectors/external/lcpc_case_01.json`
+- `tests/reference_vectors/external/lcpc_like_case_01.json`
 
-The JSON schema should match `ParitySnapshot` in:
-- `src/parity/reference.rs`
+Current status in this repo:
+- `spartan2_case_01.json` is populated for the shared case and parity-checked
+- `lcpc_like_case_01.json` compares PCS-boundary must-match fields
+  (`n_rows`, `n_per_row`, `n_cols`, `n_degree_tests`, `n_col_opens`,
+  `opened_cols`, `p_eval_len`, `p_random_count`)
+
+JSON schema:
+- `spartan2_case_01.json` should match `ParitySnapshot` in:
+  - `src/parity/reference.rs`
+- `lcpc_like_case_01.json` should match `LcpcLikeParitySnapshot` in:
+  - `src/parity/lcpc_like.rs`
 
 ## Run
 

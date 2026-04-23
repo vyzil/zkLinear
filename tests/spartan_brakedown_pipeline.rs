@@ -27,7 +27,7 @@ fn spartan_brakedown_style_pipeline_main_like() {
     let bundle = &built.bundle;
     let query = &built.verifier_query;
 
-    println!("\n[Kernel K0: Input Parse]");
+    println!("\n[Kernel: input_parse]");
     println!("input source: tests/inner_sumcheck_spartan/_A.data, _B.data, _C.data, _z.data");
     println!(
         "rows={}, cols={}, z_len={}",
@@ -64,10 +64,10 @@ fn spartan_brakedown_style_pipeline_main_like() {
         data.case.z.iter().map(|x| x.0).collect::<Vec<_>>()
     );
     println!("time: {:.3} ms", built.timings.k0_input_parse_ms);
-    println!("payload -> K1: {{A, B, C, z}} [source=parsed input files]");
+    println!("payload -> spartan_prove_core: {{A, B, C, z}} [source=parsed input files]");
 
-    println!("\n[Kernel K1: Spartan-like Prove Core]");
-    println!("input source: payload from K0");
+    println!("\n[Kernel: spartan_prove_core]");
+    println!("input source: payload from input_parse");
     println!(
         "outer claim C0=sum(eq(tau)*residual)={}",
         bundle.outer_trace.claim_initial.0
@@ -114,20 +114,20 @@ fn spartan_brakedown_style_pipeline_main_like() {
     println!("inner rounds={}", bundle.inner_trace.rounds.len());
     println!("time: {:.3} ms", built.timings.k1_spartan_ms);
 
-    println!("payload -> K2 (PCS commit/open):");
-    println!("  coeff rows=[A_bound, B_bound, C_bound] [source=K1 row binding]");
+    println!("payload -> pcs_commit_open_prove:");
+    println!("  coeff rows=[A_bound, B_bound, C_bound] [source=spartan_prove_core row binding]");
     println!(
-        "  outer tensor=[1, gamma, gamma^2] [source=K1 challenge] => {:?}",
+        "  outer tensor=[1, gamma, gamma^2] [source=spartan_prove_core challenge] => {:?}",
         query.outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>()
     );
-    println!("  inner tensor=z [source=K0 input]");
+    println!("  inner tensor=z [source=input_parse input]");
     println!(
-        "  claimed value=<joint_bound,z>={} [source=K1 inner claim]",
+        "  claimed value=<joint_bound,z>={} [source=spartan_prove_core inner claim]",
         query.claimed_value.0
     );
 
-    println!("\n[Kernel K2: Brakedown-style Commit/Open Prove]");
-    println!("input source: payload from K1");
+    println!("\n[Kernel: pcs_commit_open_prove]");
+    println!("input source: payload from spartan_prove_core");
     println!(
         "coeff matrix dims: rows={}, per_row={}, encoded_cols={}",
         bundle.verifier_commitment.n_rows,
@@ -155,7 +155,7 @@ fn spartan_brakedown_style_pipeline_main_like() {
     );
     println!("time: {:.3} ms", built.timings.k2_pcs_ms);
 
-    println!("payload -> K3 (Verifier):");
+    println!("payload -> verify:");
     println!("  proof_bundle: outer/inner sumcheck traces + PCS commitment/opening");
     println!(
         "  verifier_query: outer_tensor={:?}, claimed_value={}, case_digest={}",
@@ -170,7 +170,7 @@ fn spartan_brakedown_style_pipeline_main_like() {
         verify_bridge_bundle(bundle, query, &mut tr_v).expect("bridge verify should succeed");
     let k3_ms = t3.elapsed().as_secs_f64() * 1000.0;
 
-    println!("\n[Kernel K3: Verify]");
+    println!("\n[Kernel: verify]");
     println!("input source: proof_bundle + verifier_query");
     println!(
         "Spartan outer verify: final_ok={}, verifier_claim={}, trace_claim={}",
@@ -195,17 +195,23 @@ fn spartan_brakedown_style_pipeline_main_like() {
         + built.timings.k2_pcs_ms
         + k3_ms;
     println!("\n[Summary]");
-    println!("K0 Input Parse: {:.3} ms", built.timings.k0_input_parse_ms);
     println!(
-        "K1 Spartan Prove Core: {:.3} ms",
-        built.timings.k1_spartan_ms
+        "input_parse: {:.3} ms ({:.1}%)",
+        built.timings.k0_input_parse_ms,
+        (built.timings.k0_input_parse_ms / total_ms) * 100.0
     );
     println!(
-        "K2 Brakedown Commit/Open Prove: {:.3} ms",
-        built.timings.k2_pcs_ms
+        "spartan_prove_core: {:.3} ms ({:.1}%)",
+        built.timings.k1_spartan_ms,
+        (built.timings.k1_spartan_ms / total_ms) * 100.0
     );
-    println!("K3 Verify: {:.3} ms", k3_ms);
-    println!("TOTAL: {:.3} ms", total_ms);
+    println!(
+        "pcs_commit_open_prove: {:.3} ms ({:.1}%)",
+        built.timings.k2_pcs_ms,
+        (built.timings.k2_pcs_ms / total_ms) * 100.0
+    );
+    println!("verify: {:.3} ms ({:.1}%)", k3_ms, (k3_ms / total_ms) * 100.0);
+    println!("total: {:.3} ms", total_ms);
 
     assert!(
         verify.outer_verify.final_consistent,

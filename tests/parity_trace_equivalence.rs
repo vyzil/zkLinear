@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use zk_linear::{
     api::spartan_like::build_spartan_like_report_data_from_dir,
-    core::field::Fp,
+    core::field::{Fp, ModulusScope},
     nizk::spartan_brakedown::prove_from_dir,
     protocol::shared::{build_eq_weights_from_challenges, derive_outer_tau_sha, matrix_vec_mul},
 };
@@ -17,6 +17,7 @@ fn sum_vec(v: &[Fp]) -> Fp {
 
 #[test]
 fn parity_must_match_subset_between_spartan_like_and_nizk() {
+    let _scope = ModulusScope::enter((1u64 << 61) - 1);
     let dir = case_dir();
     let sp = build_spartan_like_report_data_from_dir(&dir).expect("spartan-like data should build");
     let nz = prove_from_dir(&dir).expect("nizk prove should succeed");

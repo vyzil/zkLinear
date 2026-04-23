@@ -1,4 +1,4 @@
-use crate::core::field::{Fp, MODULUS};
+use crate::core::field::{current_modulus, Fp};
 
 use super::data::SpartanLikeReportData;
 
@@ -12,6 +12,7 @@ fn fmt_matrix(m: &[Vec<Fp>]) -> String {
 }
 
 fn explain_bound(name: &str, matrix: &[Vec<Fp>], weights: &[Fp], bound: &[Fp]) -> String {
+    let p = current_modulus();
     let mut s = String::new();
     s.push_str(&format!("{}[j] = sum_i eq_i * {}[i][j]\n", name, name));
     for j in 0..bound.len() {
@@ -29,7 +30,7 @@ fn explain_bound(name: &str, matrix: &[Vec<Fp>], weights: &[Fp], bound: &[Fp]) -
             name,
             j,
             terms.join(" + "),
-            MODULUS,
+            p,
             bound[j].0
         ));
     }
@@ -37,19 +38,20 @@ fn explain_bound(name: &str, matrix: &[Vec<Fp>], weights: &[Fp], bound: &[Fp]) -
 }
 
 pub fn format_spartan_like_report(data: &SpartanLikeReportData) -> String {
+    let p = current_modulus();
     let mut out = String::new();
     out.push_str("=== Spartan-like R1CS Sumcheck Report ===\n");
     out.push_str("--------------------------------------------------\n");
     out.push_str("\n[Info]\n");
-    out.push_str(&format!("field: F_{}\n", MODULUS));
+    out.push_str(&format!("field: F_{}\n", p));
     out.push_str("hash/transcript: SHA-256 Fiat-Shamir\n");
     out.push_str(&format!(
     "outer challenge format: r = H(\"spartan-outer-sumcheck\", round, g(0), g(2), g(3)) mod {}\n",
-    MODULUS
+    p
   ));
     out.push_str(&format!(
         "inner challenge format: r = H(label, round, h0, h1, h2) mod {}\n",
-        MODULUS
+        p
     ));
     out.push_str(&format!(
         "shape: rows={}, cols={}\n",
@@ -122,7 +124,7 @@ pub fn format_spartan_like_report(data: &SpartanLikeReportData) -> String {
     for rr in &data.outer_trace.rounds {
         out.push_str(&format!(
             "  r_x[{}] = H(\"spartan-outer-sumcheck\", {}, g0={}, g2={}, g3={}) mod {} = {}\n",
-            rr.round, rr.round, rr.g_at_0.0, rr.g_at_2.0, rr.g_at_3.0, MODULUS, rr.challenge_r.0
+            rr.round, rr.round, rr.g_at_0.0, rr.g_at_2.0, rr.g_at_3.0, p, rr.challenge_r.0
         ));
     }
     out.push_str(&format!("r_x = {}\n", fmt_vec(&data.r_x)));
@@ -150,7 +152,7 @@ pub fn format_spartan_like_report(data: &SpartanLikeReportData) -> String {
     out.push_str("joint challenge is Fiat-Shamir sampled from (Az || Bz || Cz).\n");
     out.push_str(&format!(
         "gamma = H(\"spartan-like-joint-challenge\", Az, Bz, Cz) mod {} = {}\n",
-        MODULUS, data.gamma.0
+        p, data.gamma.0
     ));
     out.push_str(&format!(
         "  Az input = {}\n  Bz input = {}\n  Cz input = {}\n",
@@ -158,7 +160,7 @@ pub fn format_spartan_like_report(data: &SpartanLikeReportData) -> String {
         fmt_vec(&data.bz),
         fmt_vec(&data.cz)
     ));
-    out.push_str(&format!("gamma^2 mod {} = {}\n", MODULUS, data.gamma_sq.0));
+    out.push_str(&format!("gamma^2 mod {} = {}\n", p, data.gamma_sq.0));
     out.push_str(&explain_bound(
         "A",
         &data.case.a,

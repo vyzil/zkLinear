@@ -148,15 +148,13 @@ fn production_preset_mersenne61_end_to_end_succeeds() {
 }
 
 #[test]
-fn fp_trait_path_rejects_non_toy_profiles() {
+fn fp_trait_path_accepts_non_toy_profiles() {
     let pcs = BrakedownPcs::new(BrakedownSecurityPreset::ProductionMersenne61Ext2.params(8));
     let coeffs = vec![Fp::new(1); 32];
-    let err = pcs
+    let comm = pcs
         .commit(&coeffs)
-        .expect_err("Fp path must reject non-toy field profile");
-    assert!(err
-        .to_string()
-        .contains("Fp PCS path supports only ToyF97 profile"));
+        .expect("Fp trait path should support non-toy profile now");
+    assert_eq!(comm.n_per_row, 8);
 }
 
 #[test]
