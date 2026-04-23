@@ -2,7 +2,9 @@ use std::path::PathBuf;
 
 use zk_linear::{
     bridge::{prove_bridge_from_dir_with_profile, verify_bridge_bundle, BRIDGE_TRANSCRIPT_LABEL},
-    nizk::spartan_brakedown::{prove_from_dir_with_profile, verify_from_dir},
+    nizk::spartan_brakedown::{
+        parse_field_profile, prove_from_dir, prove_from_dir_with_profile, verify_from_dir,
+    },
     pcs::brakedown::types::BrakedownFieldProfile,
 };
 
@@ -41,4 +43,30 @@ fn bridge_e2e_runs_for_all_field_profiles() {
         verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr)
             .expect("verify_bridge_bundle should succeed");
     }
+}
+
+#[test]
+fn default_nizk_profile_is_mersenne61ext2() {
+    let r = prove_from_dir(&case_dir()).expect("default prove should succeed");
+    assert_eq!(
+        r.proof.verifier_commitment.field_profile,
+        BrakedownFieldProfile::Mersenne61Ext2
+    );
+}
+
+#[test]
+fn parse_profile_aliases_work() {
+    assert_eq!(
+        parse_field_profile("toy"),
+        Some(BrakedownFieldProfile::ToyF97)
+    );
+    assert_eq!(
+        parse_field_profile("m61"),
+        Some(BrakedownFieldProfile::Mersenne61Ext2)
+    );
+    assert_eq!(
+        parse_field_profile("gold"),
+        Some(BrakedownFieldProfile::Goldilocks64Ext2)
+    );
+    assert!(parse_field_profile("unknown").is_none());
 }

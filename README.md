@@ -80,6 +80,19 @@ cargo test --test spartan_brakedown_pipeline -- --nocapture
 cargo test --test spartan_brakedown_nizk -- --nocapture
 cargo test --test parity_with_reference -- --nocapture
 cargo test --test parity_with_external_reference -- --nocapture
+cargo test --test profile_switch_e2e -- --nocapture
+```
+
+Profile-switched E2E demo:
+```bash
+cargo run --bin profile_e2e_demo -- toy tests/inner_sumcheck_spartan
+cargo run --bin profile_e2e_demo -- m61 tests/inner_sumcheck_spartan
+cargo run --bin profile_e2e_demo -- gold tests/inner_sumcheck_spartan
+```
+
+Profile matrix metrics (timing + wire payload sizes):
+```bash
+cargo run --bin profile_matrix_metrics -- tests/inner_sumcheck_spartan 5 toy,m61,gold
 ```
 
 ## Input Format

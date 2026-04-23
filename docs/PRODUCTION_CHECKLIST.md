@@ -26,7 +26,7 @@ This checklist describes what remains after current dual-reference reconciliatio
 
 ## P3 (Field and arithmetic plan)
 
-- [ ] Replace toy field defaults with chosen production field profile
+- [x] Replace toy field defaults with chosen production field profile
 - [ ] If targeting Mersenne/extension field: formalize arithmetic module + test vectors
 - [ ] Add property/fuzz tests for arithmetic and transcript challenge reduction
 
