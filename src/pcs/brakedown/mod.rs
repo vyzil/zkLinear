@@ -146,6 +146,11 @@ impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
     type OpeningProof = BrakedownEvalProof;
 
     fn commit(&self, coeffs: &[Self::Field]) -> Result<Self::ProverCommitment> {
+        if self.params.field_profile != BrakedownFieldProfile::ToyF97 {
+            return Err(anyhow::anyhow!(
+                "Fp PCS path supports only ToyF97 profile; use BrakedownPcsT<Mersenne61/Goldilocks64> for production profiles"
+            ));
+        }
         let _scope = ModulusScope::enter(self.active_modulus());
         self.commit_generic(coeffs)
     }
@@ -163,6 +168,11 @@ impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
         outer_tensor: &[Self::Field],
         transcript: &mut Transcript,
     ) -> Result<Self::OpeningProof> {
+        if self.params.field_profile != BrakedownFieldProfile::ToyF97 {
+            return Err(anyhow::anyhow!(
+                "Fp PCS path supports only ToyF97 profile; use BrakedownPcsT<Mersenne61/Goldilocks64> for production profiles"
+            ));
+        }
         let _scope = ModulusScope::enter(self.active_modulus());
         self.open_generic(prover_commitment, outer_tensor, transcript)
     }
@@ -176,6 +186,11 @@ impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {
         claimed_value: Self::Field,
         transcript: &mut Transcript,
     ) -> Result<()> {
+        if self.params.field_profile != BrakedownFieldProfile::ToyF97 {
+            return Err(anyhow::anyhow!(
+                "Fp PCS path supports only ToyF97 profile; use BrakedownPcsT<Mersenne61/Goldilocks64> for production profiles"
+            ));
+        }
         let _scope = ModulusScope::enter(self.active_modulus());
         self.verify_generic(
             verifier_commitment,
