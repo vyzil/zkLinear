@@ -1,6 +1,8 @@
 use std::path::Path;
 
-use crate::{core::field::current_modulus, nizk::spartan_brakedown::SpartanBrakedownPipelineResult};
+use crate::core::field::current_modulus;
+
+use super::types::SpartanBrakedownPipelineResult;
 
 pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipelineResult) -> String {
     let proof = &result.proof;
