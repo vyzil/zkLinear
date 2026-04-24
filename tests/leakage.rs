@@ -14,6 +14,7 @@ use zk_linear::{
         shared::{
             append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
             build_eq_weights_from_challenges, matrix_vec_mul, sample_gamma_from_transcript_light,
+            sample_outer_tau_from_transcript,
         },
         spec_v1::{
             append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, LCPC_DEG_TEST_LABEL,
@@ -107,6 +108,7 @@ fn replay_degree_tensors(
     append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, public.field_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
+    let _tau = sample_outer_tau_from_transcript(&mut tr_v, public.rows.trailing_zeros() as usize);
 
     for r in &proof.outer_trace.rounds {
         let expected_r = derive_round_challenge_merlin(

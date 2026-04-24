@@ -12,8 +12,8 @@ use zk_linear::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
             append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-            build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha,
-            matrix_vec_mul, sample_gamma_from_transcript_light,
+            build_eq_weights_from_challenges, compute_case_digest, matrix_vec_mul,
+            sample_gamma_from_transcript_light, sample_outer_tau_from_transcript,
         },
         spec_v1::{
             append_spec_domain, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
@@ -150,20 +150,6 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
                 .map(|((a, b), c)| a.mul(*b).sub(*c))
                 .collect();
 
-            let tau = derive_outer_tau_sha(
-                case.a.len().trailing_zeros() as usize,
-                &az,
-                &bz,
-                &cz,
-                &case.z,
-            );
-            let eq_tau = build_eq_weights_from_challenges(&tau);
-            let weighted_residual: Vec<Fp> = residual
-                .iter()
-                .zip(eq_tau.iter())
-                .map(|(r, w)| r.mul(*w))
-                .collect();
-
             let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
             append_spec_domain(&mut tr);
             append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
@@ -174,6 +160,14 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
                 case.a[0].len(),
                 compute_case_digest(&case),
             );
+            let tau =
+                sample_outer_tau_from_transcript(&mut tr, case.a.len().trailing_zeros() as usize);
+            let eq_tau = build_eq_weights_from_challenges(&tau);
+            let weighted_residual: Vec<Fp> = residual
+                .iter()
+                .zip(eq_tau.iter())
+                .map(|(r, w)| r.mul(*w))
+                .collect();
 
             let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr);
             let outer_verify = verify_outer_sumcheck_trace(&outer_trace);

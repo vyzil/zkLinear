@@ -27,8 +27,8 @@ use crate::{
     protocol::reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
     protocol::shared::{
         append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-        build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha, flatten_rows,
-        matrix_vec_mul, sample_gamma_from_transcript_light,
+        build_eq_weights_from_challenges, compute_case_digest, flatten_rows, matrix_vec_mul,
+        sample_gamma_from_transcript_light, sample_outer_tau_from_transcript,
     },
     protocol::spec_v1::{
         append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
@@ -309,13 +309,6 @@ fn prove_from_dir_impl(
         .collect();
 
     let row_vars = rows.trailing_zeros() as usize;
-    let tau = derive_outer_tau_sha(row_vars, &az, &bz, &cz, &case.z);
-    let eq_tau = build_eq_weights_from_challenges(&tau);
-    let weighted_residual: Vec<Fp> = residual
-        .iter()
-        .zip(eq_tau.iter())
-        .map(|(r, w)| r.mul(*w))
-        .collect();
     let case_digest = compute_case_digest(&case);
     let context_fingerprint = context_fingerprint(rows, cols, case_digest, profile);
 
@@ -324,6 +317,14 @@ fn prove_from_dir_impl(
     append_reference_profile_to_transcript(&mut tr_p, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_p, profile);
     append_case_digest_to_transcript(&mut tr_p, rows, cols, case_digest);
+
+    let tau = sample_outer_tau_from_transcript(&mut tr_p, row_vars);
+    let eq_tau = build_eq_weights_from_challenges(&tau);
+    let weighted_residual: Vec<Fp> = residual
+        .iter()
+        .zip(eq_tau.iter())
+        .map(|(r, w)| r.mul(*w))
+        .collect();
 
     let outer_trace_full = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
     let r_x = outer_trace_full
@@ -495,7 +496,13 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         .map(|((a, b), c)| a.mul(*b).sub(*c))
         .collect::<Vec<_>>();
 
-    let tau = derive_outer_tau_sha(rows.trailing_zeros() as usize, &az, &bz, &cz, &case.z);
+    let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_v);
+    append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
+    append_field_profile_to_transcript(&mut tr_v, proof.verifier_commitment.field_profile);
+    append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
+
+    let tau = sample_outer_tau_from_transcript(&mut tr_v, rows.trailing_zeros() as usize);
     let eq_tau = build_eq_weights_from_challenges(&tau);
     let weighted_residual = residual
         .iter()
@@ -508,12 +515,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     if expected_outer_claim != proof.outer_trace.claim_initial {
         return Err(anyhow!("outer claim does not match A/B/C/z-derived claim"));
     }
-
-    let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
-    append_spec_domain(&mut tr_v);
-    append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
-    append_field_profile_to_transcript(&mut tr_v, proof.verifier_commitment.field_profile);
-    append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
 
     for (i, r) in proof.outer_trace.rounds.iter().enumerate() {
         if r.round != i {
@@ -718,6 +719,7 @@ fn verify_public_succinct(
     append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, public.field_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
+    let _tau = sample_outer_tau_from_transcript(&mut tr_v, public.rows.trailing_zeros() as usize);
 
     for (i, r) in proof.outer_trace.rounds.iter().enumerate() {
         if r.round != i {

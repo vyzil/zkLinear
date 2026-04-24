@@ -108,16 +108,12 @@ pub fn sample_blind_mix_alpha_from_transcript(tr: &mut Transcript) -> Fp {
     Fp::from_challenge(out)
 }
 
-pub fn derive_outer_tau_sha(num_vars: usize, az: &[Fp], bz: &[Fp], cz: &[Fp], z: &[Fp]) -> Vec<Fp> {
+pub fn sample_outer_tau_from_transcript(tr: &mut Transcript, num_vars: usize) -> Vec<Fp> {
     let mut tau = Vec::with_capacity(num_vars);
     for i in 0..num_vars {
-        let mut h = Sha256::new();
-        h.update(OUTER_TAU_LABEL);
-        h.update((i as u64).to_le_bytes());
-        for v in az.iter().chain(bz.iter()).chain(cz.iter()).chain(z.iter()) {
-            h.update(v.0.to_le_bytes());
-        }
-        let out: [u8; 32] = h.finalize().into();
+        append_u64_le(tr, b"outer_tau_idx", i as u64);
+        let mut out = [0u8; 32];
+        tr.challenge_bytes(OUTER_TAU_LABEL, &mut out);
         tau.push(Fp::from_challenge(out));
     }
     tau

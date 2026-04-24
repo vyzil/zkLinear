@@ -14,14 +14,16 @@ use zk_linear::{
         BrakedownPcs,
     },
     protocol::{
+        reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
-            bind_rows, build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha,
-            matrix_vec_mul,
+            append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
+            build_eq_weights_from_challenges, compute_case_digest, matrix_vec_mul,
+            sample_outer_tau_from_transcript,
         },
         spec_v1::{
-            BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL, INNER_SUMCHECK_JOINT_LABEL,
-            LCPC_COL_OPEN_LABEL, LCPC_DEG_TEST_LABEL, NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
-            OUTER_TAU_LABEL, TRANSCRIPT_DOMAIN,
+            append_spec_domain, BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL,
+            INNER_SUMCHECK_JOINT_LABEL, LCPC_COL_OPEN_LABEL, LCPC_DEG_TEST_LABEL,
+            NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL, OUTER_TAU_LABEL, TRANSCRIPT_DOMAIN,
         },
     },
 };
@@ -137,7 +139,7 @@ fn main() -> Result<()> {
         label_to_str(NIZK_TRANSCRIPT_LABEL)
     );
     println!(
-        "- outer tau: SHA-256(label={}, idx, Az||Bz||Cz||z)",
+        "- outer tau: Merlin(label={}, idx) after domain/reference/field/case-digest binding",
         label_to_str(OUTER_TAU_LABEL)
     );
     println!(
@@ -179,7 +181,12 @@ fn main() -> Result<()> {
         .collect::<Vec<_>>();
 
     let row_vars = rows.trailing_zeros() as usize;
-    let tau = derive_outer_tau_sha(row_vars, &az, &bz, &cz, &case.z);
+    let mut tr_tau = merlin::Transcript::new(NIZK_TRANSCRIPT_LABEL);
+    append_spec_domain(&mut tr_tau);
+    append_reference_profile_to_transcript(&mut tr_tau, &DUAL_REFERENCE_PROFILE);
+    append_field_profile_to_transcript(&mut tr_tau, profile);
+    append_case_digest_to_transcript(&mut tr_tau, rows, cols, digest);
+    let tau = sample_outer_tau_from_transcript(&mut tr_tau, row_vars);
     let eq_tau = build_eq_weights_from_challenges(&tau);
     let weighted_residual = residual
         .iter()
