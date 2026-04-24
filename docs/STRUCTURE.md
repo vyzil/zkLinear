@@ -15,8 +15,18 @@
 ## Entrypoints
 - `src/bin/spark_e2e_cli.rs`
   - compile / prove / verify / inspect
+- `src/bin/profile_e2e_explain.rs`
+  - verbose E2E flow explanation (data handoff, transcript labels, proof boundary)
 - `src/main.rs`
   - developer demo entrypoint
+
+## Profiling Workspace
+- `profile/README.md`
+  - profiling/explain workflow guide
+- `profile/scripts/`
+  - explain and benchmark runners
+- `profile/out/`
+  - generated profile outputs (markdown/json/csv/perf logs)
 
 ## Test Scope (kept)
 - PCS correctness and serialization

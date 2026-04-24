@@ -7,6 +7,7 @@ The current public verification path is `nizk::spartan_brakedown`.
 - Maintains a minimized NIZK proof/public boundary.
 - Keeps metadata (`reference_profile`, `context_fingerprint`) in sidecars.
 - Provides a compile/prove/verify workflow through `spark_e2e_cli`.
+- Provides a dedicated `profile/` workspace for explain/profiling runs.
 
 ## Project Structure
 - `src/nizk/`: proof/public types and prove/verify boundaries
@@ -15,6 +16,7 @@ The current public verification path is `nizk::spartan_brakedown`.
 - `src/protocol/`: transcript/spec/shared helpers
 - `src/io/`: case and R1CS import
 - `src/bin/spark_e2e_cli.rs`: operational CLI entrypoint
+- `profile/`: analysis/profiling scripts and output workspace
 
 For details on structure and design:
 - `docs/DESIGN.md`
@@ -28,6 +30,16 @@ cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/compi
 cargo run --bin spark_e2e_cli -- prove /tmp/compiled.json tests/inner_sumcheck_spartan /tmp/proof.json /tmp/public.json
 cargo run --bin spark_e2e_cli -- verify /tmp/compiled.json /tmp/proof.json /tmp/public.json
 ```
+
+## Profiling Workspace
+```bash
+./profile/scripts/explain_e2e.sh
+./profile/scripts/profile_matrix.sh
+./profile/scripts/profile_metrics.sh
+./profile/scripts/profile_perf.sh
+```
+
+See `profile/README.md` for arguments and outputs.
 
 ## Tests
 ```bash

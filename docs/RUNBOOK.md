@@ -13,6 +13,18 @@ cargo run --bin spark_e2e_cli -- verify /tmp/compiled.json /tmp/proof.json /tmp/
 cargo run --bin spark_e2e_cli -- inspect /tmp/proof.json
 ```
 
+## Profiling / Analysis Workspace
+Use scripts in `profile/scripts/` for explain/profiling runs.
+
+```bash
+./profile/scripts/explain_e2e.sh
+./profile/scripts/profile_matrix.sh
+./profile/scripts/profile_metrics.sh
+./profile/scripts/profile_perf.sh
+```
+
+For options and output paths, see `profile/README.md`.
+
 ## Metadata Sidecars
 During `prove`, the following sidecar files are generated:
 - `proof.meta.json`, `proof.meta.wire`
