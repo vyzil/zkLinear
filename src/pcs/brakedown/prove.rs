@@ -4,12 +4,13 @@ use merlin::Transcript;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
-    challenges::{sample_field_vec_round_t, sample_unique_cols},
+    challenges::{sample_field_vec_round_t, sample_unique_cols_from_start},
     commit::open_column_t,
     scalar::BrakedownField,
     types::{
         BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownProverCommitmentT,
     },
+    utils::append_field_vec_t,
 };
 
 fn collapse_rows_t<F: BrakedownField>(
@@ -48,22 +49,19 @@ pub fn prove_eval_t<F: BrakedownField>(
             comm.n_rows,
         );
         let p_rand = collapse_rows_t(&comm.coeffs, &rand_tensor, comm.n_rows, comm.n_per_row);
-        for v in &p_rand {
-            let mut b = Vec::new();
-            v.append_le_bytes(&mut b);
-            tr.append_message(b"p_random", &b);
-        }
+        append_field_vec_t(tr, b"p_random", &p_rand);
         p_random_vec.push(p_rand);
     }
 
     let p_eval = collapse_rows_t(&comm.coeffs, outer_tensor, comm.n_rows, comm.n_per_row);
-    for v in &p_eval {
-        let mut b = Vec::new();
-        v.append_le_bytes(&mut b);
-        tr.append_message(b"p_eval", &b);
-    }
+    append_field_vec_t(tr, b"p_eval", &p_eval);
 
-    let cols = sample_unique_cols(tr, comm.n_cols, params.n_col_opens)?;
+    let cols = sample_unique_cols_from_start(
+        tr,
+        comm.n_cols,
+        params.n_col_opens,
+        params.col_open_start,
+    )?;
     let mut openings = Vec::with_capacity(cols.len());
     for c in cols {
         openings.push(open_column_t(comm, c)?);

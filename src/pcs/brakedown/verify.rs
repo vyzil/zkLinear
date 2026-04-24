@@ -4,12 +4,13 @@ use merlin::Transcript;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
-    challenges::{sample_field_vec_round_t, sample_unique_cols},
+    challenges::{sample_field_vec_round_t, sample_unique_cols_from_start},
     merkle::verify_column_path_t,
     scalar::BrakedownField,
     types::{
         BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownVerifierCommitment,
     },
+    utils::{append_field_vec_t, dot_product_t},
 };
 
 #[allow(clippy::too_many_arguments)]
@@ -28,10 +29,7 @@ pub fn verify_eval_t<F: BrakedownField>(
     if inner_tensor.len() != enc.n_per_row {
         return Err(anyhow!("inner tensor size mismatch"));
     }
-    let eval = inner_tensor
-        .iter()
-        .zip(proof.p_eval.iter())
-        .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+    let eval = dot_product_t(inner_tensor, &proof.p_eval);
     if eval != claimed_value {
         return Err(anyhow!("claimed evaluation mismatch"));
     }
@@ -97,20 +95,17 @@ pub fn verify_eval_structure_t<F: BrakedownField>(
             commitment.n_rows,
         );
         rand_tensors.push(t);
-        for v in p_rand {
-            let mut b = Vec::new();
-            v.append_le_bytes(&mut b);
-            tr.append_message(b"p_random", &b);
-        }
+        append_field_vec_t(tr, b"p_random", p_rand);
     }
 
-    for v in &proof.p_eval {
-        let mut b = Vec::new();
-        v.append_le_bytes(&mut b);
-        tr.append_message(b"p_eval", &b);
-    }
+    append_field_vec_t(tr, b"p_eval", &proof.p_eval);
 
-    let cols_expected = sample_unique_cols(tr, enc.n_cols, params.n_col_opens)?;
+    let cols_expected = sample_unique_cols_from_start(
+        tr,
+        enc.n_cols,
+        params.n_col_opens,
+        params.col_open_start,
+    )?;
 
     let p_eval_enc = enc.encode_row_t(&proof.p_eval);
     let p_rand_enc: Vec<Vec<F>> = proof
@@ -133,19 +128,13 @@ pub fn verify_eval_structure_t<F: BrakedownField>(
         }
 
         for j in 0..proof.p_random_vec.len() {
-            let dot = rand_tensors[j]
-                .iter()
-                .zip(op.values.iter())
-                .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+            let dot = dot_product_t(&rand_tensors[j], &op.values);
             if dot != p_rand_enc[j][op.col_idx] {
                 return Err(anyhow!("degree-test column check failed"));
             }
         }
 
-        let dot_eval = outer_tensor
-            .iter()
-            .zip(op.values.iter())
-            .fold(F::zero(), |acc, (a, b)| acc.add((*a).mul(*b)));
+        let dot_eval = dot_product_t(outer_tensor, &op.values);
         if dot_eval != p_eval_enc[op.col_idx] {
             return Err(anyhow!("eval column check failed"));
         }

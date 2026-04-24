@@ -61,36 +61,13 @@ impl<'a> Reader<'a> {
     }
 }
 
-fn encode_encoder_kind(kind: &BrakedownEncoderKind) -> u8 {
-    match kind {
-        BrakedownEncoderKind::ToyHybrid => 0,
-        BrakedownEncoderKind::SpielmanLike => 1,
-    }
-}
-
 fn decode_encoder_kind(v: u8) -> Result<BrakedownEncoderKind> {
-    match v {
-        0 => Ok(BrakedownEncoderKind::ToyHybrid),
-        1 => Ok(BrakedownEncoderKind::SpielmanLike),
-        _ => Err(anyhow!("wire: unknown encoder kind tag")),
-    }
-}
-
-fn encode_field_profile(p: BrakedownFieldProfile) -> u8 {
-    match p {
-        BrakedownFieldProfile::ToyF97 => 0,
-        BrakedownFieldProfile::Mersenne61Ext2 => 1,
-        BrakedownFieldProfile::Goldilocks64Ext2 => 2,
-    }
+    BrakedownEncoderKind::from_wire_tag(v).ok_or_else(|| anyhow!("wire: unknown encoder kind tag"))
 }
 
 fn decode_field_profile(v: u8) -> Result<BrakedownFieldProfile> {
-    match v {
-        0 => Ok(BrakedownFieldProfile::ToyF97),
-        1 => Ok(BrakedownFieldProfile::Mersenne61Ext2),
-        2 => Ok(BrakedownFieldProfile::Goldilocks64Ext2),
-        _ => Err(anyhow!("wire: unknown field profile tag")),
-    }
+    BrakedownFieldProfile::from_wire_tag(v)
+        .ok_or_else(|| anyhow!("wire: unknown field profile tag"))
 }
 
 fn encode_field_t<F: BrakedownField>(out: &mut Vec<u8>, v: F) {
@@ -116,8 +93,8 @@ pub fn serialize_verifier_commitment(vc: &BrakedownVerifierCommitment) -> Vec<u8
     push_u64_le(&mut out, vc.n_rows as u64);
     push_u64_le(&mut out, vc.n_per_row as u64);
     push_u64_le(&mut out, vc.n_cols as u64);
-    push_u8(&mut out, encode_field_profile(vc.field_profile));
-    push_u8(&mut out, encode_encoder_kind(&vc.encoder_kind));
+    push_u8(&mut out, vc.field_profile.wire_tag());
+    push_u8(&mut out, vc.encoder_kind.wire_tag());
     push_u64_le(&mut out, vc.encoder_seed);
     push_u64_le(&mut out, vc.spel_layers as u64);
     push_u64_le(&mut out, vc.spel_pre_density as u64);

@@ -7,6 +7,7 @@ pub mod profiles;
 pub mod prove;
 pub mod scalar;
 pub mod types;
+mod utils;
 pub mod verify;
 pub mod wire;
 

@@ -19,6 +19,23 @@ pub enum BrakedownEncoderKind {
     SpielmanLike = 2,
 }
 
+impl BrakedownEncoderKind {
+    pub fn wire_tag(&self) -> u8 {
+        match self {
+            BrakedownEncoderKind::ToyHybrid => 0,
+            BrakedownEncoderKind::SpielmanLike => 1,
+        }
+    }
+
+    pub fn from_wire_tag(tag: u8) -> Option<Self> {
+        match tag {
+            0 => Some(BrakedownEncoderKind::ToyHybrid),
+            1 => Some(BrakedownEncoderKind::SpielmanLike),
+            _ => None,
+        }
+    }
+}
+
 #[repr(u8)]
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BrakedownFieldProfile {
@@ -63,6 +80,23 @@ impl BrakedownFieldProfile {
     pub fn default_nizk_profile() -> Self {
         Self::Mersenne61Ext2
     }
+
+    pub fn wire_tag(self) -> u8 {
+        match self {
+            BrakedownFieldProfile::ToyF97 => 0,
+            BrakedownFieldProfile::Mersenne61Ext2 => 1,
+            BrakedownFieldProfile::Goldilocks64Ext2 => 2,
+        }
+    }
+
+    pub fn from_wire_tag(tag: u8) -> Option<Self> {
+        match tag {
+            0 => Some(BrakedownFieldProfile::ToyF97),
+            1 => Some(BrakedownFieldProfile::Mersenne61Ext2),
+            2 => Some(BrakedownFieldProfile::Goldilocks64Ext2),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -70,6 +104,9 @@ pub struct BrakedownParams {
     pub n_per_row: usize,
     pub n_degree_tests: usize,
     pub n_col_opens: usize,
+    // Open columns are sampled from [col_open_start, n_cols).
+    // Default 0 keeps legacy behavior (full-range sampling).
+    pub col_open_start: usize,
     pub security_bits: usize,
     pub field_profile: BrakedownFieldProfile,
     pub auto_tune_security: bool,
@@ -82,40 +119,56 @@ pub struct BrakedownParams {
 }
 
 impl BrakedownParams {
-    pub fn new(n_per_row: usize) -> Self {
-        // Production-oriented default profile for end-to-end runs.
-        // Toy profile remains available via `new_toy`.
+    fn with_profile_defaults(
+        n_per_row: usize,
+        field_profile: BrakedownFieldProfile,
+        auto_tune_security: bool,
+        spel_layers: usize,
+        spel_pre_density: usize,
+        spel_post_density: usize,
+        spel_base_rs_parity: usize,
+    ) -> Self {
         Self {
             n_per_row,
             n_degree_tests: DEFAULT_N_DEGREE_TESTS,
             n_col_opens: DEFAULT_N_COL_OPENS,
+            col_open_start: 0,
             security_bits: DEFAULT_SECURITY_BITS,
-            field_profile: BrakedownFieldProfile::Mersenne61Ext2,
-            auto_tune_security: true,
+            field_profile,
+            auto_tune_security,
             encoder_kind: BrakedownEncoderKind::SpielmanLike,
             encoder_seed: 0,
-            spel_layers: DEFAULT_PROD_SPEL_LAYERS,
-            spel_pre_density: DEFAULT_PROD_SPEL_PRE_DENSITY,
-            spel_post_density: DEFAULT_PROD_SPEL_POST_DENSITY,
-            spel_base_rs_parity: DEFAULT_PROD_SPEL_BASE_RS_PARITY,
+            spel_layers,
+            spel_pre_density,
+            spel_post_density,
+            spel_base_rs_parity,
         }
     }
 
-    pub fn new_toy(n_per_row: usize) -> Self {
-        Self {
+    pub fn new(n_per_row: usize) -> Self {
+        // Production-oriented default profile for end-to-end runs.
+        // Toy profile remains available via `new_toy`.
+        Self::with_profile_defaults(
             n_per_row,
-            n_degree_tests: DEFAULT_N_DEGREE_TESTS,
-            n_col_opens: DEFAULT_N_COL_OPENS,
-            security_bits: DEFAULT_SECURITY_BITS,
-            field_profile: BrakedownFieldProfile::ToyF97,
-            auto_tune_security: false,
-            encoder_kind: BrakedownEncoderKind::SpielmanLike,
-            encoder_seed: 0,
-            spel_layers: DEFAULT_SPEL_LAYERS,
-            spel_pre_density: DEFAULT_SPEL_PRE_DENSITY,
-            spel_post_density: DEFAULT_SPEL_POST_DENSITY,
-            spel_base_rs_parity: DEFAULT_SPEL_BASE_RS_PARITY,
-        }
+            BrakedownFieldProfile::Mersenne61Ext2,
+            true,
+            DEFAULT_PROD_SPEL_LAYERS,
+            DEFAULT_PROD_SPEL_PRE_DENSITY,
+            DEFAULT_PROD_SPEL_POST_DENSITY,
+            DEFAULT_PROD_SPEL_BASE_RS_PARITY,
+        )
+    }
+
+    pub fn new_toy(n_per_row: usize) -> Self {
+        Self::with_profile_defaults(
+            n_per_row,
+            BrakedownFieldProfile::ToyF97,
+            false,
+            DEFAULT_SPEL_LAYERS,
+            DEFAULT_SPEL_PRE_DENSITY,
+            DEFAULT_SPEL_POST_DENSITY,
+            DEFAULT_SPEL_BASE_RS_PARITY,
+        )
     }
 
     /// Profile helper for staged migration:
@@ -123,10 +176,15 @@ impl BrakedownParams {
     /// - enables security-parameter auto-tuning from field profile and encoded column count
     pub fn new_with_field_profile(n_per_row: usize, field_profile: BrakedownFieldProfile) -> Self {
         // Keep lcpc-like migration profile distinct from production-pinned defaults.
-        let mut p = Self::new_toy(n_per_row);
-        p.field_profile = field_profile;
-        p.auto_tune_security = true;
-        p
+        Self::with_profile_defaults(
+            n_per_row,
+            field_profile,
+            true,
+            DEFAULT_SPEL_LAYERS,
+            DEFAULT_SPEL_PRE_DENSITY,
+            DEFAULT_SPEL_POST_DENSITY,
+            DEFAULT_SPEL_BASE_RS_PARITY,
+        )
     }
 
     /// Spec-v1 production-candidate profile for the current staged codebase.
