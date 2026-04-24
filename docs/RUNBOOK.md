@@ -25,6 +25,22 @@ Use scripts in `profile/scripts/` for explain/profiling runs.
 
 For options and output paths, see `profile/README.md`.
 
+## Local Case Generation (Circom / ZKIF)
+`tests/generated_cases/` is local-only and not tracked in Git.
+
+Generate local cases:
+```bash
+./scripts/generate_local_cases.sh
+./scripts/generate_local_cases.sh 12
+```
+
+Circom case generation requires:
+- `circom`
+- `snarkjs`
+- `node`
+
+ZKIF flows require Cargo to fetch the `zkinterface` dependency.
+
 ## Metadata Sidecars
 During `prove`, the following sidecar files are generated:
 - `proof.meta.json`, `proof.meta.wire`

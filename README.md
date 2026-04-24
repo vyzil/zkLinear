@@ -41,6 +41,18 @@ cargo run --bin spark_e2e_cli -- verify /tmp/compiled.json /tmp/proof.json /tmp/
 
 See `profile/README.md` for arguments and outputs.
 
+## R1CS Import Tooling Notes
+- `tests/generated_cases/` is a local workspace and is intentionally not tracked in Git.
+- If you use Circom import binaries, install `circom`, `snarkjs`, and `node`.
+- ZKIF import binaries use the Rust `zkinterface` crate (fetched from Git during cargo build).
+
+Generate local example cases:
+```bash
+./scripts/generate_local_cases.sh
+# optional: choose circom size k for 2^k constraints
+./scripts/generate_local_cases.sh 12
+```
+
 ## Tests
 ```bash
 cargo test -q
