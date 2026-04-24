@@ -10,7 +10,7 @@ use zk_linear::{
     nizk::spartan_brakedown::prove_from_dir,
     pcs::brakedown::challenges::sample_field_vec_round_t,
     protocol::{
-        reference::append_reference_profile_to_transcript,
+        reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
             append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
             build_eq_weights_from_challenges, derive_outer_tau_sha, matrix_vec_mul,
@@ -93,7 +93,7 @@ fn replay_degree_tensors(
 
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
-    append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
+    append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, public.field_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
 

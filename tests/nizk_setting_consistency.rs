@@ -26,11 +26,11 @@ fn context_fingerprint_is_stable_across_proof_randomness() {
     let r2 = prove_from_dir(&case_dir()).expect("second prove should succeed");
 
     assert_eq!(
-        r1.proof.context_fingerprint, r2.proof.context_fingerprint,
+        r1.proof_meta.context_fingerprint, r2.proof_meta.context_fingerprint,
         "proof context fingerprint should be deterministic for same case/profile"
     );
     assert_eq!(
-        r1.public.context_fingerprint, r2.public.context_fingerprint,
+        r1.public_meta.context_fingerprint, r2.public_meta.context_fingerprint,
         "public context fingerprint should be deterministic for same case/profile"
     );
 }
@@ -58,11 +58,11 @@ fn prove_public_fingerprint_matches_compiled_profile_choice() {
         prove_from_dir_with_profile(&case_dir(), m61).expect("prove_with_profile should succeed");
 
     assert_eq!(
-        compiled.context_fingerprint, proved.proof.context_fingerprint,
+        compiled.context_fingerprint, proved.proof_meta.context_fingerprint,
         "proof fingerprint should match compiled fingerprint for same profile/case"
     );
     assert_eq!(
-        compiled.context_fingerprint, proved.public.context_fingerprint,
+        compiled.context_fingerprint, proved.public_meta.context_fingerprint,
         "public fingerprint should match compiled fingerprint for same profile/case"
     );
 }

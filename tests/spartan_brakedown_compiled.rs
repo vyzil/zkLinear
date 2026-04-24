@@ -50,14 +50,12 @@ fn compiled_flow_fails_on_digest_mismatch_at_verify_boundary() {
 #[test]
 fn compiled_flow_fails_on_compiled_context_self_inconsistency() {
     let mut compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
-    let mut result = prove_with_compiled_from_dir(&compiled, &case_dir())
+    let result = prove_with_compiled_from_dir(&compiled, &case_dir())
         .expect("prove with compiled should succeed");
 
     let mut bogus = [0u8; 32];
     bogus[0] = 1;
     compiled.context_fingerprint = bogus;
-    result.proof.context_fingerprint = bogus;
-    result.public.context_fingerprint = bogus;
 
     let err = verify_with_compiled(&compiled, &result.proof, &result.public)
         .expect_err("verify should fail with compiled context self inconsistency");

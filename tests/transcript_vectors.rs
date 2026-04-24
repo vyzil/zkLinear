@@ -42,7 +42,7 @@ struct NizkTranscriptVector {
     field_profile: String,
     reference_profile: String,
     gamma: u64,
-    claimed_unblinded: u64,
+    inner_claim_initial: u64,
     outer_challenges: Vec<u64>,
     inner_challenges: Vec<u64>,
 }
@@ -116,9 +116,9 @@ fn build_snapshot() -> TranscriptVectorSnapshot {
         cols: nizk.public.cols,
         case_digest_hex: hex::encode(nizk.public.case_digest),
         field_profile: format!("{:?}", nizk.public.field_profile),
-        reference_profile: format!("{:?}", nizk.proof.reference_profile),
+        reference_profile: format!("{:?}", nizk.proof_meta.reference_profile),
         gamma: nizk.proof.gamma.0,
-        claimed_unblinded: nizk.proof.claimed_value_unblinded.0,
+        inner_claim_initial: nizk.proof.inner_trace.claim_initial.0,
         outer_challenges: nizk
             .proof
             .outer_trace

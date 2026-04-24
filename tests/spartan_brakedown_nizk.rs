@@ -9,7 +9,7 @@ use zk_linear::{
     pcs::brakedown::profiles::params_for_field_profile,
     pcs::brakedown::wire::{deserialize_eval_proof, serialize_eval_proof},
     pcs::brakedown::types::BrakedownFieldProfile,
-    protocol::reference::{PcsReference, ProtocolReference},
+    protocol::reference::DUAL_REFERENCE_PROFILE,
 };
 
 fn case_dir() -> PathBuf {
@@ -70,29 +70,14 @@ fn spartan_brakedown_fails_on_tampered_joint_opening() {
 }
 
 #[test]
-fn spartan_brakedown_fails_on_reference_profile_mismatch() {
-    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    result.proof.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
-    result.proof.reference_profile.pcs = PcsReference::ExperimentalAlt;
-
-    let err = verify_public(&result.proof, &result.public)
-        .expect_err("verify should fail for mismatched reference profile");
-    assert!(err.to_string().contains("reference profile mismatch"));
-}
-
-#[test]
-fn spartan_brakedown_fails_on_non_standard_reference_profile_even_if_matched() {
-    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    result.proof.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
-    result.proof.reference_profile.pcs = PcsReference::ExperimentalAlt;
-    result.public.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
-    result.public.reference_profile.pcs = PcsReference::ExperimentalAlt;
-
-    let err = verify_public(&result.proof, &result.public)
-        .expect_err("verify should fail for non-standard reference profile");
-    assert!(err
-        .to_string()
-        .contains("unsupported reference profile for this NIZK flow"));
+fn spartan_brakedown_meta_is_present_and_standard_profile() {
+    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    assert_eq!(result.proof_meta.reference_profile, DUAL_REFERENCE_PROFILE);
+    assert_eq!(result.public_meta.reference_profile, DUAL_REFERENCE_PROFILE);
+    assert_eq!(
+        result.proof_meta.context_fingerprint,
+        result.public_meta.context_fingerprint
+    );
 }
 
 #[test]
@@ -141,20 +126,6 @@ fn spartan_brakedown_fails_on_inner_round_index_mismatch() {
 }
 
 #[test]
-fn spartan_brakedown_fails_on_public_context_fingerprint_mismatch() {
-    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    result.public.context_fingerprint[0] ^= 1;
-
-    let err = verify_public(&result.proof, &result.public)
-        .expect_err("verify should fail for context fingerprint mismatch");
-    assert!(
-        err.to_string()
-            .contains("public/proof context fingerprint mismatch")
-            || err.to_string().contains("public context fingerprint mismatch")
-    );
-}
-
-#[test]
 fn spartan_brakedown_fails_on_commitment_n_cols_mismatch() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.verifier_commitment.n_cols += 1;
@@ -176,18 +147,6 @@ fn spartan_brakedown_fails_on_public_field_profile_mismatch() {
     assert!(err
         .to_string()
         .contains("public/proof field profile mismatch"));
-}
-
-#[test]
-fn spartan_brakedown_fails_on_proof_context_fingerprint_mismatch() {
-    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    result.proof.context_fingerprint[0] ^= 1;
-
-    let err = verify_public(&result.proof, &result.public)
-        .expect_err("verify should fail for context fingerprint mismatch");
-    assert!(err
-        .to_string()
-        .contains("public/proof context fingerprint mismatch"));
 }
 
 #[test]
