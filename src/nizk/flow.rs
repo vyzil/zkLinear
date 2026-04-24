@@ -17,7 +17,7 @@ use crate::{
         field::{Fp, ModulusScope},
         transcript::derive_round_challenge_merlin,
     },
-    io::case_format::{load_spartan_like_case, SpartanLikeCase},
+    io::instance_format::{load_spartan_like_instance, SpartanLikeInstance},
     pcs::{
         brakedown::{
             profiles::params_for_field_profile, types::BrakedownFieldProfile, BrakedownPcs,
@@ -26,8 +26,8 @@ use crate::{
     },
     protocol::reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
     protocol::shared::{
-        append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-        build_eq_weights_from_challenges, compute_case_digest, flatten_rows, matrix_vec_mul,
+        append_field_profile_to_transcript, append_instance_digest_to_transcript, bind_rows,
+        build_eq_weights_from_challenges, compute_instance_digest, flatten_rows, matrix_vec_mul,
         sample_joint_challenges_from_transcript, sample_outer_tau_from_transcript,
     },
     protocol::spec_v1::{
@@ -142,34 +142,34 @@ fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::default_nizk_profile()
 }
 
-fn validate_case_shape(case: &SpartanLikeCase) -> Result<(usize, usize)> {
-    if case.a.is_empty() || case.b.is_empty() || case.c.is_empty() {
-        return Err(anyhow!("case matrices must be non-empty"));
+fn validate_instance_shape(instance: &SpartanLikeInstance) -> Result<(usize, usize)> {
+    if instance.a.is_empty() || instance.b.is_empty() || instance.c.is_empty() {
+        return Err(anyhow!("instance matrices must be non-empty"));
     }
-    let rows = case.a.len();
-    if case.b.len() != rows || case.c.len() != rows {
+    let rows = instance.a.len();
+    if instance.b.len() != rows || instance.c.len() != rows {
         return Err(anyhow!("A/B/C row count mismatch"));
     }
-    if case.a[0].is_empty() || case.b[0].is_empty() || case.c[0].is_empty() {
-        return Err(anyhow!("case matrices must have non-empty rows"));
+    if instance.a[0].is_empty() || instance.b[0].is_empty() || instance.c[0].is_empty() {
+        return Err(anyhow!("instance matrices must have non-empty rows"));
     }
-    let cols = case.a[0].len();
-    if case.b[0].len() != cols || case.c[0].len() != cols {
+    let cols = instance.a[0].len();
+    if instance.b[0].len() != cols || instance.c[0].len() != cols {
         return Err(anyhow!("A/B/C column count mismatch"));
     }
-    if case.z.len() != cols {
+    if instance.z.len() != cols {
         return Err(anyhow!(
             "witness/input vector length mismatch vs matrix columns"
         ));
     }
-    if !case.a.iter().all(|r| r.len() == cols)
-        || !case.b.iter().all(|r| r.len() == cols)
-        || !case.c.iter().all(|r| r.len() == cols)
+    if !instance.a.iter().all(|r| r.len() == cols)
+        || !instance.b.iter().all(|r| r.len() == cols)
+        || !instance.c.iter().all(|r| r.len() == cols)
     {
         return Err(anyhow!("A/B/C rows must be rectangular"));
     }
     if !rows.is_power_of_two() || !cols.is_power_of_two() {
-        return Err(anyhow!("case shape must be powers of two"));
+        return Err(anyhow!("instance shape must be powers of two"));
     }
     Ok((rows, cols))
 }
@@ -177,7 +177,7 @@ fn validate_case_shape(case: &SpartanLikeCase) -> Result<(usize, usize)> {
 fn context_fingerprint(
     rows: usize,
     cols: usize,
-    case_digest: [u8; 32],
+    instance_digest: [u8; 32],
     field_profile: BrakedownFieldProfile,
 ) -> [u8; 32] {
     let params = leakage_reduced_public_params(cols, field_profile);
@@ -190,7 +190,7 @@ fn context_fingerprint(
     h.update(INNER_SUMCHECK_JOINT_LABEL);
     h.update((rows as u64).to_le_bytes());
     h.update((cols as u64).to_le_bytes());
-    h.update(case_digest);
+    h.update(instance_digest);
     h.update((field_profile as u8).to_le_bytes());
     h.update((DUAL_REFERENCE_PROFILE.protocol as u8).to_le_bytes());
     h.update((DUAL_REFERENCE_PROFILE.pcs as u8).to_le_bytes());
@@ -225,35 +225,35 @@ pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
     BrakedownFieldProfile::parse(s)
 }
 
-pub fn compile(case_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
-    compile_with_profile(case_dir, default_profile())
+pub fn compile(instance_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
+    compile_with_profile(instance_dir, default_profile())
 }
 
 pub fn compile_with_profile(
-    case_dir: &Path,
+    instance_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownCompiledCircuit> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
-    let case = load_spartan_like_case(case_dir)?;
-    let (rows, cols) = validate_case_shape(&case)?;
-    let case_digest = compute_case_digest(&case);
+    let instance = load_spartan_like_instance(instance_dir)?;
+    let (rows, cols) = validate_instance_shape(&instance)?;
+    let instance_digest = compute_instance_digest(&instance);
     Ok(SpartanBrakedownCompiledCircuit {
         rows,
         cols,
-        case_digest,
+        instance_digest,
         field_profile: profile,
-        context_fingerprint: context_fingerprint(rows, cols, case_digest, profile),
+        context_fingerprint: context_fingerprint(rows, cols, instance_digest, profile),
     })
 }
 
 pub fn prove_with_compiled(
     compiled: &SpartanBrakedownCompiledCircuit,
-    case_dir: &Path,
+    instance_dir: &Path,
 ) -> Result<SpartanBrakedownPipelineResult> {
     let _mod_scope = ModulusScope::enter(compiled.field_profile.base_modulus());
-    let case = load_spartan_like_case(case_dir)?;
-    validate_compiled_case(compiled, &case)?;
-    let result = prove_impl(case_dir, compiled.field_profile)?;
+    let instance = load_spartan_like_instance(instance_dir)?;
+    validate_compiled_instance(compiled, &instance)?;
+    let result = prove_impl(instance_dir, compiled.field_profile)?;
     if result.public_meta.context_fingerprint != compiled.context_fingerprint
         || result.proof_meta.context_fingerprint != compiled.context_fingerprint
     {
@@ -262,50 +262,50 @@ pub fn prove_with_compiled(
     Ok(result)
 }
 
-pub fn prove(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-    SpartanBrakedownProver::new(default_profile()).prove(case_dir)
+pub fn prove(instance_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+    SpartanBrakedownProver::new(default_profile()).prove(instance_dir)
 }
 
 pub fn prove_with_profile(
-    case_dir: &Path,
+    instance_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownPipelineResult> {
-    SpartanBrakedownProver::new(profile).prove(case_dir)
+    SpartanBrakedownProver::new(profile).prove(instance_dir)
 }
 
 impl SpartanBrakedownProver {
-    pub fn prove(self, case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-        prove_impl(case_dir, self.profile)
+    pub fn prove(self, instance_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+        prove_impl(instance_dir, self.profile)
     }
 }
 
 fn prove_impl(
-    case_dir: &Path,
+    instance_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownPipelineResult> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let t0 = Instant::now();
-    let case = load_spartan_like_case(case_dir)?;
-    let (rows, cols) = validate_case_shape(&case)?;
+    let instance = load_spartan_like_instance(instance_dir)?;
+    let (rows, cols) = validate_instance_shape(&instance)?;
     let k0_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
     let t1 = Instant::now();
-    let az = matrix_vec_mul(&case.a, &case.z);
-    let bz = matrix_vec_mul(&case.b, &case.z);
-    let cz = matrix_vec_mul(&case.c, &case.z);
+    let az = matrix_vec_mul(&instance.a, &instance.z);
+    let bz = matrix_vec_mul(&instance.b, &instance.z);
+    let cz = matrix_vec_mul(&instance.c, &instance.z);
 
     let row_vars = rows.trailing_zeros() as usize;
-    let case_digest = compute_case_digest(&case);
-    let context_fingerprint = context_fingerprint(rows, cols, case_digest, profile);
+    let instance_digest = compute_instance_digest(&instance);
+    let context_fingerprint = context_fingerprint(rows, cols, instance_digest, profile);
 
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_p, profile);
-    append_case_digest_to_transcript(&mut tr_p, rows, cols, case_digest);
+    append_instance_digest_to_transcript(&mut tr_p, rows, cols, instance_digest);
 
     // Commit witness layout first and bind commitment before FS challenges.
-    let coeff_rows = vec![case.z.clone()];
+    let coeff_rows = vec![instance.z.clone()];
     if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
         return Err(anyhow!("internal witness layout row count mismatch"));
     }
@@ -328,9 +328,9 @@ fn prove_impl(
         .collect::<Vec<_>>();
     let row_weights = build_eq_weights_from_challenges(&r_x);
 
-    let a_bound = bind_rows(&case.a, &row_weights);
-    let b_bound = bind_rows(&case.b, &row_weights);
-    let c_bound = bind_rows(&case.c, &row_weights);
+    let a_bound = bind_rows(&instance.a, &row_weights);
+    let b_bound = bind_rows(&instance.b, &row_weights);
+    let c_bound = bind_rows(&instance.c, &row_weights);
 
     let (r_a, r_b, r_c) = sample_joint_challenges_from_transcript(&mut tr_p);
 
@@ -343,7 +343,7 @@ fn prove_impl(
 
     let inner_trace_full = prove_inner_sumcheck_with_label_and_transcript(
         &joint_bound,
-        &case.z,
+        &instance.z,
         INNER_SUMCHECK_JOINT_LABEL,
         &mut tr_p,
     );
@@ -368,7 +368,7 @@ fn prove_impl(
     let public = SpartanBrakedownPublic {
         rows,
         cols,
-        case_digest,
+        instance_digest,
         field_profile: profile,
     };
 
@@ -399,8 +399,8 @@ fn prove_impl(
     })
 }
 
-pub fn verify_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
-    verify_strict_impl(case_dir, proof)
+pub fn verify_strict(instance_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    verify_strict_impl(instance_dir, proof)
 }
 
 pub fn verify_public(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
@@ -417,9 +417,9 @@ pub fn verify_with_compiled(
 }
 
 impl SpartanBrakedownVerifier {
-    pub fn verify(self, case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    pub fn verify(self, instance_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
         match self.mode {
-            VerifyMode::StrictReplay => verify_strict_impl(case_dir, proof),
+            VerifyMode::StrictReplay => verify_strict_impl(instance_dir, proof),
             VerifyMode::Succinct => Err(anyhow!(
                 "succinct verifier requires explicit public input; use verify_public(proof, public)"
             )),
@@ -436,11 +436,11 @@ impl SpartanBrakedownVerifier {
     }
 }
 
-fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+fn verify_strict_impl(instance_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
     let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
-    let case = load_spartan_like_case(case_dir)?;
-    let (rows, cols) = validate_case_shape(&case)?;
-    let case_digest = compute_case_digest(&case);
+    let instance = load_spartan_like_instance(instance_dir)?;
+    let (rows, cols) = validate_instance_shape(&instance)?;
+    let instance_digest = compute_instance_digest(&instance);
     if proof.outer_trace.rounds.len() != rows.trailing_zeros() as usize {
         return Err(anyhow!("outer rounds do not match row count"));
     }
@@ -458,9 +458,9 @@ fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<
             "verifier commitment dimensions mismatch for witness layout"
         ));
     }
-    let az = matrix_vec_mul(&case.a, &case.z);
-    let bz = matrix_vec_mul(&case.b, &case.z);
-    let cz = matrix_vec_mul(&case.c, &case.z);
+    let az = matrix_vec_mul(&instance.a, &instance.z);
+    let bz = matrix_vec_mul(&instance.b, &instance.z);
+    let cz = matrix_vec_mul(&instance.c, &instance.z);
     let residual = az
         .iter()
         .zip(bz.iter())
@@ -472,7 +472,7 @@ fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<
     append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, proof.verifier_commitment.field_profile);
-    append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
+    append_instance_digest_to_transcript(&mut tr_v, rows, cols, instance_digest);
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
     append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
@@ -545,9 +545,9 @@ fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<
         .map(|r| r.challenge_r)
         .collect::<Vec<_>>();
     let row_weights = build_eq_weights_from_challenges(&r_x);
-    let a_bound = bind_rows(&case.a, &row_weights);
-    let b_bound = bind_rows(&case.b, &row_weights);
-    let c_bound = bind_rows(&case.c, &row_weights);
+    let a_bound = bind_rows(&instance.a, &row_weights);
+    let b_bound = bind_rows(&instance.b, &row_weights);
+    let c_bound = bind_rows(&instance.c, &row_weights);
 
     let joint_bound = a_bound
         .iter()
@@ -563,7 +563,7 @@ fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<
         })
         .collect::<Vec<_>>();
 
-    let expected_claim = inner_product(&joint_bound, &case.z);
+    let expected_claim = inner_product(&joint_bound, &instance.z);
     if proof.inner_trace.claim_initial != expected_claim {
         return Err(anyhow!(
             "inner initial claim mismatch vs A/B/C/z-derived claim"
@@ -595,7 +595,7 @@ fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<
         proof.inner_trace.final_g,
         &mut tr_v,
     )?;
-    let expected_final_g = inner_product(&eq_r, &case.z);
+    let expected_final_g = inner_product(&eq_r, &instance.z);
     if expected_final_g != proof.inner_trace.final_g {
         return Err(anyhow!("inner final g mismatch vs witness-derived eq(r)·z"));
     }
@@ -603,21 +603,21 @@ fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<
     Ok(())
 }
 
-fn validate_compiled_case(
+fn validate_compiled_instance(
     compiled: &SpartanBrakedownCompiledCircuit,
-    case: &SpartanLikeCase,
+    instance: &SpartanLikeInstance,
 ) -> Result<()> {
-    let (rows, cols) = validate_case_shape(case)?;
+    let (rows, cols) = validate_instance_shape(instance)?;
     if rows != compiled.rows || cols != compiled.cols {
         return Err(anyhow!("compiled circuit shape mismatch"));
     }
-    if compute_case_digest(case) != compiled.case_digest {
+    if compute_instance_digest(instance) != compiled.instance_digest {
         return Err(anyhow!("compiled circuit digest mismatch"));
     }
     let expected = context_fingerprint(
         compiled.rows,
         compiled.cols,
-        compiled.case_digest,
+        compiled.instance_digest,
         compiled.field_profile,
     );
     if compiled.context_fingerprint != expected {
@@ -634,7 +634,7 @@ fn validate_compiled_public(
     let expected = context_fingerprint(
         compiled.rows,
         compiled.cols,
-        compiled.case_digest,
+        compiled.instance_digest,
         compiled.field_profile,
     );
     if compiled.context_fingerprint != expected {
@@ -643,8 +643,8 @@ fn validate_compiled_public(
     if public.rows != compiled.rows || public.cols != compiled.cols {
         return Err(anyhow!("compiled/public shape mismatch"));
     }
-    if public.case_digest != compiled.case_digest {
-        return Err(anyhow!("compiled/public case digest mismatch"));
+    if public.instance_digest != compiled.instance_digest {
+        return Err(anyhow!("compiled/public instance digest mismatch"));
     }
     if proof.verifier_commitment.field_profile != compiled.field_profile {
         return Err(anyhow!("compiled/proof field profile mismatch"));
@@ -700,7 +700,12 @@ fn verify_public_succinct(
     append_spec_domain(&mut tr_v);
     append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, public.field_profile);
-    append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
+    append_instance_digest_to_transcript(
+        &mut tr_v,
+        public.rows,
+        public.cols,
+        public.instance_digest,
+    );
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
     append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
     let _tau = sample_outer_tau_from_transcript(&mut tr_v, public.rows.trailing_zeros() as usize);
@@ -775,14 +780,14 @@ fn verify_public_succinct(
     Ok(())
 }
 
-pub fn build_pipeline_report(case_dir: &Path) -> Result<String> {
-    build_pipeline_report_with_profile(case_dir, default_profile())
+pub fn build_pipeline_report(instance_dir: &Path) -> Result<String> {
+    build_pipeline_report_with_profile(instance_dir, default_profile())
 }
 
 pub fn build_pipeline_report_with_profile(
-    case_dir: &Path,
+    instance_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<String> {
-    let result = prove_with_profile(case_dir, profile)?;
-    Ok(format_pipeline_report(case_dir, &result))
+    let result = prove_with_profile(instance_dir, profile)?;
+    Ok(format_pipeline_report(instance_dir, &result))
 }

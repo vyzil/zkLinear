@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf, process::Command};
 
 use anyhow::{anyhow, bail, Result};
 use zk_linear::{
-    io::r1cs_circom::import_spartan_like_case_from_circom_json,
+    io::r1cs_circom::import_spartan_like_instance_from_circom_json,
     nizk::spartan_brakedown::prove,
     pcs::brakedown::wire::{serialize_eval_proof, serialize_verifier_commitment},
 };
@@ -45,9 +45,9 @@ fn main() -> Result<()> {
 
     let base = PathBuf::from(format!("tests/generated_cases/circom_repeat_2pow{}", k));
     let ws = base.join("workspace");
-    let case = base.join("case");
+    let instance = base.join("instance");
     fs::create_dir_all(&ws)?;
-    fs::create_dir_all(&case)?;
+    fs::create_dir_all(&instance)?;
 
     let circom_src = format!(
         r#"pragma circom 2.1.6;
@@ -119,13 +119,13 @@ component main = RepeatEq({n});
         "snarkjs wtns export json",
     )?;
 
-    import_spartan_like_case_from_circom_json(
+    import_spartan_like_instance_from_circom_json(
         &ws.join("repeat.r1cs.json"),
         &ws.join("witness.json"),
-        &case,
+        &instance,
     )?;
 
-    let res = prove(&case)?;
+    let res = prove(&instance)?;
 
     println!(
         "circom constraints: 2^{} = {}",
@@ -133,7 +133,7 @@ component main = RepeatEq({n});
         fmt_commas_u64(n_constraints as u64)
     );
     println!("workspace: {}", ws.display());
-    println!("case: {}", case.display());
+    println!("instance: {}", instance.display());
     let t = &res.timings;
     println!("timing(ms):");
     println!(

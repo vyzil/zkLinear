@@ -3,7 +3,7 @@ use std::{path::PathBuf, str};
 use anyhow::{anyhow, Result};
 use zk_linear::{
     core::field::{Fp, ModulusScope},
-    io::case_format::{load_spartan_like_case, SpartanLikeCase},
+    io::instance_format::{load_spartan_like_instance, SpartanLikeInstance},
     nizk::spartan_brakedown::{
         compile_with_profile, parse_field_profile, prove_with_compiled, verify_strict,
         verify_with_compiled,
@@ -16,8 +16,8 @@ use zk_linear::{
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
-            append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-            build_eq_weights_from_challenges, compute_case_digest, matrix_vec_mul,
+            append_field_profile_to_transcript, append_instance_digest_to_transcript, bind_rows,
+            build_eq_weights_from_challenges, compute_instance_digest, matrix_vec_mul,
             sample_outer_tau_from_transcript,
         },
         spec_v1::{
@@ -64,7 +64,7 @@ fn dot(a: &[Fp], b: &[Fp]) -> Fp {
 
 fn parse_args() -> Result<(PathBuf, String, usize)> {
     let mut args = std::env::args().skip(1);
-    let case_dir = args
+    let instance_dir = args
         .next()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("tests/inner_sumcheck_spartan"));
@@ -74,38 +74,38 @@ fn parse_args() -> Result<(PathBuf, String, usize)> {
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(8)
         .max(1);
-    Ok((case_dir, profile_s, show_head))
+    Ok((instance_dir, profile_s, show_head))
 }
 
-fn print_case_snapshot(case: &SpartanLikeCase, show_head: usize) {
+fn print_case_snapshot(instance: &SpartanLikeInstance, show_head: usize) {
     println!("[Input Snapshot]");
     println!(
         "- A: {}x{} | first row head: {}",
-        case.a.len(),
-        case.a[0].len(),
-        fmt_row_head(&case.a, 0, show_head)
+        instance.a.len(),
+        instance.a[0].len(),
+        fmt_row_head(&instance.a, 0, show_head)
     );
     println!(
         "- B: {}x{} | first row head: {}",
-        case.b.len(),
-        case.b[0].len(),
-        fmt_row_head(&case.b, 0, show_head)
+        instance.b.len(),
+        instance.b[0].len(),
+        fmt_row_head(&instance.b, 0, show_head)
     );
     println!(
         "- C: {}x{} | first row head: {}",
-        case.c.len(),
-        case.c[0].len(),
-        fmt_row_head(&case.c, 0, show_head)
+        instance.c.len(),
+        instance.c[0].len(),
+        fmt_row_head(&instance.c, 0, show_head)
     );
     println!(
         "- z: len={} | head: {}",
-        case.z.len(),
-        fmt_vec_head(&case.z, show_head)
+        instance.z.len(),
+        fmt_vec_head(&instance.z, show_head)
     );
 }
 
 fn main() -> Result<()> {
-    let (case_dir, profile_s, show_head) = parse_args()?;
+    let (instance_dir, profile_s, show_head) = parse_args()?;
     let profile = parse_field_profile(&profile_s).ok_or_else(|| {
         anyhow!(
             "unknown profile '{}'; use one of: toy | m61 | gold",
@@ -114,15 +114,15 @@ fn main() -> Result<()> {
     })?;
 
     let _scope = ModulusScope::enter(profile.base_modulus());
-    let case = load_spartan_like_case(&case_dir)?;
-    let rows = case.a.len();
-    let cols = case.a[0].len();
-    let digest = compute_case_digest(&case);
+    let instance = load_spartan_like_instance(&instance_dir)?;
+    let rows = instance.a.len();
+    let cols = instance.a[0].len();
+    let digest = compute_instance_digest(&instance);
 
     println!("=== E2E Explain Profile (Spartan2 + Brakedown + Spielman) ===");
     println!();
     println!("[Run Config]");
-    println!("- case_dir: {}", case_dir.display());
+    println!("- instance_dir: {}", instance_dir.display());
     println!("- field_profile: {:?}", profile);
     println!("- base_modulus: {}", profile.base_modulus());
     println!("- rows: {} (2^{})", rows, rows.trailing_zeros());
@@ -130,7 +130,7 @@ fn main() -> Result<()> {
     println!("- circuit_digest(A,B,C only): {}", hex::encode(digest));
     println!();
 
-    print_case_snapshot(&case, show_head);
+    print_case_snapshot(&instance, show_head);
     println!();
 
     println!("[Randomness + Transcript Contract]");
@@ -140,7 +140,7 @@ fn main() -> Result<()> {
         label_to_str(NIZK_TRANSCRIPT_LABEL)
     );
     println!(
-        "- outer tau: Merlin(label={}, idx) after domain/reference/field/case-digest binding",
+        "- outer tau: Merlin(label={}, idx) after domain/reference/field/instance-digest binding",
         label_to_str(OUTER_TAU_LABEL)
     );
     println!(
@@ -172,12 +172,12 @@ fn main() -> Result<()> {
     );
     println!();
 
-    let compiled = compile_with_profile(&case_dir, profile)?;
-    let res = prove_with_compiled(&compiled, &case_dir)?;
+    let compiled = compile_with_profile(&instance_dir, profile)?;
+    let res = prove_with_compiled(&compiled, &instance_dir)?;
 
-    let az = matrix_vec_mul(&case.a, &case.z);
-    let bz = matrix_vec_mul(&case.b, &case.z);
-    let cz = matrix_vec_mul(&case.c, &case.z);
+    let az = matrix_vec_mul(&instance.a, &instance.z);
+    let bz = matrix_vec_mul(&instance.b, &instance.z);
+    let cz = matrix_vec_mul(&instance.c, &instance.z);
     let residual = az
         .iter()
         .zip(bz.iter())
@@ -193,7 +193,7 @@ fn main() -> Result<()> {
     append_spec_domain(&mut tr_tau);
     append_reference_profile_to_transcript(&mut tr_tau, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_tau, profile);
-    append_case_digest_to_transcript(&mut tr_tau, rows, cols, digest);
+    append_instance_digest_to_transcript(&mut tr_tau, rows, cols, digest);
     tr_tau.append_message(b"polycommit", &res.proof.verifier_commitment.root);
     append_u64_le(
         &mut tr_tau,
@@ -219,9 +219,9 @@ fn main() -> Result<()> {
         .map(|r| r.challenge_r)
         .collect::<Vec<_>>();
     let row_weights = build_eq_weights_from_challenges(&outer_chals);
-    let a_bound = bind_rows(&case.a, &row_weights);
-    let b_bound = bind_rows(&case.b, &row_weights);
-    let c_bound = bind_rows(&case.c, &row_weights);
+    let a_bound = bind_rows(&instance.a, &row_weights);
+    let b_bound = bind_rows(&instance.b, &row_weights);
+    let c_bound = bind_rows(&instance.c, &row_weights);
 
     let r_a = res.proof.joint_challenges.r_a;
     let r_b = res.proof.joint_challenges.r_b;
@@ -232,7 +232,7 @@ fn main() -> Result<()> {
         .zip(c_bound.iter())
         .map(|((a, b), c)| r_a.mul(*a).add(r_b.mul(*b)).add(r_c.mul(*c)))
         .collect::<Vec<_>>();
-    let expected_inner_claim = dot(&joint_bound, &case.z);
+    let expected_inner_claim = dot(&joint_bound, &instance.z);
 
     let inner_chals = res
         .proof
@@ -242,7 +242,7 @@ fn main() -> Result<()> {
         .map(|r| r.challenge_r)
         .collect::<Vec<_>>();
     let eq_r = build_eq_weights_from_challenges(&inner_chals);
-    let expected_final_g = dot(&eq_r, &case.z);
+    let expected_final_g = dot(&eq_r, &instance.z);
 
     println!("[E2E Flow: Prover Side]");
     println!("1) Input parse -> Az/Bz/Cz/residual computation");
@@ -345,7 +345,7 @@ fn main() -> Result<()> {
     let eval_bytes = serialize_eval_proof(&res.proof.pcs_proof_joint_eval_at_r).len();
 
     println!("[Proof/Public Boundary]");
-    println!("- public: rows, cols, case_digest, field_profile");
+    println!("- public: rows, cols, instance_digest, field_profile");
     println!(
         "- proof: outer_trace + inner_trace + (r_a,r_b,r_c) + verifier_commitment + pcs_opening"
     );
@@ -361,8 +361,8 @@ fn main() -> Result<()> {
     verify_with_compiled(&compiled, &res.proof, &res.public)?;
     println!("- succinct(public+proof) verify: PASS");
 
-    verify_strict(&case_dir, &res.proof)?;
-    println!("- strict replay(case+proof) verify: PASS");
+    verify_strict(&instance_dir, &res.proof)?;
+    println!("- strict replay(instance+proof) verify: PASS");
 
     println!(
         "- verifier read set: public(rows/cols/digest/profile), sumcheck messages, (r_a,r_b,r_c), commitment root+dims, PCS opening"

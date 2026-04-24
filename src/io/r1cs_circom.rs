@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::core::field::{current_modulus, Fp};
 
-use super::case_format::{write_spartan_like_case_to_dir, SpartanLikeCase};
+use super::instance_format::{write_spartan_like_instance_to_dir, SpartanLikeInstance};
 
 fn next_pow2(x: usize) -> usize {
     if x <= 1 {
@@ -48,10 +48,10 @@ fn parse_constraint_term_obj(obj: &serde_json::Map<String, Value>, cols: usize) 
     Ok(row)
 }
 
-pub fn load_spartan_like_case_from_circom_json(
+pub fn load_spartan_like_instance_from_circom_json(
     r1cs_json_path: &Path,
     witness_json_path: &Path,
-) -> Result<SpartanLikeCase> {
+) -> Result<SpartanLikeInstance> {
     let r1cs_text = fs::read_to_string(r1cs_json_path)
         .map_err(|e| anyhow!("failed reading {}: {}", r1cs_json_path.display(), e))?;
     let wtns_text = fs::read_to_string(witness_json_path)
@@ -148,14 +148,14 @@ pub fn load_spartan_like_case_from_circom_json(
         }
     }
 
-    Ok(SpartanLikeCase { a, b, c, z })
+    Ok(SpartanLikeInstance { a, b, c, z })
 }
 
-pub fn import_spartan_like_case_from_circom_json(
+pub fn import_spartan_like_instance_from_circom_json(
     r1cs_json_path: &Path,
     witness_json_path: &Path,
-    dst_case_dir: &Path,
+    dst_instance_dir: &Path,
 ) -> Result<()> {
-    let case = load_spartan_like_case_from_circom_json(r1cs_json_path, witness_json_path)?;
-    write_spartan_like_case_to_dir(dst_case_dir, &case)
+    let instance = load_spartan_like_instance_from_circom_json(r1cs_json_path, witness_json_path)?;
+    write_spartan_like_instance_to_dir(dst_instance_dir, &instance)
 }

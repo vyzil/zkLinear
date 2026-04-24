@@ -2,7 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use zk_linear::{
-    io::r1cs_zkif::import_spartan_like_case_from_zkif_workspace, nizk::spartan_brakedown::prove,
+    io::r1cs_zkif::import_spartan_like_instance_from_zkif_workspace, nizk::spartan_brakedown::prove,
 };
 use zkinterface::producers::{
     builder::Sink,
@@ -13,7 +13,7 @@ use zkinterface::producers::{
 fn main() -> Result<()> {
     let base = PathBuf::from("tests/generated_cases/zkif_example");
     let src_ws = base.join("workspace");
-    let dst_case = base.join("case");
+    let dst_case = base.join("instance");
     fs::create_dir_all(&src_ws)?;
     fs::create_dir_all(&dst_case)?;
 
@@ -25,11 +25,11 @@ fn main() -> Result<()> {
     sink.push_constraints(example_constraints())
         .map_err(|e| anyhow!(e.to_string()))?;
 
-    import_spartan_like_case_from_zkif_workspace(&src_ws, &dst_case)?;
+    import_spartan_like_instance_from_zkif_workspace(&src_ws, &dst_case)?;
     let res = prove(&dst_case)?;
 
     println!("generated zkif workspace: {}", src_ws.display());
-    println!("generated zklinear case: {}", dst_case.display());
+    println!("generated zklinear instance: {}", dst_case.display());
     let t = &res.timings;
     println!("timing(ms):");
     println!(

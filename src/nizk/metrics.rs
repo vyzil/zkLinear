@@ -28,7 +28,7 @@ pub struct NizkMeasuredRun {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NizkMetricsReport {
-    pub case_dir: String,
+    pub instance_dir: String,
     pub profile: String,
     pub compile_ms: f64,
     pub warmup_runs: usize,
@@ -52,12 +52,12 @@ pub fn stddev(vals: &[f64], avg: f64) -> f64 {
 }
 
 fn run_once(
-    case_dir: &Path,
+    instance_dir: &Path,
     compiled: &crate::nizk::types::SpartanBrakedownCompiledCircuit,
     run_id: usize,
 ) -> Result<NizkMeasuredRun> {
     let t_prove = Instant::now();
-    let res = prove_with_compiled(compiled, case_dir)?;
+    let res = prove_with_compiled(compiled, instance_dir)?;
     let prove_wall_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
 
     let t_verify = Instant::now();
@@ -84,7 +84,7 @@ fn run_once(
 }
 
 pub fn collect_nizk_metrics(
-    case_dir: &Path,
+    instance_dir: &Path,
     profile: BrakedownFieldProfile,
     warmup_runs: usize,
     measured_runs: usize,
@@ -93,20 +93,20 @@ pub fn collect_nizk_metrics(
         return Err(anyhow!("measured_runs must be >= 1"));
     }
     let t_compile = Instant::now();
-    let compiled = compile_with_profile(case_dir, profile)?;
+    let compiled = compile_with_profile(instance_dir, profile)?;
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
 
     for _ in 0..warmup_runs {
-        let _ = run_once(case_dir, &compiled, 0)?;
+        let _ = run_once(instance_dir, &compiled, 0)?;
     }
 
     let mut runs = Vec::with_capacity(measured_runs);
     for i in 0..measured_runs {
-        runs.push(run_once(case_dir, &compiled, i + 1)?);
+        runs.push(run_once(instance_dir, &compiled, i + 1)?);
     }
 
     Ok(NizkMetricsReport {
-        case_dir: case_dir.display().to_string(),
+        instance_dir: instance_dir.display().to_string(),
         profile: format!("{:?}", profile),
         compile_ms,
         warmup_runs,

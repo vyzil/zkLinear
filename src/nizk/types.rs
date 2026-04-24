@@ -64,7 +64,7 @@ pub struct SpartanBrakedownProof {
 pub struct SpartanBrakedownPublic {
     pub rows: usize,
     pub cols: usize,
-    pub case_digest: [u8; 32],
+    pub instance_digest: [u8; 32],
     pub field_profile: BrakedownFieldProfile,
 }
 
@@ -72,7 +72,7 @@ pub struct SpartanBrakedownPublic {
 pub struct SpartanBrakedownCompiledCircuit {
     pub rows: usize,
     pub cols: usize,
-    pub case_digest: [u8; 32],
+    pub instance_digest: [u8; 32],
     pub field_profile: BrakedownFieldProfile,
     pub context_fingerprint: [u8; 32],
 }
@@ -111,7 +111,7 @@ pub struct SpartanBrakedownPipelineResult {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum VerifyMode {
-    // Full replay against case inputs (including z); debug/invariant mode.
+    // Full replay against instance inputs (including z); debug/invariant mode.
     StrictReplay,
     // Proof/public-only path: no witness-like tensors on public boundary.
     // This remains research/demo-level succinct verification.

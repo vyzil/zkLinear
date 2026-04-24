@@ -15,7 +15,7 @@ pub fn data_enabled() -> bool {
     enabled() || env_on("TEST_LOG_DATA")
 }
 
-pub fn run_case<F>(id: &str, summary: &str, io: &str, settings: &str, f: F)
+pub fn run_instance<F>(id: &str, summary: &str, io: &str, settings: &str, f: F)
 where
     F: FnOnce(),
 {

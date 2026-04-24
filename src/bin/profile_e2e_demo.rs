@@ -6,7 +6,7 @@ use zk_linear::nizk::spartan_brakedown::{build_pipeline_report_with_profile, par
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
     let profile_s = args.next().unwrap_or_else(|| "m61".to_string());
-    let case_dir = args
+    let instance_dir = args
         .next()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("tests/inner_sumcheck_spartan"));
@@ -18,7 +18,7 @@ fn main() -> Result<()> {
         )
     })?;
 
-    let report = build_pipeline_report_with_profile(&case_dir, profile)?;
+    let report = build_pipeline_report_with_profile(&instance_dir, profile)?;
     println!("{}", report);
     Ok(())
 }

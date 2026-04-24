@@ -20,9 +20,9 @@ use zk_linear::{
 #[path = "testlog.rs"]
 mod testlog;
 
-macro_rules! run_case {
+macro_rules! run_instance {
     ($id:expr, $summary:expr, $io:expr, $settings:expr, $body:block) => {{
-        testlog::run_case($id, $summary, $io, $settings, || $body)
+        testlog::run_instance($id, $summary, $io, $settings, || $body)
     }};
 }
 
@@ -55,7 +55,7 @@ fn build_tensors(n_rows: usize, n_per_row: usize) -> (Vec<Fp>, Vec<Fp>) {
 
 #[test]
 fn brakedown_001_spielman_encoding_is_deterministic_for_same_seed() {
-    run_case!(
+    run_instance!(
         "brakedown_001",
         "Spielman encoding deterministic for same seed",
         "input: coeff matrix, output: encoded rows + Merkle nodes",
@@ -85,7 +85,7 @@ fn brakedown_001_spielman_encoding_is_deterministic_for_same_seed() {
 
 #[test]
 fn brakedown_002_spielman_encoding_changes_with_seed() {
-    run_case!(
+    run_instance!(
         "brakedown_002",
         "Spielman encoding seed sensitivity",
         "input: same coeffs with different seeds",
@@ -112,7 +112,7 @@ fn brakedown_002_spielman_encoding_changes_with_seed() {
 
 #[test]
 fn brakedown_003_pcs_open_verify_succeeds_and_wrong_claim_fails() {
-    run_case!(
+    run_instance!(
         "brakedown_003",
         "PCS open/verify success and wrong-claim failure",
         "input: commitment + tensors + opening proof",
@@ -180,7 +180,7 @@ fn brakedown_003_pcs_open_verify_succeeds_and_wrong_claim_fails() {
 
 #[test]
 fn brakedown_004_col_open_start_avoids_systematic_region() {
-    run_case!(
+    run_instance!(
         "brakedown_004",
         "systematic region is excluded by col_open_start",
         "input: col_open_start=8 with n_per_row=8",
@@ -222,7 +222,7 @@ fn brakedown_004_col_open_start_avoids_systematic_region() {
 
 #[test]
 fn brakedown_005_challenge_sampling_contract_for_col_start() {
-    run_case!(
+    run_instance!(
         "brakedown_005",
         "column-sampling boundary and determinism contract",
         "input: transcript-driven sampling with different (n_cols,n_open,start)",
@@ -269,7 +269,7 @@ fn brakedown_005_challenge_sampling_contract_for_col_start() {
 
 #[test]
 fn brakedown_006_wire_roundtrip_succeeds_and_rejects_trailing_bytes() {
-    run_case!(
+    run_instance!(
         "brakedown_006",
         "wire codec roundtrip and trailing-byte rejection",
         "input: verifier commitment + eval proof wire bytes",

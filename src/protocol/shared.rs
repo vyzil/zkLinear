@@ -6,33 +6,33 @@ use crate::protocol::spec_v1::{
     append_fp_le, append_u64_le, BLIND_MIX_LABEL, JOINT_CHALLENGE_DOMAIN, JOINT_CHALLENGE_RA_LABEL,
     JOINT_CHALLENGE_RB_LABEL, JOINT_CHALLENGE_RC_LABEL, OUTER_TAU_LABEL,
 };
-use crate::{core::field::Fp, io::case_format::SpartanLikeCase};
+use crate::{core::field::Fp, io::instance_format::SpartanLikeInstance};
 
-pub fn append_case_to_transcript(tr: &mut Transcript, case: &SpartanLikeCase) {
-    append_u64_le(tr, b"rows", case.a.len() as u64);
-    append_u64_le(tr, b"cols", case.a[0].len() as u64);
+pub fn append_instance_to_transcript(tr: &mut Transcript, instance: &SpartanLikeInstance) {
+    append_u64_le(tr, b"rows", instance.a.len() as u64);
+    append_u64_le(tr, b"cols", instance.a[0].len() as u64);
 
-    for row in &case.a {
+    for row in &instance.a {
         for v in row {
             append_fp_le(tr, b"A", *v);
         }
     }
-    for row in &case.b {
+    for row in &instance.b {
         for v in row {
             append_fp_le(tr, b"B", *v);
         }
     }
-    for row in &case.c {
+    for row in &instance.c {
         for v in row {
             append_fp_le(tr, b"C", *v);
         }
     }
-    for v in &case.z {
+    for v in &instance.z {
         append_fp_le(tr, b"z", *v);
     }
 }
 
-pub fn append_case_digest_to_transcript(
+pub fn append_instance_digest_to_transcript(
     tr: &mut Transcript,
     rows: usize,
     cols: usize,
@@ -40,7 +40,7 @@ pub fn append_case_digest_to_transcript(
 ) {
     append_u64_le(tr, b"rows", rows as u64);
     append_u64_le(tr, b"cols", cols as u64);
-    tr.append_message(b"case_digest", &digest);
+    tr.append_message(b"instance_digest", &digest);
 }
 
 pub fn append_field_profile_to_transcript(
@@ -55,24 +55,24 @@ pub fn append_field_profile_to_transcript(
     tr.append_message(b"field_profile", field_tag);
 }
 
-pub fn compute_case_digest(case: &SpartanLikeCase) -> [u8; 32] {
+pub fn compute_instance_digest(instance: &SpartanLikeInstance) -> [u8; 32] {
     // Circuit digest binds only fixed circuit shape/content (A,B,C + dims).
     // Witness-dependent values (z) are intentionally excluded so the digest
     // can be used as a compile-time artifact boundary.
     let mut h = Sha256::new();
-    h.update((case.a.len() as u64).to_le_bytes());
-    h.update((case.a[0].len() as u64).to_le_bytes());
-    for row in &case.a {
+    h.update((instance.a.len() as u64).to_le_bytes());
+    h.update((instance.a[0].len() as u64).to_le_bytes());
+    for row in &instance.a {
         for v in row {
             h.update(v.0.to_le_bytes());
         }
     }
-    for row in &case.b {
+    for row in &instance.b {
         for v in row {
             h.update(v.0.to_le_bytes());
         }
     }
-    for row in &case.c {
+    for row in &instance.c {
         for v in row {
             h.update(v.0.to_le_bytes());
         }

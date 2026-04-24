@@ -4,7 +4,7 @@ use anyhow::{anyhow, bail, Result};
 
 use crate::core::field::Fp;
 
-use super::case_format::{write_spartan_like_case_to_dir, SpartanLikeCase};
+use super::instance_format::{write_spartan_like_instance_to_dir, SpartanLikeInstance};
 
 #[derive(Debug, Clone)]
 struct MtxData {
@@ -117,7 +117,7 @@ fn dense_from_mtx(m: &MtxData) -> Vec<Vec<Fp>> {
     out
 }
 
-pub fn load_spartan_like_case_from_mtx_dir(src_dir: &Path) -> Result<SpartanLikeCase> {
+pub fn load_spartan_like_instance_from_mtx_dir(src_dir: &Path) -> Result<SpartanLikeInstance> {
     let a = parse_matrix_market(&src_dir.join("A.mtx"))?;
     let b = parse_matrix_market(&src_dir.join("B.mtx"))?;
     let c = parse_matrix_market(&src_dir.join("C.mtx"))?;
@@ -140,7 +140,7 @@ pub fn load_spartan_like_case_from_mtx_dir(src_dir: &Path) -> Result<SpartanLike
         bail!("rows and cols must be power-of-two for current sumcheck path");
     }
 
-    Ok(SpartanLikeCase {
+    Ok(SpartanLikeInstance {
         a: dense_from_mtx(&a),
         b: dense_from_mtx(&b),
         c: dense_from_mtx(&c),
@@ -148,7 +148,10 @@ pub fn load_spartan_like_case_from_mtx_dir(src_dir: &Path) -> Result<SpartanLike
     })
 }
 
-pub fn import_spartan_like_case_from_mtx_dir(src_dir: &Path, dst_case_dir: &Path) -> Result<()> {
-    let case = load_spartan_like_case_from_mtx_dir(src_dir)?;
-    write_spartan_like_case_to_dir(dst_case_dir, &case)
+pub fn import_spartan_like_instance_from_mtx_dir(
+    src_dir: &Path,
+    dst_instance_dir: &Path,
+) -> Result<()> {
+    let instance = load_spartan_like_instance_from_mtx_dir(src_dir)?;
+    write_spartan_like_instance_to_dir(dst_instance_dir, &instance)
 }

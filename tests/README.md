@@ -5,7 +5,7 @@ Spartan2-like + Brakedown + Spielman encoding.
 
 ## Test Suites
 - `compiler.rs`
-  - case/shape validation, deterministic compile metadata, profile-driven fingerprint checks
+  - instance/shape validation, deterministic compile metadata, profile-driven fingerprint checks
 - `spartan2.rs`
   - outer/inner sumcheck unit checks and Spartan-like flow consistency checks
 - `brakedown.rs`
@@ -35,7 +35,7 @@ cargo test -q
 ## Optional Runtime Logs
 By default, tests stay quiet.
 
-- Show case metadata + pass/fail + elapsed time:
+- Show instance metadata + pass/fail + elapsed time:
 ```bash
 TEST_LOG=1 cargo test -- --nocapture
 ```

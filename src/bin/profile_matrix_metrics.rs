@@ -29,7 +29,7 @@ fn fmt_profile(p: &str) -> &'static str {
 
 fn main() -> Result<()> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
-    let case_dir = args
+    let instance_dir = args
         .first()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("tests/inner_sumcheck_spartan"));
@@ -42,7 +42,7 @@ fn main() -> Result<()> {
 
     let mut md = String::new();
     md.push_str("# Profile Matrix Metrics\n\n");
-    md.push_str(&format!("- case: `{}`\n", case_dir.display()));
+    md.push_str(&format!("- instance: `{}`\n", instance_dir.display()));
     md.push_str(&format!("- runs per profile: `{}`\n\n", runs));
 
     md.push_str("## Timing (ms)\n\n");
@@ -55,7 +55,7 @@ fn main() -> Result<()> {
 
     for pstr in profiles {
         let profile = parse_field_profile(&pstr).expect("validated profile");
-        let m = collect_nizk_metrics(&case_dir, profile, 0, runs)?;
+        let m = collect_nizk_metrics(&instance_dir, profile, 0, runs)?;
         let mean = |f: fn(&zk_linear::nizk::metrics::NizkMeasuredRun) -> f64| -> f64 {
             m.runs.iter().map(f).sum::<f64>() / m.runs.len() as f64
         };

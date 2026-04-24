@@ -14,7 +14,7 @@ The current public verification path is `nizk::spartan_brakedown`.
 - `src/pcs/brakedown/`: PCS (encoding/commit/open/verify/wire)
 - `src/sumcheck/`: inner/outer sumcheck
 - `src/protocol/`: transcript/spec/shared helpers
-- `src/io/`: case and R1CS import
+- `src/io/`: instance and R1CS import
 - `src/bin/spark_e2e_cli.rs`: operational CLI entrypoint
 - `profile/`: analysis/profiling scripts and output workspace
 

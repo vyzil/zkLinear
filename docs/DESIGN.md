@@ -19,7 +19,7 @@ In the current codebase, the primary verification path is `nizk::spartan_brakedo
 - `verify_with_compiled(compiled, proof, public)`:
   - runs `verify_public` and also checks compiled/public/proof consistency for shape/profile/digest.
 - `verify_strict(...)`:
-  - debug/replay path that reloads the input case.
+  - debug/replay path that reloads the input instance.
 
 ## PCS Notes
 - The encoder is selected by `BrakedownEncoderKind`.

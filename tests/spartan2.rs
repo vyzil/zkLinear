@@ -6,13 +6,13 @@ use zk_linear::{
         field::{Fp, ModulusScope, MODULUS},
         transcript::{derive_round_challenge, derive_round_challenge_merlin},
     },
-    io::case_format::load_spartan_like_case,
+    io::instance_format::load_spartan_like_instance,
     pcs::brakedown::types::BrakedownFieldProfile,
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
-            append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-            build_eq_weights_from_challenges, compute_case_digest, matrix_vec_mul,
+            append_field_profile_to_transcript, append_instance_digest_to_transcript, bind_rows,
+            build_eq_weights_from_challenges, compute_instance_digest, matrix_vec_mul,
             sample_joint_challenges_from_transcript, sample_outer_tau_from_transcript,
         },
         spec_v1::{
@@ -31,19 +31,19 @@ use zk_linear::{
 #[path = "testlog.rs"]
 mod testlog;
 
-macro_rules! run_case {
+macro_rules! run_instance {
     ($id:expr, $summary:expr, $io:expr, $settings:expr, $body:block) => {{
-        testlog::run_case($id, $summary, $io, $settings, || $body)
+        testlog::run_instance($id, $summary, $io, $settings, || $body)
     }};
 }
 
-fn case_dir() -> PathBuf {
+fn instance_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/inner_sumcheck_spartan")
 }
 
 #[test]
 fn spartan2_001_outer_sumcheck_round_trip_is_consistent() {
-    run_case!(
+    run_instance!(
         "spartan2_001",
         "outer sumcheck prove/verify round-trip",
         "input: (Az,Bz,Cz,eq_tau) Vec<Fp>(len=8), output: outer trace + verify trace",
@@ -78,7 +78,7 @@ fn spartan2_001_outer_sumcheck_round_trip_is_consistent() {
 
 #[test]
 fn spartan2_002_outer_sumcheck_tamper_is_detected() {
-    run_case!(
+    run_instance!(
         "spartan2_002",
         "outer sumcheck tamper detection",
         "input: valid trace then mutate folded_values[0]",
@@ -101,7 +101,7 @@ fn spartan2_002_outer_sumcheck_tamper_is_detected() {
 
 #[test]
 fn spartan2_003_inner_sumcheck_round_trip_is_consistent() {
-    run_case!(
+    run_instance!(
         "spartan2_003",
         "inner sumcheck prove/verify round-trip",
         "input: f/g Vec<Fp>(len=8), output: inner trace + verify trace",
@@ -127,7 +127,7 @@ fn spartan2_003_inner_sumcheck_round_trip_is_consistent() {
 
 #[test]
 fn spartan2_004_inner_sumcheck_tamper_is_detected() {
-    run_case!(
+    run_instance!(
         "spartan2_004",
         "inner sumcheck tamper detection",
         "input: valid trace then mutate h_at_2",
@@ -147,30 +147,32 @@ fn spartan2_004_inner_sumcheck_tamper_is_detected() {
 
 #[test]
 fn spartan2_005_full_flow_is_consistent_on_fixture() {
-    run_case!(
+    run_instance!(
         "spartan2_005",
         "spartan2-like full flow consistency on fixture",
         "input: tests/inner_sumcheck_spartan, output: reconstructed outer/inner traces",
         "modulus=m61",
         {
             let _scope = ModulusScope::enter((1u64 << 61) - 1);
-            let case = load_spartan_like_case(&case_dir()).expect("load case");
+            let instance = load_spartan_like_instance(&instance_dir()).expect("load instance");
 
-            let az = matrix_vec_mul(&case.a, &case.z);
-            let bz = matrix_vec_mul(&case.b, &case.z);
-            let cz = matrix_vec_mul(&case.c, &case.z);
+            let az = matrix_vec_mul(&instance.a, &instance.z);
+            let bz = matrix_vec_mul(&instance.b, &instance.z);
+            let cz = matrix_vec_mul(&instance.c, &instance.z);
             let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
             append_spec_domain(&mut tr);
             append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
             append_field_profile_to_transcript(&mut tr, BrakedownFieldProfile::Mersenne61Ext2);
-            append_case_digest_to_transcript(
+            append_instance_digest_to_transcript(
                 &mut tr,
-                case.a.len(),
-                case.a[0].len(),
-                compute_case_digest(&case),
+                instance.a.len(),
+                instance.a[0].len(),
+                compute_instance_digest(&instance),
             );
-            let tau =
-                sample_outer_tau_from_transcript(&mut tr, case.a.len().trailing_zeros() as usize);
+            let tau = sample_outer_tau_from_transcript(
+                &mut tr,
+                instance.a.len().trailing_zeros() as usize,
+            );
             let eq_tau = build_eq_weights_from_challenges(&tau);
 
             let outer_trace =
@@ -184,9 +186,9 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
             let row_weights = build_eq_weights_from_challenges(&r_x);
 
             let (r_a, r_b, r_c) = sample_joint_challenges_from_transcript(&mut tr);
-            let a_bound = bind_rows(&case.a, &row_weights);
-            let b_bound = bind_rows(&case.b, &row_weights);
-            let c_bound = bind_rows(&case.c, &row_weights);
+            let a_bound = bind_rows(&instance.a, &row_weights);
+            let b_bound = bind_rows(&instance.b, &row_weights);
+            let c_bound = bind_rows(&instance.c, &row_weights);
             let joint_bound: Vec<Fp> = a_bound
                 .iter()
                 .zip(b_bound.iter())
@@ -196,14 +198,14 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
 
             let inner_trace = prove_inner_sumcheck_with_label_and_transcript(
                 &joint_bound,
-                &case.z,
+                &instance.z,
                 INNER_SUMCHECK_JOINT_LABEL,
                 &mut tr,
             );
             let inner_verify = verify_inner_sumcheck_trace(&inner_trace);
 
-            testlog::data("rows", case.a.len());
-            testlog::data("cols", case.a[0].len());
+            testlog::data("rows", instance.a.len());
+            testlog::data("cols", instance.a[0].len());
             testlog::data("outer_rounds", outer_trace.rounds.len());
             testlog::data("inner_rounds", inner_trace.rounds.len());
 
@@ -211,15 +213,15 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
             assert!(inner_verify.final_consistent);
             assert_eq!(
                 outer_trace.rounds.len(),
-                case.a.len().trailing_zeros() as usize
+                instance.a.len().trailing_zeros() as usize
             );
             assert_eq!(
                 inner_trace.rounds.len(),
-                case.a[0].len().trailing_zeros() as usize
+                instance.a[0].len().trailing_zeros() as usize
             );
             assert_eq!(
                 inner_trace.claim_initial,
-                inner_product(&joint_bound, &case.z)
+                inner_product(&joint_bound, &instance.z)
             );
         }
     );
@@ -227,7 +229,7 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
 
 #[test]
 fn spartan2_006_transcript_challenge_vectors_are_stable() {
-    run_case!(
+    run_instance!(
         "spartan2_006",
         "transcript challenge vectors stay pinned",
         "input: fixed (g0,g2,g3), output: SHA/Merlin challenge scalars",

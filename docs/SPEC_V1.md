@@ -7,7 +7,7 @@ This document fixes the current verification boundary and transcript contract of
 - domain: `zklinear/v1/spartan-brakedown`
 - NIZK label: `zklinear/v1/spartan-brakedown/nizk`
 - prover/verifier replay order (current implementation):
-  1. domain/reference/field/case-digest append
+  1. domain/reference/field/instance-digest append
   2. bind `polycommit` root + `ncols`
   3. sample outer `tau` from transcript (`OUTER_TAU_LABEL`, indexed draws)
   4. outer sumcheck rounds (`g(0), g(2), g(3)` per round)
@@ -30,7 +30,7 @@ This document fixes the current verification boundary and transcript contract of
 
 ### Included in `public`
 - `rows`, `cols`
-- `case_digest`
+- `instance_digest`
 - `field_profile`
 
 ### Included in metadata sidecars

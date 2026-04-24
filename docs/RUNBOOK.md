@@ -25,7 +25,7 @@ Use scripts in `profile/scripts/` for explain/profiling runs.
 
 For options and output paths, see `profile/README.md`.
 
-## Local Case Generation (Circom / ZKIF)
+## Local Instance Generation (Circom / ZKIF)
 `tests/generated_cases/` is local-only and not tracked in Git.
 
 Generate local cases:
@@ -34,7 +34,7 @@ Generate local cases:
 ./scripts/generate_local_cases.sh 12
 ```
 
-Circom case generation requires:
+Circom instance generation requires:
 - `circom`
 - `snarkjs`
 - `node`

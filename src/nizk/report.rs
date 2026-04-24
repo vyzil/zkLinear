@@ -4,7 +4,10 @@ use crate::core::field::current_modulus;
 
 use super::types::SpartanBrakedownPipelineResult;
 
-pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipelineResult) -> String {
+pub fn format_pipeline_report(
+    instance_dir: &Path,
+    result: &SpartanBrakedownPipelineResult,
+) -> String {
     let proof = &result.proof;
     let public = &result.public;
     let public_meta = &result.public_meta;
@@ -18,7 +21,7 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     out.push_str("- PCS commitment is bound before transcript challenges\n");
 
     out.push_str("\n[Prove/Kernels]\n");
-    out.push_str(&format!("source: {}\n", case_dir.display()));
+    out.push_str(&format!("source: {}\n", instance_dir.display()));
     out.push_str(&format!(
         "outer rounds: {}\n",
         proof.outer_trace.rounds.len()
@@ -52,7 +55,7 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     ));
 
     out.push_str("\n[Public Input]\n");
-    out.push_str("- rows, cols, case_digest, field_profile\n");
+    out.push_str("- rows, cols, instance_digest, field_profile\n");
     out.push_str("- reference_profile/context_fingerprint are sidecar metadata\n");
     out.push_str(&format!(
         "- context_fingerprint(meta): {}\n",

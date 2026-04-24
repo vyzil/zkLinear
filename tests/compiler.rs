@@ -10,13 +10,13 @@ use zk_linear::nizk::spartan_brakedown::{
 #[path = "testlog.rs"]
 mod testlog;
 
-macro_rules! run_case {
+macro_rules! run_instance {
     ($id:expr, $summary:expr, $io:expr, $settings:expr, $body:block) => {{
-        testlog::run_case($id, $summary, $io, $settings, || $body)
+        testlog::run_instance($id, $summary, $io, $settings, || $body)
     }};
 }
 
-fn case_dir() -> PathBuf {
+fn instance_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/inner_sumcheck_spartan")
 }
 
@@ -57,7 +57,7 @@ fn write_vector(path: &PathBuf, len: usize) {
 
 fn build_case(rows: usize, cols: usize, z_len: usize) -> PathBuf {
     let dir = unique_tmp_dir("zklinear_compiler_case");
-    fs::create_dir_all(&dir).expect("create temp case dir");
+    fs::create_dir_all(&dir).expect("create temp instance dir");
     write_matrix(&dir.join("_A.data"), rows, cols);
     write_matrix(&dir.join("_B.data"), rows, cols);
     write_matrix(&dir.join("_C.data"), rows, cols);
@@ -67,22 +67,22 @@ fn build_case(rows: usize, cols: usize, z_len: usize) -> PathBuf {
 
 #[test]
 fn compiler_001_compile_is_deterministic_on_reference_case() {
-    run_case!(
+    run_instance!(
         "compiler_001",
-        "compile determinism on reference case",
-        "input: case dir, output: compiled metadata",
+        "compile determinism on reference instance",
+        "input: instance dir, output: compiled metadata",
         "profile=default",
         {
-            let c1 = compile(&case_dir()).expect("compile should succeed");
-            let c2 = compile(&case_dir()).expect("compile should succeed");
+            let c1 = compile(&instance_dir()).expect("compile should succeed");
+            let c2 = compile(&instance_dir()).expect("compile should succeed");
 
             testlog::data("rows", c1.rows);
             testlog::data("cols", c1.cols);
-            testlog::data("digest_head", hex::encode(&c1.case_digest[..4]));
+            testlog::data("digest_head", hex::encode(&c1.instance_digest[..4]));
 
             assert_eq!(c1.rows, c2.rows);
             assert_eq!(c1.cols, c2.cols);
-            assert_eq!(c1.case_digest, c2.case_digest);
+            assert_eq!(c1.instance_digest, c2.instance_digest);
             assert_eq!(c1.context_fingerprint, c2.context_fingerprint);
         }
     );
@@ -90,10 +90,10 @@ fn compiler_001_compile_is_deterministic_on_reference_case() {
 
 #[test]
 fn compiler_002_compile_rejects_non_power_of_two_rows() {
-    run_case!(
+    run_instance!(
         "compiler_002",
         "invalid shape guard for rows",
-        "input: synthetic bad case rows=3",
+        "input: synthetic bad instance rows=3",
         "expect_error=shape_power_of_two",
         {
             let dir = build_case(3, 8, 8);
@@ -107,10 +107,10 @@ fn compiler_002_compile_rejects_non_power_of_two_rows() {
 
 #[test]
 fn compiler_003_compile_rejects_witness_length_mismatch() {
-    run_case!(
+    run_instance!(
         "compiler_003",
         "witness length mismatch guard",
-        "input: synthetic bad case z_len=7 with cols=8",
+        "input: synthetic bad instance z_len=7 with cols=8",
         "expect_error=z_length_mismatch",
         {
             let dir = build_case(4, 8, 7);
@@ -126,18 +126,19 @@ fn compiler_003_compile_rejects_witness_length_mismatch() {
 
 #[test]
 fn compiler_004_context_fingerprint_changes_with_profile() {
-    run_case!(
+    run_instance!(
         "compiler_004",
         "profile-sensitive context fingerprint",
-        "input: same case with m61/gold profiles",
+        "input: same instance with m61/gold profiles",
         "expect=context_fingerprint_differs",
         {
             let m61 = parse_field_profile("m61").expect("m61 profile should parse");
             let gold = parse_field_profile("gold").expect("gold profile should parse");
 
-            let c_m61 = compile_with_profile(&case_dir(), m61).expect("m61 compile should succeed");
+            let c_m61 =
+                compile_with_profile(&instance_dir(), m61).expect("m61 compile should succeed");
             let c_gold =
-                compile_with_profile(&case_dir(), gold).expect("gold compile should succeed");
+                compile_with_profile(&instance_dir(), gold).expect("gold compile should succeed");
             testlog::data("m61_ctx_head", hex::encode(&c_m61.context_fingerprint[..4]));
             testlog::data(
                 "gold_ctx_head",
@@ -151,10 +152,10 @@ fn compiler_004_context_fingerprint_changes_with_profile() {
 
 #[test]
 fn compiler_005_prove_rejects_invalid_case_shape_early() {
-    run_case!(
+    run_instance!(
         "compiler_005",
         "prove path rejects invalid shape before proving",
-        "input: synthetic bad case rows=3",
+        "input: synthetic bad instance rows=3",
         "expect_error=shape_power_of_two",
         {
             let dir = build_case(3, 8, 8);

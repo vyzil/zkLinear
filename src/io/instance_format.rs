@@ -5,13 +5,13 @@ use anyhow::{anyhow, bail, Result};
 use crate::core::field::Fp;
 
 #[derive(Debug, Clone)]
-pub struct MatrixVectorCase {
+pub struct MatrixVectorInstance {
     pub a: Vec<Vec<Fp>>,
     pub y: Vec<Fp>,
 }
 
 #[derive(Debug, Clone)]
-pub struct SpartanLikeCase {
+pub struct SpartanLikeInstance {
     pub a: Vec<Vec<Fp>>,
     pub b: Vec<Vec<Fp>>,
     pub c: Vec<Vec<Fp>>,
@@ -133,9 +133,9 @@ fn parse_vector_data(path: &Path) -> Result<Vec<Fp>> {
     Ok(vals.into_iter().map(Fp::new).collect())
 }
 
-pub fn load_matrix_vector_case(case_dir: &Path) -> Result<MatrixVectorCase> {
-    let a = parse_matrix_data(&case_dir.join("_A.data"))?;
-    let y = parse_vector_data(&case_dir.join("_y.data"))?;
+pub fn load_matrix_vector_instance(instance_dir: &Path) -> Result<MatrixVectorInstance> {
+    let a = parse_matrix_data(&instance_dir.join("_A.data"))?;
+    let y = parse_vector_data(&instance_dir.join("_y.data"))?;
 
     if a.is_empty() {
         bail!("A must not be empty");
@@ -152,14 +152,14 @@ pub fn load_matrix_vector_case(case_dir: &Path) -> Result<MatrixVectorCase> {
         }
     }
 
-    Ok(MatrixVectorCase { a, y })
+    Ok(MatrixVectorInstance { a, y })
 }
 
-pub fn load_spartan_like_case(case_dir: &Path) -> Result<SpartanLikeCase> {
-    let a = parse_matrix_data(&case_dir.join("_A.data"))?;
-    let b = parse_matrix_data(&case_dir.join("_B.data"))?;
-    let c = parse_matrix_data(&case_dir.join("_C.data"))?;
-    let z = parse_vector_data(&case_dir.join("_z.data"))?;
+pub fn load_spartan_like_instance(instance_dir: &Path) -> Result<SpartanLikeInstance> {
+    let a = parse_matrix_data(&instance_dir.join("_A.data"))?;
+    let b = parse_matrix_data(&instance_dir.join("_B.data"))?;
+    let c = parse_matrix_data(&instance_dir.join("_C.data"))?;
+    let z = parse_vector_data(&instance_dir.join("_z.data"))?;
 
     if a.is_empty() || b.is_empty() || c.is_empty() {
         bail!("A/B/C must not be empty");
@@ -185,7 +185,7 @@ pub fn load_spartan_like_case(case_dir: &Path) -> Result<SpartanLikeCase> {
         }
     }
 
-    Ok(SpartanLikeCase { a, b, c, z })
+    Ok(SpartanLikeInstance { a, b, c, z })
 }
 
 fn write_matrix_data(path: &Path, m: &[Vec<Fp>]) -> Result<()> {
@@ -233,13 +233,16 @@ fn write_vector_data(path: &Path, v: &[Fp]) -> Result<()> {
         .map_err(|e| anyhow!("failed to write vector file {}: {}", path.display(), e))
 }
 
-pub fn write_spartan_like_case_to_dir(case_dir: &Path, case: &SpartanLikeCase) -> Result<()> {
-    fs::create_dir_all(case_dir)
-        .map_err(|e| anyhow!("failed to create {}: {}", case_dir.display(), e))?;
+pub fn write_spartan_like_instance_to_dir(
+    instance_dir: &Path,
+    instance: &SpartanLikeInstance,
+) -> Result<()> {
+    fs::create_dir_all(instance_dir)
+        .map_err(|e| anyhow!("failed to create {}: {}", instance_dir.display(), e))?;
 
-    write_matrix_data(&case_dir.join("_A.data"), &case.a)?;
-    write_matrix_data(&case_dir.join("_B.data"), &case.b)?;
-    write_matrix_data(&case_dir.join("_C.data"), &case.c)?;
-    write_vector_data(&case_dir.join("_z.data"), &case.z)?;
+    write_matrix_data(&instance_dir.join("_A.data"), &instance.a)?;
+    write_matrix_data(&instance_dir.join("_B.data"), &instance.b)?;
+    write_matrix_data(&instance_dir.join("_C.data"), &instance.c)?;
+    write_vector_data(&instance_dir.join("_z.data"), &instance.z)?;
     Ok(())
 }

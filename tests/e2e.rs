@@ -10,13 +10,13 @@ use zk_linear::{
 #[path = "testlog.rs"]
 mod testlog;
 
-macro_rules! run_case {
+macro_rules! run_instance {
     ($id:expr, $summary:expr, $io:expr, $settings:expr, $body:block) => {{
-        testlog::run_case($id, $summary, $io, $settings, || $body)
+        testlog::run_instance($id, $summary, $io, $settings, || $body)
     }};
 }
 
-fn case_dir() -> PathBuf {
+fn instance_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/inner_sumcheck_spartan")
 }
 
@@ -26,13 +26,13 @@ fn repo_path(rel: &str) -> PathBuf {
 
 #[test]
 fn e2e_001_nizk_public_verify_succeeds_on_valid_proof() {
-    run_case!(
+    run_instance!(
         "e2e_001",
         "nizk public verifier accepts valid proof",
-        "input: case dir -> (proof, public)",
+        "input: instance dir -> (proof, public)",
         "verify=public boundary",
         {
-            let result = prove(&case_dir()).expect("prove should succeed");
+            let result = prove(&instance_dir()).expect("prove should succeed");
             testlog::data("rows", result.public.rows);
             testlog::data("cols", result.public.cols);
             verify_public(&result.proof, &result.public).expect("verify should succeed");
@@ -42,27 +42,28 @@ fn e2e_001_nizk_public_verify_succeeds_on_valid_proof() {
 
 #[test]
 fn e2e_002_nizk_strict_replay_verify_succeeds() {
-    run_case!(
+    run_instance!(
         "e2e_002",
         "strict replay verifier accepts valid proof",
-        "input: case dir + proof",
+        "input: instance dir + proof",
         "verify=strict replay",
         {
-            let result = prove(&case_dir()).expect("prove should succeed");
-            verify_strict(&case_dir(), &result.proof).expect("strict replay verify should succeed");
+            let result = prove(&instance_dir()).expect("prove should succeed");
+            verify_strict(&instance_dir(), &result.proof)
+                .expect("strict replay verify should succeed");
         }
     );
 }
 
 #[test]
 fn e2e_003_nizk_public_verify_rejects_tampered_root() {
-    run_case!(
+    run_instance!(
         "e2e_003",
         "tampered commitment root is rejected",
         "input: valid proof with root bit flipped",
         "verify=public boundary",
         {
-            let mut result = prove(&case_dir()).expect("prove should succeed");
+            let mut result = prove(&instance_dir()).expect("prove should succeed");
             result.proof.verifier_commitment.root[0] ^= 1;
 
             let err = verify_public(&result.proof, &result.public)
@@ -85,13 +86,13 @@ fn e2e_003_nizk_public_verify_rejects_tampered_root() {
 
 #[test]
 fn e2e_004_nizk_public_verify_rejects_wrong_claimed_value() {
-    run_case!(
+    run_instance!(
         "e2e_004",
         "wrong claimed value is rejected",
         "input: mutate final_f/final_g while keeping final_claim relation",
         "verify=public boundary",
         {
-            let mut result = prove(&case_dir()).expect("prove should succeed");
+            let mut result = prove(&instance_dir()).expect("prove should succeed");
             let _scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
             let mut new_final_f = result.proof.inner_trace.final_f.add(Fp::new(1));
@@ -117,14 +118,14 @@ fn e2e_004_nizk_public_verify_rejects_wrong_claimed_value() {
 
 #[test]
 fn e2e_005_nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
-    run_case!(
+    run_instance!(
         "e2e_005",
         "compiled boundary catches context mismatch",
         "input: compiled + proof + public with later compiled fingerprint tamper",
         "verify=compiled boundary",
         {
-            let mut compiled = compile(&case_dir()).expect("compile should succeed");
-            let result = prove_with_compiled(&compiled, &case_dir())
+            let mut compiled = compile(&instance_dir()).expect("compile should succeed");
+            let result = prove_with_compiled(&compiled, &instance_dir())
                 .expect("prove with compiled should succeed");
 
             verify_with_compiled(&compiled, &result.proof, &result.public)
@@ -143,13 +144,13 @@ fn e2e_005_nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
 
 #[test]
 fn e2e_006_pipeline_metadata_sidecars_are_consistent() {
-    run_case!(
+    run_instance!(
         "e2e_006",
         "proof/public metadata sidecars are internally consistent",
         "input: pipeline result",
         "meta=reference_profile+context_fingerprint",
         {
-            let result = prove(&case_dir()).expect("prove should succeed");
+            let result = prove(&instance_dir()).expect("prove should succeed");
             testlog::data(
                 "ctx_head",
                 hex::encode(&result.proof_meta.context_fingerprint[..4]),
@@ -167,7 +168,7 @@ fn e2e_006_pipeline_metadata_sidecars_are_consistent() {
 
 #[test]
 fn e2e_007_cli_verify_path_uses_compiled_public_boundary_only() {
-    run_case!(
+    run_instance!(
         "e2e_007",
         "CLI verify path remains on compiled/public boundary",
         "input: spark_e2e_cli.rs source",

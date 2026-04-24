@@ -1,7 +1,7 @@
 use std::{fs, path::PathBuf, process::Command};
 
 use anyhow::{anyhow, bail, Result};
-use zk_linear::io::r1cs_circom::import_spartan_like_case_from_circom_json;
+use zk_linear::io::r1cs_circom::import_spartan_like_instance_from_circom_json;
 
 fn run_cmd(cmd: &mut Command, label: &str) -> Result<()> {
     let out = cmd
@@ -27,9 +27,9 @@ fn main() -> Result<()> {
 
     let base = PathBuf::from(format!("tests/generated_cases/circom_repeat_2pow{}", k));
     let ws = base.join("workspace");
-    let case = base.join("case");
+    let instance = base.join("instance");
     fs::create_dir_all(&ws)?;
-    fs::create_dir_all(&case)?;
+    fs::create_dir_all(&instance)?;
 
     let circom_src = format!(
         r#"pragma circom 2.1.6;
@@ -92,15 +92,15 @@ component main = RepeatEq({n});
         "snarkjs wtns export json",
     )?;
 
-    import_spartan_like_case_from_circom_json(
+    import_spartan_like_instance_from_circom_json(
         &ws.join("repeat.r1cs.json"),
         &ws.join("witness.json"),
-        &case,
+        &instance,
     )?;
 
-    println!("generated case:");
+    println!("generated instance:");
     println!("  constraints: 2^{}", k);
     println!("  workspace: {}", ws.display());
-    println!("  case: {}", case.display());
+    println!("  instance: {}", instance.display());
     Ok(())
 }

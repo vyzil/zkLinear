@@ -6,7 +6,7 @@
 //!
 //! Verification entrypoints:
 //! - `verify_public(proof, public)`: default succinct verifier path
-//! - `verify_strict(case_dir, proof)`: debug/full replay path
+//! - `verify_strict(instance_dir, proof)`: debug/full replay path
 
 pub use super::flow::{
     build_pipeline_report, build_pipeline_report_with_profile, compile, compile_with_profile,

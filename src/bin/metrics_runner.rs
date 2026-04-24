@@ -24,7 +24,7 @@ struct SummaryMetrics {
 
 #[derive(Debug, Clone, Serialize)]
 struct MetricsReportOut {
-    case_dir: String,
+    instance_dir: String,
     profile: String,
     summary: SummaryMetrics,
     runs: Vec<zk_linear::nizk::metrics::NizkMeasuredRun>,
@@ -63,10 +63,10 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 3 {
         bail!(
-            "usage: metrics_runner <case_dir> <out_prefix> [profile] [warmup_runs] [measured_runs]"
+            "usage: metrics_runner <instance_dir> <out_prefix> [profile] [warmup_runs] [measured_runs]"
         );
     }
-    let case_dir = PathBuf::from(&args[1]);
+    let instance_dir = PathBuf::from(&args[1]);
     let out_prefix = PathBuf::from(&args[2]);
     let profile_s = args.get(3).cloned().unwrap_or_else(|| "m61".to_string());
     let warmup_runs = args
@@ -80,7 +80,7 @@ fn main() -> Result<()> {
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
 
-    let report = collect_nizk_metrics(&case_dir, profile, warmup_runs, measured_runs)?;
+    let report = collect_nizk_metrics(&instance_dir, profile, warmup_runs, measured_runs)?;
     let prove_vals = report
         .runs
         .iter()
@@ -102,7 +102,7 @@ fn main() -> Result<()> {
     let proof_avg = metrics_mean(&proof_vals);
 
     let out = MetricsReportOut {
-        case_dir: report.case_dir.clone(),
+        instance_dir: report.instance_dir.clone(),
         profile: profile_s.clone(),
         summary: SummaryMetrics {
             compile_ms: report.compile_ms,
@@ -123,7 +123,7 @@ fn main() -> Result<()> {
     let json_path = out_prefix.with_extension("json");
     let csv_path = out_prefix.with_extension("csv");
     println!("metrics_runner: ok");
-    println!("  case_dir={}", case_dir.display());
+    println!("  instance_dir={}", instance_dir.display());
     println!("  profile={}", out.profile);
     println!("  warmup_runs={}", warmup_runs);
     println!("  measured_runs={}", measured_runs);

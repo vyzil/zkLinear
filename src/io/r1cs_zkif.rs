@@ -11,7 +11,7 @@ use zkinterface::{
 
 use crate::core::field::Fp;
 
-use super::case_format::{write_spartan_like_case_to_dir, SpartanLikeCase};
+use super::instance_format::{write_spartan_like_instance_to_dir, SpartanLikeInstance};
 
 fn decode_le_u64(bytes: &[u8]) -> u64 {
     let mut out = [0u8; 8];
@@ -77,23 +77,23 @@ fn next_pow2(x: usize) -> usize {
     }
 }
 
-fn pad_case_pow2(case: &mut SpartanLikeCase) {
-    let rows = case.a.len();
-    let cols = case.z.len();
+fn pad_case_pow2(instance: &mut SpartanLikeInstance) {
+    let rows = instance.a.len();
+    let cols = instance.z.len();
     let target_rows = next_pow2(rows);
     let target_cols = next_pow2(cols);
 
     if target_cols > cols {
-        for m in [&mut case.a, &mut case.b, &mut case.c] {
+        for m in [&mut instance.a, &mut instance.b, &mut instance.c] {
             for row in m.iter_mut() {
                 row.resize(target_cols, Fp::zero());
             }
         }
-        case.z.resize(target_cols, Fp::zero());
+        instance.z.resize(target_cols, Fp::zero());
     }
     if target_rows > rows {
         let zero_row = vec![Fp::zero(); target_cols];
-        for m in [&mut case.a, &mut case.b, &mut case.c] {
+        for m in [&mut instance.a, &mut instance.b, &mut instance.c] {
             while m.len() < target_rows {
                 m.push(zero_row.clone());
             }
@@ -101,7 +101,9 @@ fn pad_case_pow2(case: &mut SpartanLikeCase) {
     }
 }
 
-pub fn load_spartan_like_case_from_zkif_workspace(workspace_dir: &Path) -> Result<SpartanLikeCase> {
+pub fn load_spartan_like_instance_from_zkif_workspace(
+    workspace_dir: &Path,
+) -> Result<SpartanLikeInstance> {
     let ws = Workspace::from_dir(workspace_dir).map_err(|e| {
         anyhow!(
             "failed to open zkif workspace {}: {}",
@@ -189,15 +191,15 @@ pub fn load_spartan_like_case_from_zkif_workspace(workspace_dir: &Path) -> Resul
         z[0] = Fp::new(1);
     }
 
-    let mut case = SpartanLikeCase { a, b, c, z };
-    pad_case_pow2(&mut case);
-    Ok(case)
+    let mut instance = SpartanLikeInstance { a, b, c, z };
+    pad_case_pow2(&mut instance);
+    Ok(instance)
 }
 
-pub fn import_spartan_like_case_from_zkif_workspace(
+pub fn import_spartan_like_instance_from_zkif_workspace(
     workspace_dir: &Path,
-    dst_case_dir: &Path,
+    dst_instance_dir: &Path,
 ) -> Result<()> {
-    let case = load_spartan_like_case_from_zkif_workspace(workspace_dir)?;
-    write_spartan_like_case_to_dir(dst_case_dir, &case)
+    let instance = load_spartan_like_instance_from_zkif_workspace(workspace_dir)?;
+    write_spartan_like_instance_to_dir(dst_instance_dir, &instance)
 }

@@ -31,7 +31,7 @@ struct RefProfileJson {
 struct CompiledJson {
     rows: usize,
     cols: usize,
-    case_digest_hex: String,
+    instance_digest_hex: String,
     context_fingerprint_hex: String,
     field_profile: String,
 }
@@ -91,7 +91,7 @@ struct ProofJson {
 struct PublicJson {
     rows: usize,
     cols: usize,
-    case_digest_hex: String,
+    instance_digest_hex: String,
     field_profile: String,
 }
 
@@ -99,7 +99,7 @@ struct PublicJson {
 struct CompiledWire {
     rows: usize,
     cols: usize,
-    case_digest: [u8; 32],
+    instance_digest: [u8; 32],
     context_fingerprint: [u8; 32],
     field_profile: String,
 }
@@ -117,7 +117,7 @@ struct ProofWire {
 struct PublicWire {
     rows: usize,
     cols: usize,
-    case_digest: [u8; 32],
+    instance_digest: [u8; 32],
     field_profile: String,
 }
 
@@ -157,7 +157,7 @@ struct StageReportJson {
     base_modulus: u64,
     rows: usize,
     cols: usize,
-    case_digest_hex: String,
+    instance_digest_hex: String,
     context_fingerprint_hex: String,
     runtime_ms: f64,
     prove_breakdown: Option<KernelTimingJson>,
@@ -297,7 +297,7 @@ fn compiled_to_json(c: &SpartanBrakedownCompiledCircuit) -> CompiledJson {
     CompiledJson {
         rows: c.rows,
         cols: c.cols,
-        case_digest_hex: digest_to_hex(c.case_digest),
+        instance_digest_hex: digest_to_hex(c.instance_digest),
         context_fingerprint_hex: digest_to_hex(c.context_fingerprint),
         field_profile: format!("{:?}", c.field_profile),
     }
@@ -307,7 +307,7 @@ fn compiled_to_wire(c: &SpartanBrakedownCompiledCircuit) -> CompiledWire {
     CompiledWire {
         rows: c.rows,
         cols: c.cols,
-        case_digest: c.case_digest,
+        instance_digest: c.instance_digest,
         context_fingerprint: c.context_fingerprint,
         field_profile: format!("{:?}", c.field_profile),
     }
@@ -319,7 +319,7 @@ fn compiled_from_json(j: &CompiledJson) -> Result<SpartanBrakedownCompiledCircui
     Ok(SpartanBrakedownCompiledCircuit {
         rows: j.rows,
         cols: j.cols,
-        case_digest: digest_from_hex(&j.case_digest_hex)?,
+        instance_digest: digest_from_hex(&j.instance_digest_hex)?,
         context_fingerprint: digest_from_hex(&j.context_fingerprint_hex)?,
         field_profile,
     })
@@ -331,7 +331,7 @@ fn compiled_from_wire(j: &CompiledWire) -> Result<SpartanBrakedownCompiledCircui
     Ok(SpartanBrakedownCompiledCircuit {
         rows: j.rows,
         cols: j.cols,
-        case_digest: j.case_digest,
+        instance_digest: j.instance_digest,
         context_fingerprint: j.context_fingerprint,
         field_profile,
     })
@@ -388,7 +388,7 @@ fn public_to_json(p: &SpartanBrakedownPublic) -> PublicJson {
     PublicJson {
         rows: p.rows,
         cols: p.cols,
-        case_digest_hex: digest_to_hex(p.case_digest),
+        instance_digest_hex: digest_to_hex(p.instance_digest),
         field_profile: format!("{:?}", p.field_profile),
     }
 }
@@ -397,7 +397,7 @@ fn public_to_wire(p: &SpartanBrakedownPublic) -> PublicWire {
     PublicWire {
         rows: p.rows,
         cols: p.cols,
-        case_digest: p.case_digest,
+        instance_digest: p.instance_digest,
         field_profile: format!("{:?}", p.field_profile),
     }
 }
@@ -408,7 +408,7 @@ fn public_from_json(j: &PublicJson) -> Result<SpartanBrakedownPublic> {
     Ok(SpartanBrakedownPublic {
         rows: j.rows,
         cols: j.cols,
-        case_digest: digest_from_hex(&j.case_digest_hex)?,
+        instance_digest: digest_from_hex(&j.instance_digest_hex)?,
         field_profile,
     })
 }
@@ -419,7 +419,7 @@ fn public_from_wire(j: &PublicWire) -> Result<SpartanBrakedownPublic> {
     Ok(SpartanBrakedownPublic {
         rows: j.rows,
         cols: j.cols,
-        case_digest: j.case_digest,
+        instance_digest: j.instance_digest,
         field_profile,
     })
 }
@@ -521,15 +521,15 @@ fn write_stage_report(path: &PathBuf, report: &StageReportJson) -> Result<()> {
 
 fn run_compile(args: &[String]) -> Result<()> {
     if args.len() < 3 {
-        bail!("usage: spark_e2e_cli compile <case_dir> <compiled.json> [profile]");
+        bail!("usage: spark_e2e_cli compile <instance_dir> <compiled.json> [profile]");
     }
-    let case_dir = PathBuf::from(&args[1]);
+    let instance_dir = PathBuf::from(&args[1]);
     let out_compiled = PathBuf::from(&args[2]);
     let profile_s = args.get(3).cloned().unwrap_or_else(|| "m61".to_string());
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
     let started = Instant::now();
-    let compiled = compile_with_profile(&case_dir, profile)?;
+    let compiled = compile_with_profile(&instance_dir, profile)?;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
     let compiled_wire = sidecar_wire_path(&out_compiled);
     let report_path = out_compiled.with_extension("compile.report.json");
@@ -544,7 +544,7 @@ fn run_compile(args: &[String]) -> Result<()> {
             base_modulus: compiled.field_profile.base_modulus(),
             rows: compiled.rows,
             cols: compiled.cols,
-            case_digest_hex: digest_to_hex(compiled.case_digest),
+            instance_digest_hex: digest_to_hex(compiled.instance_digest),
             context_fingerprint_hex: digest_to_hex(compiled.context_fingerprint),
             runtime_ms: elapsed_ms,
             prove_breakdown: None,
@@ -552,7 +552,7 @@ fn run_compile(args: &[String]) -> Result<()> {
         },
     )?;
     println!("compile: ok");
-    println!("  case_dir={}", case_dir.display());
+    println!("  instance_dir={}", instance_dir.display());
     println!("  compiled={}", out_compiled.display());
     println!("  compiled_wire={}", compiled_wire.display());
     println!("  report={}", report_path.display());
@@ -563,10 +563,10 @@ fn run_compile(args: &[String]) -> Result<()> {
 
 fn run_prove(args: &[String]) -> Result<()> {
     if args.len() < 5 {
-        bail!("usage: spark_e2e_cli prove <compiled.json|compiled.wire> <case_dir> <proof.json> <public.json>");
+        bail!("usage: spark_e2e_cli prove <compiled.json|compiled.wire> <instance_dir> <proof.json> <public.json>");
     }
     let compiled_path = PathBuf::from(&args[1]);
-    let case_dir = PathBuf::from(&args[2]);
+    let instance_dir = PathBuf::from(&args[2]);
     let proof_path = PathBuf::from(&args[3]);
     let public_path = PathBuf::from(&args[4]);
 
@@ -577,7 +577,7 @@ fn run_prove(args: &[String]) -> Result<()> {
         compiled_from_json(&compiled_json)?
     };
     let started = Instant::now();
-    let res = prove_with_compiled(&compiled, &case_dir)?;
+    let res = prove_with_compiled(&compiled, &instance_dir)?;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
 
     write_json(&proof_path, &proof_to_json(&res.proof))?;
@@ -607,7 +607,7 @@ fn run_prove(args: &[String]) -> Result<()> {
             base_modulus: compiled.field_profile.base_modulus(),
             rows: res.public.rows,
             cols: res.public.cols,
-            case_digest_hex: digest_to_hex(res.public.case_digest),
+            instance_digest_hex: digest_to_hex(res.public.instance_digest),
             context_fingerprint_hex: digest_to_hex(res.public_meta.context_fingerprint),
             runtime_ms: elapsed_ms,
             prove_breakdown: Some(timing.clone()),
@@ -617,7 +617,7 @@ fn run_prove(args: &[String]) -> Result<()> {
 
     println!("prove: ok");
     println!("  compiled={}", compiled_path.display());
-    println!("  case_dir={}", case_dir.display());
+    println!("  instance_dir={}", instance_dir.display());
     println!("  proof={}", proof_path.display());
     println!("  proof_wire={}", proof_wire.display());
     println!("  public={}", public_path.display());
@@ -647,14 +647,14 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
 
-    let case_dir = PathBuf::from(format!(
-        "tests/generated_cases/circom_repeat_2pow{}/case",
+    let instance_dir = PathBuf::from(format!(
+        "tests/generated_cases/circom_repeat_2pow{}/instance",
         k
     ));
-    if !case_dir.exists() {
+    if !instance_dir.exists() {
         bail!(
-            "case dir not found: {} (generate it first, e.g. with circom_repeat_e2e_demo)",
-            case_dir.display()
+            "instance dir not found: {} (generate it first, e.g. with circom_repeat_e2e_demo)",
+            instance_dir.display()
         );
     }
 
@@ -666,7 +666,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     let public_wire = sidecar_wire_path(&public_path);
 
     let t_compile = Instant::now();
-    let compiled = compile_with_profile(&case_dir, profile)?;
+    let compiled = compile_with_profile(&instance_dir, profile)?;
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
     let compile_report_path = out_dir.join("compile.report.json");
     write_json(&compiled_path, &compiled_to_json(&compiled))?;
@@ -680,7 +680,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
             base_modulus: compiled.field_profile.base_modulus(),
             rows: compiled.rows,
             cols: compiled.cols,
-            case_digest_hex: digest_to_hex(compiled.case_digest),
+            instance_digest_hex: digest_to_hex(compiled.instance_digest),
             context_fingerprint_hex: digest_to_hex(compiled.context_fingerprint),
             runtime_ms: compile_ms,
             prove_breakdown: None,
@@ -689,7 +689,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     )?;
 
     let t_prove = Instant::now();
-    let res = prove_with_compiled(&compiled, &case_dir)?;
+    let res = prove_with_compiled(&compiled, &instance_dir)?;
     let prove_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
     let prove_report_path = out_dir.join("prove.report.json");
     write_json(&proof_path, &proof_to_json(&res.proof))?;
@@ -715,7 +715,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
             base_modulus: compiled.field_profile.base_modulus(),
             rows: res.public.rows,
             cols: res.public.cols,
-            case_digest_hex: digest_to_hex(res.public.case_digest),
+            instance_digest_hex: digest_to_hex(res.public.instance_digest),
             context_fingerprint_hex: digest_to_hex(res.public_meta.context_fingerprint),
             runtime_ms: prove_ms,
             prove_breakdown: Some(timings_to_json(&res.timings)),
@@ -725,7 +725,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
 
     println!("prove-k: ok");
     println!("  k={}", k);
-    println!("  case_dir={}", case_dir.display());
+    println!("  instance_dir={}", instance_dir.display());
     println!("  compiled={}", compiled_path.display());
     println!("  compiled_wire={}", compiled_wire.display());
     println!("  proof={}", proof_path.display());
@@ -789,7 +789,7 @@ fn run_verify(args: &[String]) -> Result<()> {
             base_modulus: compiled.field_profile.base_modulus(),
             rows: public.rows,
             cols: public.cols,
-            case_digest_hex: digest_to_hex(public.case_digest),
+            instance_digest_hex: digest_to_hex(public.instance_digest),
             context_fingerprint_hex: digest_to_hex(compiled.context_fingerprint),
             runtime_ms: elapsed_ms,
             prove_breakdown: None,
@@ -856,7 +856,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 2 {
         bail!(
-            "usage:\n  spark_e2e_cli compile <case_dir> <compiled.json> [profile]\n  spark_e2e_cli prove <compiled.json|compiled.wire> <case_dir> <proof.json> <public.json>\n  spark_e2e_cli prove-k <k> <out_dir> [profile]\n  spark_e2e_cli inspect <proof.json|proof.wire>\n  spark_e2e_cli verify <compiled.json|compiled.wire> <proof.json|proof.wire> <public.json|public.wire>"
+            "usage:\n  spark_e2e_cli compile <instance_dir> <compiled.json> [profile]\n  spark_e2e_cli prove <compiled.json|compiled.wire> <instance_dir> <proof.json> <public.json>\n  spark_e2e_cli prove-k <k> <out_dir> [profile]\n  spark_e2e_cli inspect <proof.json|proof.wire>\n  spark_e2e_cli verify <compiled.json|compiled.wire> <proof.json|proof.wire> <public.json|public.wire>"
         );
     }
 

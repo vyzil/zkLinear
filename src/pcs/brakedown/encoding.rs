@@ -125,7 +125,7 @@ impl BrakedownEncoding {
             cur = next;
         }
 
-        // Base-case RS-like expansion on deepest precode output
+        // Base-level RS-like expansion on deepest precode output
         for t in 0..self.spel_base_rs_parity {
             let x = F::new((t + 1) as u64);
             let mut eval = F::zero();
