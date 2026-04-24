@@ -3,7 +3,6 @@ use merlin::Transcript;
 use crate::core::field::Fp;
 
 pub const TRANSCRIPT_DOMAIN: &[u8] = b"zklinear/v1/spartan-brakedown";
-pub const BRIDGE_TRANSCRIPT_LABEL: &[u8] = b"zklinear/v1/spartan-brakedown/bridge";
 pub const NIZK_TRANSCRIPT_LABEL: &[u8] = b"zklinear/v1/spartan-brakedown/nizk";
 pub const PCS_DEMO_TRANSCRIPT_LABEL: &[u8] = b"zklinear/v1/spartan-brakedown/pcs-demo";
 

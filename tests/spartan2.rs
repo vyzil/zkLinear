@@ -9,7 +9,7 @@ use zk_linear::{
     },
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
-        spec_v1::{append_spec_domain, BRIDGE_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL},
+        spec_v1::{append_spec_domain, NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL},
     },
     sumcheck::{
         inner::{inner_product, prove_inner_sumcheck, verify_inner_sumcheck_trace},
@@ -164,7 +164,7 @@ fn spartan2_006_transcript_challenge_vectors_are_stable() {
 
             let sha_chal = derive_round_challenge(OUTER_SUMCHECK_LABEL, 0, g0, g2, g3);
 
-            let mut tr = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+            let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
             append_spec_domain(&mut tr);
             append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
             let merlin_chal =
@@ -174,7 +174,7 @@ fn spartan2_006_transcript_challenge_vectors_are_stable() {
             testlog::data("merlin_chal", merlin_chal.0);
 
             assert_eq!(sha_chal.0, 76);
-            assert_eq!(merlin_chal.0, 31);
+            assert_eq!(merlin_chal.0, 46);
             assert!(sha_chal.0 < MODULUS);
             assert!(merlin_chal.0 < MODULUS);
         }

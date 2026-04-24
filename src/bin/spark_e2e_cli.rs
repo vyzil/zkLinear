@@ -168,11 +168,9 @@ fn u64_to_fp(v: u64) -> Fp {
 fn ref_to_json(r: ReferenceProfile) -> RefProfileJson {
     let protocol = match r.protocol {
         ProtocolReference::Spartan2Like => "Spartan2Like",
-        ProtocolReference::ExperimentalAlt => "ExperimentalAlt",
     };
     let pcs = match r.pcs {
         PcsReference::LcpcBrakedownLike => "LcpcBrakedownLike",
-        PcsReference::ExperimentalAlt => "ExperimentalAlt",
     };
     RefProfileJson {
         protocol: protocol.to_string(),
