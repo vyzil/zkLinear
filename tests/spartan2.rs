@@ -26,7 +26,8 @@ use zk_linear::{
             verify_inner_sumcheck_trace,
         },
         outer::{
-            prove_outer_sumcheck, prove_outer_sumcheck_with_transcript, verify_outer_sumcheck_trace,
+            prove_outer_sumcheck, prove_outer_sumcheck_cubic_with_transcript,
+            verify_outer_sumcheck_trace,
         },
     },
 };
@@ -143,13 +144,6 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
             let az = matrix_vec_mul(&case.a, &case.z);
             let bz = matrix_vec_mul(&case.b, &case.z);
             let cz = matrix_vec_mul(&case.c, &case.z);
-            let residual: Vec<Fp> = az
-                .iter()
-                .zip(bz.iter())
-                .zip(cz.iter())
-                .map(|((a, b), c)| a.mul(*b).sub(*c))
-                .collect();
-
             let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
             append_spec_domain(&mut tr);
             append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
@@ -163,13 +157,9 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
             let tau =
                 sample_outer_tau_from_transcript(&mut tr, case.a.len().trailing_zeros() as usize);
             let eq_tau = build_eq_weights_from_challenges(&tau);
-            let weighted_residual: Vec<Fp> = residual
-                .iter()
-                .zip(eq_tau.iter())
-                .map(|(r, w)| r.mul(*w))
-                .collect();
 
-            let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr);
+            let outer_trace =
+                prove_outer_sumcheck_cubic_with_transcript(&az, &bz, &cz, &eq_tau, &mut tr);
             let outer_verify = verify_outer_sumcheck_trace(&outer_trace);
             let r_x = outer_trace
                 .rounds

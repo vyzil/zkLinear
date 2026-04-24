@@ -106,6 +106,14 @@ fn eval_cubic_from_0_1_2_3_t<F: FieldElement>(g0: F, g1: F, g2: F, g3: F, r: F) 
     g0.mul(l0).add(g1.mul(l1)).add(g2.mul(l2)).add(g3.mul(l3))
 }
 
+fn fold_pair(v0: Fp, v1: Fp, r: Fp) -> Fp {
+    v0.add(r.mul(v1.sub(v0)))
+}
+
+fn outer_contrib(a: Fp, b: Fp, c: Fp, eq: Fp) -> Fp {
+    eq.mul(a.mul(b).sub(c))
+}
+
 pub fn prove_outer_sumcheck_t<F: FieldElement>(values: &[F]) -> OuterSumcheckTrace<F> {
     assert!(!values.is_empty());
     assert!(values.len().is_power_of_two());
@@ -222,6 +230,114 @@ pub fn prove_outer_sumcheck_with_transcript_t<F: FieldElement>(
         claim_initial,
         rounds,
         final_value: cur[0],
+        final_claim: claim,
+    }
+}
+
+pub fn prove_outer_sumcheck_cubic_with_transcript(
+    az: &[Fp],
+    bz: &[Fp],
+    cz: &[Fp],
+    eq_tau: &[Fp],
+    tr: &mut Transcript,
+) -> OuterSumcheckTrace {
+    assert_eq!(az.len(), bz.len());
+    assert_eq!(az.len(), cz.len());
+    assert_eq!(az.len(), eq_tau.len());
+    assert!(!az.is_empty());
+    assert!(az.len().is_power_of_two());
+
+    let mut a_cur = az.to_vec();
+    let mut b_cur = bz.to_vec();
+    let mut c_cur = cz.to_vec();
+    let mut eq_cur = eq_tau.to_vec();
+
+    let mut claim = a_cur
+        .iter()
+        .zip(b_cur.iter())
+        .zip(c_cur.iter())
+        .zip(eq_cur.iter())
+        .fold(Fp::zero(), |acc, (((a, b), c), eq)| {
+            acc.add(outer_contrib(*a, *b, *c, *eq))
+        });
+    let claim_initial = claim;
+
+    let mut rounds = Vec::new();
+    let mut round = 0usize;
+    while a_cur.len() > 1 {
+        let half = a_cur.len() / 2;
+
+        let (a0, a1) = a_cur.split_at(half);
+        let (b0, b1) = b_cur.split_at(half);
+        let (c0, c1) = c_cur.split_at(half);
+        let (eq0, eq1) = eq_cur.split_at(half);
+
+        let mut g0 = Fp::zero();
+        let mut g2 = Fp::zero();
+        let mut g3 = Fp::zero();
+        for i in 0..half {
+            let a2 = a0[i].add(Fp::new(2).mul(a1[i].sub(a0[i])));
+            let b2 = b0[i].add(Fp::new(2).mul(b1[i].sub(b0[i])));
+            let c2 = c0[i].add(Fp::new(2).mul(c1[i].sub(c0[i])));
+            let eq2 = eq0[i].add(Fp::new(2).mul(eq1[i].sub(eq0[i])));
+
+            let a3 = a0[i].add(Fp::new(3).mul(a1[i].sub(a0[i])));
+            let b3 = b0[i].add(Fp::new(3).mul(b1[i].sub(b0[i])));
+            let c3 = c0[i].add(Fp::new(3).mul(c1[i].sub(c0[i])));
+            let eq3 = eq0[i].add(Fp::new(3).mul(eq1[i].sub(eq0[i])));
+
+            g0 = g0.add(outer_contrib(a0[i], b0[i], c0[i], eq0[i]));
+            g2 = g2.add(outer_contrib(a2, b2, c2, eq2));
+            g3 = g3.add(outer_contrib(a3, b3, c3, eq3));
+        }
+
+        let g1 = claim.sub(g0);
+        let r = derive_round_challenge_merlin_t(tr, OUTER_SUMCHECK_LABEL, round, g0, g2, g3);
+
+        let mut folded_values = Vec::with_capacity(half);
+        let mut next_a = Vec::with_capacity(half);
+        let mut next_b = Vec::with_capacity(half);
+        let mut next_c = Vec::with_capacity(half);
+        let mut next_eq = Vec::with_capacity(half);
+        for i in 0..half {
+            let a_r = fold_pair(a0[i], a1[i], r);
+            let b_r = fold_pair(b0[i], b1[i], r);
+            let c_r = fold_pair(c0[i], c1[i], r);
+            let eq_r = fold_pair(eq0[i], eq1[i], r);
+            folded_values.push(outer_contrib(a_r, b_r, c_r, eq_r));
+            next_a.push(a_r);
+            next_b.push(b_r);
+            next_c.push(c_r);
+            next_eq.push(eq_r);
+        }
+
+        claim = eval_cubic_from_0_1_2_3(g0, g1, g2, g3, r);
+        let folded_claim = folded_values.iter().fold(Fp::zero(), |acc, v| acc.add(*v));
+        assert_eq!(claim, folded_claim);
+
+        rounds.push(OuterRoundTranscript {
+            round,
+            g_at_0: g0,
+            g_at_2: g2,
+            g_at_3: g3,
+            challenge_r: r,
+            folded_values,
+        });
+
+        a_cur = next_a;
+        b_cur = next_b;
+        c_cur = next_c;
+        eq_cur = next_eq;
+        round += 1;
+    }
+
+    let final_value = outer_contrib(a_cur[0], b_cur[0], c_cur[0], eq_cur[0]);
+    assert_eq!(claim, final_value);
+
+    OuterSumcheckTrace {
+        claim_initial,
+        rounds,
+        final_value,
         final_claim: claim,
     }
 }

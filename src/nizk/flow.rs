@@ -36,7 +36,7 @@ use crate::{
     },
     sumcheck::{
         inner::{inner_product, prove_inner_sumcheck_with_label_and_transcript, SumcheckTrace},
-        outer::{prove_outer_sumcheck_with_transcript, OuterSumcheckTrace},
+        outer::{prove_outer_sumcheck_cubic_with_transcript, OuterSumcheckTrace},
     },
 };
 
@@ -110,13 +110,6 @@ fn verify_compact_outer_trace(trace: &NizkOuterTrace) -> Result<()> {
     let mut claim = trace.claim_initial;
     for r in &trace.rounds {
         let g1 = claim.sub(r.g_at_0);
-        // Simplified outer sumcheck in this codebase uses a linear g(t).
-        let delta = g1.sub(r.g_at_0);
-        let expected_g2 = r.g_at_0.add(delta.mul(Fp::new(2)));
-        let expected_g3 = r.g_at_0.add(delta.mul(Fp::new(3)));
-        if r.g_at_2 != expected_g2 || r.g_at_3 != expected_g3 {
-            return Err(anyhow!("outer round message is not linear-consistent"));
-        }
         claim = eval_cubic_from_0_1_2_3(r.g_at_0, g1, r.g_at_2, r.g_at_3, r.challenge_r);
     }
     if claim != trace.final_claim {
@@ -301,13 +294,6 @@ fn prove_from_dir_impl(
     let bz = matrix_vec_mul(&case.b, &case.z);
     let cz = matrix_vec_mul(&case.c, &case.z);
 
-    let residual: Vec<Fp> = az
-        .iter()
-        .zip(bz.iter())
-        .zip(cz.iter())
-        .map(|((a, b), c)| a.mul(*b).sub(*c))
-        .collect();
-
     let row_vars = rows.trailing_zeros() as usize;
     let case_digest = compute_case_digest(&case);
     let context_fingerprint = context_fingerprint(rows, cols, case_digest, profile);
@@ -333,13 +319,8 @@ fn prove_from_dir_impl(
 
     let tau = sample_outer_tau_from_transcript(&mut tr_p, row_vars);
     let eq_tau = build_eq_weights_from_challenges(&tau);
-    let weighted_residual: Vec<Fp> = residual
-        .iter()
-        .zip(eq_tau.iter())
-        .map(|(r, w)| r.mul(*w))
-        .collect();
-
-    let outer_trace_full = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
+    let outer_trace_full =
+        prove_outer_sumcheck_cubic_with_transcript(&az, &bz, &cz, &eq_tau, &mut tr_p);
     let r_x = outer_trace_full
         .rounds
         .iter()
