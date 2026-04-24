@@ -1,31 +1,54 @@
 use crate::{
     core::field::Fp,
     pcs::brakedown::types::{BrakedownEvalProof, BrakedownFieldProfile, BrakedownVerifierCommitment},
-    protocol::reference::ReferenceProfile,
-    sumcheck::{inner::SumcheckTrace, outer::OuterSumcheckTrace},
 };
+use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 
-pub const NIZK_BLINDED_LAYOUT_ROWS: usize = 6;
+pub const NIZK_BLINDED_LAYOUT_ROWS: usize = 3;
+
+#[derive(Debug, Clone)]
+pub struct NizkOuterRound {
+    pub round: usize,
+    pub g_at_0: Fp,
+    pub g_at_2: Fp,
+    pub g_at_3: Fp,
+    pub challenge_r: Fp,
+}
+
+#[derive(Debug, Clone)]
+pub struct NizkOuterTrace {
+    pub claim_initial: Fp,
+    pub rounds: Vec<NizkOuterRound>,
+    pub final_value: Fp,
+    pub final_claim: Fp,
+}
+
+#[derive(Debug, Clone)]
+pub struct NizkInnerRound {
+    pub round: usize,
+    pub h_at_0: Fp,
+    pub h_at_1: Fp,
+    pub h_at_2: Fp,
+    pub challenge_r: Fp,
+}
+
+#[derive(Debug, Clone)]
+pub struct NizkInnerTrace {
+    pub claim_initial: Fp,
+    pub rounds: Vec<NizkInnerRound>,
+    pub final_f: Fp,
+    pub final_g: Fp,
+    pub final_claim: Fp,
+}
 
 #[derive(Debug, Clone)]
 pub struct SpartanBrakedownProof {
-    pub outer_trace: OuterSumcheckTrace,
-    pub inner_trace: SumcheckTrace,
+    // Canonical sumcheck transcript messages only (no folded/intermediate vectors).
+    pub outer_trace: NizkOuterTrace,
+    pub inner_trace: NizkInnerTrace,
     pub gamma: Fp,
-    // Transcript-bound inner claim carried inside proof (not public input).
-    pub claimed_value_unblinded: Fp,
-    pub claimed_value: Fp,
-    pub blind_eval_1: Fp,
-    pub blind_eval_2: Fp,
-    pub blind_mix_alpha: Fp,
-    pub reference_profile: ReferenceProfile,
     pub verifier_commitment: BrakedownVerifierCommitment,
-    pub pcs_proof_main: BrakedownEvalProof,
-    pub pcs_proof_blind_1: BrakedownEvalProof,
-    pub pcs_proof_blind_2: BrakedownEvalProof,
     pub pcs_proof_joint_eval_at_r: BrakedownEvalProof,
-    pub pcs_proof_z_eval_at_r: BrakedownEvalProof,
-    pub context_fingerprint: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
@@ -34,11 +57,6 @@ pub struct SpartanBrakedownPublic {
     pub cols: usize,
     pub case_digest: [u8; 32],
     pub field_profile: BrakedownFieldProfile,
-    // Public claims only (no witness-like evaluation tensors on this boundary).
-    // Masking/claim-binding remains research/demo and is not a production ZK construction.
-    pub claimed_value_masked: Fp,
-    pub reference_profile: ReferenceProfile,
-    pub context_fingerprint: [u8; 32],
 }
 
 #[derive(Debug, Clone)]
@@ -47,7 +65,6 @@ pub struct SpartanBrakedownCompiledCircuit {
     pub cols: usize,
     pub case_digest: [u8; 32],
     pub field_profile: BrakedownFieldProfile,
-    pub reference_profile: ReferenceProfile,
     pub context_fingerprint: [u8; 32],
 }
 
@@ -78,6 +95,8 @@ impl KernelTimingMs {
 pub struct SpartanBrakedownPipelineResult {
     pub proof: SpartanBrakedownProof,
     pub public: SpartanBrakedownPublic,
+    pub proof_meta: SpartanBrakedownProofMeta,
+    pub public_meta: SpartanBrakedownPublicMeta,
     pub timings: KernelTimingMs,
 }
 

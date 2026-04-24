@@ -34,6 +34,7 @@ use crate::{
     },
 };
 use super::report::format_pipeline_report;
+use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 use super::types::{
     NizkInnerRound, NizkInnerTrace, NizkOuterRound, NizkOuterTrace, KernelTimingMs,
     NIZK_BLINDED_LAYOUT_ROWS, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
@@ -187,7 +188,6 @@ fn context_fingerprint(
     cols: usize,
     case_digest: [u8; 32],
     field_profile: BrakedownFieldProfile,
-    reference_profile: crate::protocol::reference::ReferenceProfile,
 ) -> [u8; 32] {
     let params = leakage_reduced_public_params(cols, field_profile);
     let mut h = Sha256::new();
@@ -201,8 +201,8 @@ fn context_fingerprint(
     h.update((cols as u64).to_le_bytes());
     h.update(case_digest);
     h.update((field_profile as u8).to_le_bytes());
-    h.update((reference_profile.protocol as u8).to_le_bytes());
-    h.update((reference_profile.pcs as u8).to_le_bytes());
+    h.update((DUAL_REFERENCE_PROFILE.protocol as u8).to_le_bytes());
+    h.update((DUAL_REFERENCE_PROFILE.pcs as u8).to_le_bytes());
     h.update((params.n_degree_tests as u64).to_le_bytes());
     h.update((params.n_col_opens as u64).to_le_bytes());
     h.update((params.col_open_start as u64).to_le_bytes());
@@ -246,14 +246,12 @@ pub fn compile_from_dir_with_profile(
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let (rows, cols) = validate_case_shape(&case)?;
     let case_digest = compute_case_digest(&case);
-    let reference_profile = DUAL_REFERENCE_PROFILE;
     Ok(SpartanBrakedownCompiledCircuit {
         rows,
         cols,
         case_digest,
         field_profile: profile,
-        reference_profile,
-        context_fingerprint: context_fingerprint(rows, cols, case_digest, profile, reference_profile),
+        context_fingerprint: context_fingerprint(rows, cols, case_digest, profile),
     })
 }
 
@@ -265,8 +263,8 @@ pub fn prove_with_compiled_from_dir(
     let case = load_spartan_like_case_from_dir(case_dir)?;
     validate_compiled_case(compiled, &case)?;
     let result = prove_from_dir_impl(case_dir, compiled.field_profile)?;
-    if result.public.context_fingerprint != compiled.context_fingerprint
-        || result.proof.context_fingerprint != compiled.context_fingerprint
+    if result.public_meta.context_fingerprint != compiled.context_fingerprint
+        || result.proof_meta.context_fingerprint != compiled.context_fingerprint
     {
         return Err(anyhow!("compiled/prove context fingerprint mismatch"));
     }
@@ -326,7 +324,6 @@ fn prove_from_dir_impl(
         cols,
         case_digest,
         profile,
-        DUAL_REFERENCE_PROFILE,
     );
 
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
@@ -390,10 +387,8 @@ fn prove_from_dir_impl(
         outer_trace: compact_outer_trace(&outer_trace_full),
         inner_trace: compact_inner_trace(&inner_trace_full),
         gamma,
-        reference_profile: DUAL_REFERENCE_PROFILE,
         verifier_commitment,
         pcs_proof_joint_eval_at_r,
-        context_fingerprint,
     };
 
     let public = SpartanBrakedownPublic {
@@ -401,6 +396,13 @@ fn prove_from_dir_impl(
         cols,
         case_digest,
         field_profile: profile,
+    };
+
+    let proof_meta = SpartanBrakedownProofMeta {
+        reference_profile: DUAL_REFERENCE_PROFILE,
+        context_fingerprint,
+    };
+    let public_meta = SpartanBrakedownPublicMeta {
         reference_profile: DUAL_REFERENCE_PROFILE,
         context_fingerprint,
     };
@@ -412,6 +414,8 @@ fn prove_from_dir_impl(
     Ok(SpartanBrakedownPipelineResult {
         proof,
         public,
+        proof_meta,
+        public_meta,
         timings: KernelTimingMs {
             k0_input_parse_ms: k0_ms,
             k1_spartan_prove_ms: k1_ms,
@@ -469,16 +473,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let (rows, cols) = validate_case_shape(&case)?;
     let case_digest = compute_case_digest(&case);
-    let expected_context = context_fingerprint(
-        rows,
-        cols,
-        case_digest,
-        proof.verifier_commitment.field_profile,
-        proof.reference_profile,
-    );
-    if proof.context_fingerprint != expected_context {
-        return Err(anyhow!("proof context fingerprint mismatch"));
-    }
     if proof.outer_trace.rounds.len() != rows.trailing_zeros() as usize {
         return Err(anyhow!("outer rounds do not match row count"));
     }
@@ -495,9 +489,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         return Err(anyhow!(
             "verifier commitment dimensions mismatch for blinded layout"
         ));
-    }
-    if proof.reference_profile != DUAL_REFERENCE_PROFILE {
-        return Err(anyhow!("unsupported reference profile for this NIZK flow"));
     }
     let az = matrix_vec_mul(&case.a, &case.z);
     let bz = matrix_vec_mul(&case.b, &case.z);
@@ -525,7 +516,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
 
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
-    append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
+    append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, proof.verifier_commitment.field_profile);
     append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
 
@@ -637,9 +628,6 @@ fn validate_compiled_case(
     compiled: &SpartanBrakedownCompiledCircuit,
     case: &SpartanLikeCase,
 ) -> Result<()> {
-    if compiled.reference_profile != DUAL_REFERENCE_PROFILE {
-        return Err(anyhow!("unsupported reference profile in compiled circuit"));
-    }
     let (rows, cols) = validate_case_shape(case)?;
     if rows != compiled.rows || cols != compiled.cols {
         return Err(anyhow!("compiled circuit shape mismatch"));
@@ -652,7 +640,6 @@ fn validate_compiled_case(
         compiled.cols,
         compiled.case_digest,
         compiled.field_profile,
-        compiled.reference_profile,
     );
     if compiled.context_fingerprint != expected {
         return Err(anyhow!("compiled context fingerprint mismatch"));
@@ -665,34 +652,20 @@ fn validate_compiled_public(
     proof: &SpartanBrakedownProof,
     public: &SpartanBrakedownPublic,
 ) -> Result<()> {
-    if compiled.reference_profile != DUAL_REFERENCE_PROFILE {
-        return Err(anyhow!("unsupported reference profile in compiled circuit"));
-    }
-    let expected_compiled_context = context_fingerprint(
+    let expected = context_fingerprint(
         compiled.rows,
         compiled.cols,
         compiled.case_digest,
         compiled.field_profile,
-        compiled.reference_profile,
     );
-    if compiled.context_fingerprint != expected_compiled_context {
+    if compiled.context_fingerprint != expected {
         return Err(anyhow!("compiled context fingerprint mismatch"));
-    }
-    if compiled.reference_profile != public.reference_profile
-        || compiled.reference_profile != proof.reference_profile
-    {
-        return Err(anyhow!("compiled/reference profile mismatch"));
     }
     if public.rows != compiled.rows || public.cols != compiled.cols {
         return Err(anyhow!("compiled/public shape mismatch"));
     }
     if public.case_digest != compiled.case_digest {
         return Err(anyhow!("compiled/public case digest mismatch"));
-    }
-    if public.context_fingerprint != compiled.context_fingerprint
-        || proof.context_fingerprint != compiled.context_fingerprint
-    {
-        return Err(anyhow!("compiled/public/proof context fingerprint mismatch"));
     }
     if proof.verifier_commitment.field_profile != compiled.field_profile {
         return Err(anyhow!("compiled/proof field profile mismatch"));
@@ -726,15 +699,6 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         return Err(anyhow!("public shape must be non-zero powers of two"));
     }
 
-    if public.reference_profile != proof.reference_profile {
-        return Err(anyhow!("reference profile mismatch"));
-    }
-    if proof.reference_profile != DUAL_REFERENCE_PROFILE {
-        return Err(anyhow!("unsupported reference profile for this NIZK flow"));
-    }
-    if public.context_fingerprint != proof.context_fingerprint {
-        return Err(anyhow!("public/proof context fingerprint mismatch"));
-    }
     let expected_commitment_cols =
         expected_commitment_n_cols(public.cols, public.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
@@ -751,20 +715,9 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     if proof.inner_trace.rounds.len() != public.cols.trailing_zeros() as usize {
         return Err(anyhow!("inner rounds do not match column count"));
     }
-    let expected_context = context_fingerprint(
-        public.rows,
-        public.cols,
-        public.case_digest,
-        public.field_profile,
-        public.reference_profile,
-    );
-    if public.context_fingerprint != expected_context {
-        return Err(anyhow!("public context fingerprint mismatch"));
-    }
-
     let mut tr_v = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_v);
-    append_reference_profile_to_transcript(&mut tr_v, &proof.reference_profile);
+    append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, public.field_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
 
