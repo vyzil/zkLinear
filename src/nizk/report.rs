@@ -11,11 +11,11 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     let t = &result.timings;
 
     let mut out = String::new();
-    out.push_str("=== Spartan + Brakedown NIZK Report (Leakage-Reduced) ===\n");
+    out.push_str("=== Spartan + Brakedown NIZK Report ===\n");
     out.push_str("\n[Scope]\n");
     out.push_str("- sumcheck trace payload keeps canonical round messages only\n");
     out.push_str("- no explicit unblinded/masked/blind scalar payload fields\n");
-    out.push_str("- no witness-row PCS opening on the public boundary\n");
+    out.push_str("- PCS commitment is bound before transcript challenges\n");
 
     out.push_str("\n[Prove/Kernels]\n");
     out.push_str(&format!("source: {}\n", case_dir.display()));
@@ -60,7 +60,7 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     out.push_str("\n[Verify]\n");
     out.push_str("1) replay outer/inner Fiat-Shamir challenges\n");
     out.push_str("2) check compact sumcheck transitions\n");
-    out.push_str("3) verify joint_eval_at_r opening against inner final_f\n");
+    out.push_str("3) verify joint_eval_at_r opening against inner final_g\n");
     out.push_str(&format!(
         "verify_result: success (rows={}, cols={})\n",
         public.rows, public.cols

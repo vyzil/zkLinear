@@ -8,9 +8,9 @@ This document fixes the current verification boundary and transcript contract of
 - NIZK label: `zklinear/v1/spartan-brakedown/nizk`
 - prover/verifier replay order (current implementation):
   1. domain/reference/field/case-digest append
-  2. sample outer `tau` from transcript (`OUTER_TAU_LABEL`, indexed draws)
-  3. outer sumcheck rounds (`g(0), g(2), g(3)` per round)
-  4. bind `polycommit` root + `ncols`
+  2. bind `polycommit` root + `ncols`
+  3. sample outer `tau` from transcript (`OUTER_TAU_LABEL`, indexed draws)
+  4. outer sumcheck rounds (`g(0), g(2), g(3)` per round)
   5. sample `gamma`
   6. inner sumcheck rounds (`h(0), h(1), h(2)` per round)
   7. append opening label and run PCS transcript (degree tests + column opens)

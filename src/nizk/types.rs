@@ -6,7 +6,7 @@ use crate::{
     },
 };
 
-pub const NIZK_BLINDED_LAYOUT_ROWS: usize = 3;
+pub const NIZK_BLINDED_LAYOUT_ROWS: usize = 1;
 
 #[derive(Debug, Clone)]
 pub struct NizkOuterRound {

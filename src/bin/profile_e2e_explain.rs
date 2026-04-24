@@ -21,7 +21,7 @@ use zk_linear::{
             sample_outer_tau_from_transcript,
         },
         spec_v1::{
-            append_spec_domain, BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL,
+            append_spec_domain, append_u64_le, BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL,
             INNER_SUMCHECK_JOINT_LABEL, LCPC_COL_OPEN_LABEL, LCPC_DEG_TEST_LABEL,
             NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL, OUTER_TAU_LABEL, TRANSCRIPT_DOMAIN,
         },
@@ -160,7 +160,9 @@ fn main() -> Result<()> {
         label_to_str(LCPC_DEG_TEST_LABEL),
         label_to_str(LCPC_COL_OPEN_LABEL)
     );
-    println!("- transcript order note: polycommit(root,ncols) is bound before gamma/inner");
+    println!(
+        "- transcript order note: polycommit(root,ncols) is bound before tau/outer/gamma/inner"
+    );
     println!(
         "- blind mix label (reserved/reference): {}",
         label_to_str(BLIND_MIX_LABEL)
@@ -180,12 +182,21 @@ fn main() -> Result<()> {
         .map(|((a, b), c)| a.mul(*b).sub(*c))
         .collect::<Vec<_>>();
 
+    let params = params_for_field_profile(cols, profile);
+    let pcs = BrakedownPcs::new(params.clone());
+
     let row_vars = rows.trailing_zeros() as usize;
     let mut tr_tau = merlin::Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_tau);
     append_reference_profile_to_transcript(&mut tr_tau, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_tau, profile);
     append_case_digest_to_transcript(&mut tr_tau, rows, cols, digest);
+    tr_tau.append_message(b"polycommit", &res.proof.verifier_commitment.root);
+    append_u64_le(
+        &mut tr_tau,
+        b"ncols",
+        res.proof.verifier_commitment.n_cols as u64,
+    );
     let tau = sample_outer_tau_from_transcript(&mut tr_tau, row_vars);
     let eq_tau = build_eq_weights_from_challenges(&tau);
     let weighted_residual = residual
@@ -229,9 +240,6 @@ fn main() -> Result<()> {
     let eq_r = build_eq_weights_from_challenges(&inner_chals);
     let expected_final_g = dot(&eq_r, &case.z);
 
-    let params = params_for_field_profile(cols, profile);
-    let pcs = BrakedownPcs::new(params.clone());
-
     println!("[E2E Flow: Prover Side]");
     println!("1) Input parse -> Az/Bz/Cz/residual computation");
     println!("   - Az head: {}", fmt_vec_head(&az, show_head));
@@ -240,7 +248,26 @@ fn main() -> Result<()> {
     println!("   - residual head: {}", fmt_vec_head(&residual, show_head));
     println!();
 
-    println!("2) Outer sumcheck binding");
+    println!("2) PCS commit + transcript binding");
+    println!(
+        "   - params: encoder={:?}, n_degree_tests={}, n_col_opens={}, col_open_start={}",
+        params.encoder_kind, params.n_degree_tests, params.n_col_opens, params.col_open_start
+    );
+    println!(
+        "   - encoded n_cols={} | verifier commitment dims=({}, {}, {})",
+        pcs.encoding.n_cols,
+        res.proof.verifier_commitment.n_rows,
+        res.proof.verifier_commitment.n_per_row,
+        res.proof.verifier_commitment.n_cols
+    );
+    println!(
+        "   - commitment root: {}",
+        hex::encode(res.proof.verifier_commitment.root)
+    );
+    println!("   - bound to transcript before tau/outer/gamma/inner");
+    println!();
+
+    println!("3) Outer sumcheck binding");
     println!("   - tau(head): {}", fmt_vec_head(&tau, show_head));
     println!("   - eq(tau) head: {}", fmt_vec_head(&eq_tau, show_head));
     println!(
@@ -259,25 +286,6 @@ fn main() -> Result<()> {
         "   - outer final_value={}, final_claim={}",
         res.proof.outer_trace.final_value.0, res.proof.outer_trace.final_claim.0
     );
-    println!();
-
-    println!("3) PCS commit + transcript binding");
-    println!(
-        "   - params: encoder={:?}, n_degree_tests={}, n_col_opens={}, col_open_start={}",
-        params.encoder_kind, params.n_degree_tests, params.n_col_opens, params.col_open_start
-    );
-    println!(
-        "   - encoded n_cols={} | verifier commitment dims=({}, {}, {})",
-        pcs.encoding.n_cols,
-        res.proof.verifier_commitment.n_rows,
-        res.proof.verifier_commitment.n_per_row,
-        res.proof.verifier_commitment.n_cols
-    );
-    println!(
-        "   - commitment root: {}",
-        hex::encode(res.proof.verifier_commitment.root)
-    );
-    println!("   - bound to transcript before gamma/inner");
     println!();
 
     println!("4) Joint binding + inner sumcheck + PCS opening");

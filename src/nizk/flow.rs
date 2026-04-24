@@ -318,6 +318,19 @@ fn prove_from_dir_impl(
     append_field_profile_to_transcript(&mut tr_p, profile);
     append_case_digest_to_transcript(&mut tr_p, rows, cols, case_digest);
 
+    // Commit witness layout first and bind commitment before FS challenges.
+    let coeff_rows = vec![case.z.clone()];
+    if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
+        return Err(anyhow!("internal witness layout row count mismatch"));
+    }
+    let coeffs = flatten_rows(&coeff_rows);
+    let params = leakage_reduced_public_params(cols, profile);
+    let pcs = BrakedownPcs::new(params);
+    let prover_commitment = pcs.commit(&coeffs)?;
+    let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
+    tr_p.append_message(b"polycommit", &verifier_commitment.root);
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
+
     let tau = sample_outer_tau_from_transcript(&mut tr_p, row_vars);
     let eq_tau = build_eq_weights_from_challenges(&tau);
     let weighted_residual: Vec<Fp> = residual
@@ -338,28 +351,13 @@ fn prove_from_dir_impl(
     let b_bound = bind_rows(&case.b, &row_weights);
     let c_bound = bind_rows(&case.c, &row_weights);
 
-    let coeff_rows = vec![a_bound, b_bound, c_bound];
-    if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
-        return Err(anyhow!("internal blinded layout row count mismatch"));
-    }
-    let coeffs = flatten_rows(&coeff_rows);
-
-    let params = leakage_reduced_public_params(cols, profile);
-    let pcs = BrakedownPcs::new(params);
-    let prover_commitment = pcs.commit(&coeffs)?;
-    let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
-
-    // Bind commitment root into transcript before sampling gamma/inner challenges.
-    tr_p.append_message(b"polycommit", &verifier_commitment.root);
-    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
-
     let gamma = sample_gamma_from_transcript_light(&mut tr_p);
     let gamma_sq = gamma.mul(gamma);
 
-    let joint_bound: Vec<Fp> = coeff_rows[0]
+    let joint_bound: Vec<Fp> = a_bound
         .iter()
-        .zip(coeff_rows[1].iter())
-        .zip(coeff_rows[2].iter())
+        .zip(b_bound.iter())
+        .zip(c_bound.iter())
         .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
         .collect();
 
@@ -374,7 +372,7 @@ fn prove_from_dir_impl(
 
     let t2 = Instant::now();
     tr_p.append_message(b"nizk_opening_label", b"joint_eval_at_r");
-    let outer_tensor_joint_eval_at_r = vec![Fp::new(1), gamma, gamma_sq];
+    let outer_tensor_joint_eval_at_r = vec![Fp::new(1)];
     let pcs_proof_joint_eval_at_r =
         pcs.open(&prover_commitment, &outer_tensor_joint_eval_at_r, &mut tr_p)?;
     let k2_ms = t2.elapsed().as_secs_f64() * 1000.0;
@@ -483,7 +481,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         || proof.verifier_commitment.n_cols != expected_commitment_cols
     {
         return Err(anyhow!(
-            "verifier commitment dimensions mismatch for blinded layout"
+            "verifier commitment dimensions mismatch for witness layout"
         ));
     }
     let az = matrix_vec_mul(&case.a, &case.z);
@@ -501,6 +499,8 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, proof.verifier_commitment.field_profile);
     append_case_digest_to_transcript(&mut tr_v, rows, cols, case_digest);
+    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let tau = sample_outer_tau_from_transcript(&mut tr_v, rows.trailing_zeros() as usize);
     let eq_tau = build_eq_weights_from_challenges(&tau);
@@ -534,9 +534,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     }
 
     verify_compact_outer_trace(&proof.outer_trace)?;
-
-    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
-    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
@@ -597,7 +594,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         ));
     }
     let pcs = BrakedownPcs::new(params);
-    let outer_tensor_joint_eval_at_r = vec![Fp::new(1), proof.gamma, gamma_sq];
+    let outer_tensor_joint_eval_at_r = vec![Fp::new(1)];
     let inner_chals = proof
         .inner_trace
         .rounds
@@ -610,7 +607,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         &proof.pcs_proof_joint_eval_at_r,
         &outer_tensor_joint_eval_at_r,
         &eq_r,
-        proof.inner_trace.final_f,
+        proof.inner_trace.final_g,
         &mut tr_v,
     )?;
     let expected_final_g = inner_product(&eq_r, &case.z);
@@ -705,7 +702,7 @@ fn verify_public_succinct(
         || proof.verifier_commitment.n_cols != expected_commitment_cols
     {
         return Err(anyhow!(
-            "verifier commitment dimensions mismatch for blinded layout"
+            "verifier commitment dimensions mismatch for witness layout"
         ));
     }
     if proof.outer_trace.rounds.len() != public.rows.trailing_zeros() as usize {
@@ -719,6 +716,8 @@ fn verify_public_succinct(
     append_reference_profile_to_transcript(&mut tr_v, &DUAL_REFERENCE_PROFILE);
     append_field_profile_to_transcript(&mut tr_v, public.field_profile);
     append_case_digest_to_transcript(&mut tr_v, public.rows, public.cols, public.case_digest);
+    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
     let _tau = sample_outer_tau_from_transcript(&mut tr_v, public.rows.trailing_zeros() as usize);
 
     for (i, r) in proof.outer_trace.rounds.iter().enumerate() {
@@ -738,9 +737,6 @@ fn verify_public_succinct(
         }
     }
     verify_compact_outer_trace(&proof.outer_trace)?;
-
-    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
-    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
@@ -769,7 +765,7 @@ fn verify_public_succinct(
 
     let params = leakage_reduced_public_params(public.cols, public.field_profile);
     let pcs = BrakedownPcs::new(params);
-    let outer_tensor_joint_eval_at_r = vec![Fp::new(1), proof.gamma, proof.gamma.mul(proof.gamma)];
+    let outer_tensor_joint_eval_at_r = vec![Fp::new(1)];
     let inner_chals = proof
         .inner_trace
         .rounds
@@ -782,7 +778,7 @@ fn verify_public_succinct(
         &proof.pcs_proof_joint_eval_at_r,
         &outer_tensor_joint_eval_at_r,
         &eq_r,
-        proof.inner_trace.final_f,
+        proof.inner_trace.final_g,
         &mut tr_v,
     )?;
 

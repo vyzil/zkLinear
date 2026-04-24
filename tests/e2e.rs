@@ -73,6 +73,7 @@ fn e2e_003_nizk_public_verify_rejects_tampered_root() {
             assert!(
                 err.to_string().contains("merkle path failed")
                     || err.to_string().contains("opened column index mismatch")
+                    || err.to_string().contains("outer challenge mismatch")
                     || err
                         .to_string()
                         .contains("gamma mismatch vs transcript-derived challenge")
