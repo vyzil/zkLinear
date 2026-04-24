@@ -333,17 +333,32 @@ fn prove_from_dir_impl(
         .collect::<Vec<_>>();
     let row_weights = build_eq_weights_from_challenges(&r_x);
 
-    let gamma = sample_gamma_from_transcript_light(&mut tr_p);
-    let gamma_sq = gamma.mul(gamma);
-
     let a_bound = bind_rows(&case.a, &row_weights);
     let b_bound = bind_rows(&case.b, &row_weights);
     let c_bound = bind_rows(&case.c, &row_weights);
 
-    let joint_bound: Vec<Fp> = a_bound
+    let coeff_rows = vec![a_bound, b_bound, c_bound];
+    if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
+        return Err(anyhow!("internal blinded layout row count mismatch"));
+    }
+    let coeffs = flatten_rows(&coeff_rows);
+
+    let params = leakage_reduced_public_params(cols, profile);
+    let pcs = BrakedownPcs::new(params);
+    let prover_commitment = pcs.commit(&coeffs)?;
+    let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
+
+    // Bind commitment root into transcript before sampling gamma/inner challenges.
+    tr_p.append_message(b"polycommit", &verifier_commitment.root);
+    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
+
+    let gamma = sample_gamma_from_transcript_light(&mut tr_p);
+    let gamma_sq = gamma.mul(gamma);
+
+    let joint_bound: Vec<Fp> = coeff_rows[0]
         .iter()
-        .zip(b_bound.iter())
-        .zip(c_bound.iter())
+        .zip(coeff_rows[1].iter())
+        .zip(coeff_rows[2].iter())
         .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
         .collect();
 
@@ -357,20 +372,7 @@ fn prove_from_dir_impl(
     let k1_ms = t1.elapsed().as_secs_f64() * 1000.0;
 
     let t2 = Instant::now();
-    let coeff_rows = vec![a_bound, b_bound, c_bound];
-    if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
-        return Err(anyhow!("internal blinded layout row count mismatch"));
-    }
-    let coeffs = flatten_rows(&coeff_rows);
-
-    let params = leakage_reduced_public_params(cols, profile);
-    let pcs = BrakedownPcs::new(params);
-    let prover_commitment = pcs.commit(&coeffs)?;
-    let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
-
     tr_p.append_message(b"nizk_opening_label", b"joint_eval_at_r");
-    tr_p.append_message(b"polycommit", &verifier_commitment.root);
-    append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
     let outer_tensor_joint_eval_at_r = vec![Fp::new(1), gamma, gamma_sq];
     let pcs_proof_joint_eval_at_r =
         pcs.open(&prover_commitment, &outer_tensor_joint_eval_at_r, &mut tr_p)?;
@@ -532,6 +534,9 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
 
     verify_compact_outer_trace(&proof.outer_trace)?;
 
+    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
+
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
         return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
@@ -583,8 +588,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     }
 
     tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
-    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
-    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let params = leakage_reduced_public_params(cols, proof.verifier_commitment.field_profile);
     if params.field_profile != proof.verifier_commitment.field_profile {
@@ -734,6 +737,9 @@ fn verify_public_succinct(
     }
     verify_compact_outer_trace(&proof.outer_trace)?;
 
+    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
+
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
         return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
@@ -758,8 +764,6 @@ fn verify_public_succinct(
     verify_compact_inner_trace(&proof.inner_trace)?;
 
     tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
-    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
-    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let params = leakage_reduced_public_params(public.cols, public.field_profile);
     let pcs = BrakedownPcs::new(params);

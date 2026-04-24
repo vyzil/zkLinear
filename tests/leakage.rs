@@ -120,6 +120,9 @@ fn replay_degree_tensors(
         assert_eq!(expected_r, r.challenge_r);
     }
 
+    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
+    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
+
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     assert_eq!(expected_gamma, proof.gamma);
 
@@ -136,8 +139,6 @@ fn replay_degree_tensors(
     }
 
     tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
-    tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
-    append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let mut out = Vec::with_capacity(proof.pcs_proof_joint_eval_at_r.p_random_vec.len());
     for (round, p_rand) in proof

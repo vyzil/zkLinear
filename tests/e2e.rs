@@ -75,6 +75,9 @@ fn e2e_003_nizk_public_verify_rejects_tampered_root() {
                     || err.to_string().contains("opened column index mismatch")
                     || err
                         .to_string()
+                        .contains("gamma mismatch vs transcript-derived challenge")
+                    || err
+                        .to_string()
                         .contains("commitment encoder profile mismatch")
             );
         }
