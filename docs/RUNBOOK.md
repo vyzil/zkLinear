@@ -39,7 +39,14 @@ Circom case generation requires:
 - `snarkjs`
 - `node`
 
-ZKIF flows require Cargo to fetch the `zkinterface` dependency.
+ZKIF flows are optional and require:
+- `cargo ... --features zkif`
+- Cargo access to fetch the `zkinterface` dependency
+
+Example:
+```bash
+cargo run --release --features zkif --bin zkif_import_demo
+```
 
 ## Metadata Sidecars
 During `prove`, the following sidecar files are generated:

@@ -44,13 +44,17 @@ See `profile/README.md` for arguments and outputs.
 ## R1CS Import Tooling Notes
 - `tests/generated_cases/` is a local workspace and is intentionally not tracked in Git.
 - If you use Circom import binaries, install `circom`, `snarkjs`, and `node`.
-- ZKIF import binaries use the Rust `zkinterface` crate (fetched from Git during cargo build).
+- ZKIF import binaries are feature-gated and use the Rust `zkinterface` crate.
+- Enable ZKIF tools with `--features zkif`.
 
 Generate local example cases:
 ```bash
 ./scripts/generate_local_cases.sh
 # optional: choose circom size k for 2^k constraints
 ./scripts/generate_local_cases.sh 12
+
+# run a zkif demo directly
+cargo run --release --features zkif --bin zkif_import_demo
 ```
 
 ## Tests

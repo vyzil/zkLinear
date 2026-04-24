@@ -7,8 +7,8 @@ cd "$ROOT_DIR"
 CIRCOM_K="${1:-10}"
 
 echo "[casegen] generating local zkif cases"
-cargo run --release --bin zkif_import_demo
-cargo run --release --bin zkif_zkml_toy_demo
+cargo run --release --features zkif --bin zkif_import_demo
+cargo run --release --features zkif --bin zkif_zkml_toy_demo
 
 if command -v circom >/dev/null 2>&1 && command -v snarkjs >/dev/null 2>&1 && command -v node >/dev/null 2>&1; then
   echo "[casegen] generating local circom case (2^${CIRCOM_K})"

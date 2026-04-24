@@ -11,6 +11,7 @@
   - transcript/spec/shared helpers
 - `src/io/`
   - case and R1CS import
+  - `r1cs_zkif` is compiled only with feature `zkif`
 
 ## Entrypoints
 - `src/bin/spark_e2e_cli.rs`

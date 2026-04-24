@@ -3,6 +3,10 @@ name = "zk_linear"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+zkif = ["dep:zkinterface"]
+
 [dependencies]
 anyhow = "1"
 hex = "0.4"
@@ -13,4 +17,14 @@ sha2 = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bincode = "1"
-zkinterface = { git = "https://github.com/QED-it/zkinterface.git", rev = "4f8d9785871ddf959500458d5f5d9912c0a851f7" }
+zkinterface = { git = "https://github.com/QED-it/zkinterface.git", rev = "4f8d9785871ddf959500458d5f5d9912c0a851f7", optional = true }
+
+[[bin]]
+name = "zkif_import_demo"
+path = "src/bin/zkif_import_demo.rs"
+required-features = ["zkif"]
+
+[[bin]]
+name = "zkif_zkml_toy_demo"
+path = "src/bin/zkif_zkml_toy_demo.rs"
+required-features = ["zkif"]
