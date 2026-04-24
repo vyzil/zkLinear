@@ -5,7 +5,7 @@
 cargo build
 ```
 
-## Main CLI (recommended)
+## Main CLI (Recommended)
 ```bash
 cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/compiled.json m61
 cargo run --bin spark_e2e_cli -- prove /tmp/compiled.json tests/inner_sumcheck_spartan /tmp/proof.json /tmp/public.json
@@ -14,17 +14,17 @@ cargo run --bin spark_e2e_cli -- inspect /tmp/proof.json
 ```
 
 ## Metadata Sidecars
-`prove` 단계에서 아래 sidecar가 생성된다.
+During `prove`, the following sidecar files are generated:
 - `proof.meta.json`, `proof.meta.wire`
 - `public.meta.json`, `public.meta.wire`
 
-core proof/public은 verify 판정에 사용되고,
-meta는 운영/추적/디버그 정보를 분리 저장하는 용도다.
+Core proof/public files are used for verification decisions.
+Meta files are for operations, traceability, and debugging context.
 
 ## Minimal Test Set
 ```bash
 cargo test -q
 ```
 
-핵심 경로만 남겨둔 상태이며,
-추가 프로파일링/확장 테스트는 이후 별도 추가를 권장한다.
+The suite is intentionally trimmed to core paths.
+Add extra profiling/extended tests separately as needed.
