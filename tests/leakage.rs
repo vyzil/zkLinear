@@ -13,8 +13,7 @@ use zk_linear::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
             append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-            build_eq_weights_from_challenges, derive_outer_tau_sha, matrix_vec_mul,
-            sample_gamma_from_transcript_light,
+            build_eq_weights_from_challenges, matrix_vec_mul, sample_gamma_from_transcript_light,
         },
         spec_v1::{
             append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, LCPC_DEG_TEST_LABEL,
@@ -141,7 +140,16 @@ fn replay_degree_tensors(
 }
 
 #[test]
-fn reference_path_leaks_bound_rows_via_p_random_vec() {
+fn reference_path_exposes_degree_test_row_collapses() {
+    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    assert!(
+        !result.proof.pcs_proof_joint_eval_at_r.p_random_vec.is_empty(),
+        "reference-aligned proof currently includes degree-test random row-collapses"
+    );
+}
+
+#[test]
+fn reference_path_can_recover_bound_rows_from_p_random_vec() {
     let result = prove_from_dir(&case_dir()).expect("prove should succeed");
     let _mod_scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
@@ -149,7 +157,13 @@ fn reference_path_leaks_bound_rows_via_p_random_vec() {
     let az = matrix_vec_mul(&case.a, &case.z);
     let bz = matrix_vec_mul(&case.b, &case.z);
     let cz = matrix_vec_mul(&case.c, &case.z);
-    let _tau = derive_outer_tau_sha(case.a.len().trailing_zeros() as usize, &az, &bz, &cz, &case.z);
+    let _residual: Vec<Fp> = az
+        .iter()
+        .zip(bz.iter())
+        .zip(cz.iter())
+        .map(|((a, b), c)| a.mul(*b).sub(*c))
+        .collect();
+
     let r_x = result
         .proof
         .outer_trace
@@ -165,7 +179,7 @@ fn reference_path_leaks_bound_rows_via_p_random_vec() {
     let rand_tensors = replay_degree_tensors(&result);
     assert!(
         rand_tensors.len() >= 3,
-        "degree-test rounds must be >=3 for this probe"
+        "degree-test rounds must be >= 3 for this probe"
     );
 
     let mut inv_mat = None;

@@ -1,0 +1,109 @@
+use std::{fs, path::PathBuf};
+
+use zk_linear::{
+    core::field::{Fp, ModulusScope},
+    nizk::spartan_brakedown::{
+        compile_from_dir, prove_from_dir, prove_with_compiled_from_dir, verify_from_dir_strict,
+        verify_public, verify_with_compiled,
+    },
+    protocol::reference::DUAL_REFERENCE_PROFILE,
+};
+
+fn case_dir() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/inner_sumcheck_spartan")
+}
+
+fn repo_path(rel: &str) -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(rel)
+}
+
+#[test]
+fn nizk_public_verify_succeeds_on_valid_proof() {
+    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    verify_public(&result.proof, &result.public).expect("verify should succeed");
+}
+
+#[test]
+fn nizk_strict_replay_verify_succeeds() {
+    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    verify_from_dir_strict(&case_dir(), &result.proof).expect("strict replay verify should succeed");
+}
+
+#[test]
+fn nizk_public_verify_rejects_tampered_root() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    result.proof.verifier_commitment.root[0] ^= 1;
+
+    let err =
+        verify_public(&result.proof, &result.public).expect_err("verify should fail for tampered root");
+    assert!(
+        err.to_string().contains("merkle path failed")
+            || err.to_string().contains("opened column index mismatch")
+            || err.to_string().contains("commitment encoder profile mismatch")
+    );
+}
+
+#[test]
+fn nizk_public_verify_rejects_wrong_claimed_value() {
+    let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+    let _scope = ModulusScope::enter(result.public.field_profile.base_modulus());
+
+    let mut new_final_f = result.proof.inner_trace.final_f.add(Fp::new(1));
+    if new_final_f == Fp::zero() {
+        new_final_f = new_final_f.add(Fp::new(1));
+    }
+    let new_final_g = result
+        .proof
+        .inner_trace
+        .final_claim
+        .mul(new_final_f.inv().expect("non-zero field element must be invertible"));
+
+    result.proof.inner_trace.final_f = new_final_f;
+    result.proof.inner_trace.final_g = new_final_g;
+
+    let err = verify_public(&result.proof, &result.public)
+        .expect_err("verify should fail for wrong claimed value");
+    assert!(err.to_string().contains("claimed evaluation mismatch"));
+}
+
+#[test]
+fn nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
+    let mut compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
+    let result =
+        prove_with_compiled_from_dir(&compiled, &case_dir()).expect("prove with compiled should succeed");
+
+    verify_with_compiled(&compiled, &result.proof, &result.public)
+        .expect("verify_with_compiled should succeed");
+
+    compiled.context_fingerprint[0] ^= 1;
+    let err = verify_with_compiled(&compiled, &result.proof, &result.public)
+        .expect_err("verify_with_compiled should fail for bad compiled fingerprint");
+    assert!(err.to_string().contains("compiled context fingerprint mismatch"));
+}
+
+#[test]
+fn pipeline_metadata_sidecars_are_consistent() {
+    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+
+    assert_eq!(result.proof_meta.reference_profile, DUAL_REFERENCE_PROFILE);
+    assert_eq!(result.public_meta.reference_profile, DUAL_REFERENCE_PROFILE);
+    assert_eq!(
+        result.proof_meta.context_fingerprint,
+        result.public_meta.context_fingerprint
+    );
+}
+
+#[test]
+fn cli_verify_path_uses_compiled_public_boundary_only() {
+    let cli_src = fs::read_to_string(repo_path("src/bin/spark_e2e_cli.rs"))
+        .expect("failed to read spark_e2e_cli.rs");
+
+    assert!(
+        cli_src.contains("verify_with_compiled("),
+        "CLI verify path must use verify_with_compiled"
+    );
+    assert!(
+        !cli_src.contains("verify_from_dir_strict("),
+        "strict replay verifier must stay out of CLI verify path"
+    );
+}
