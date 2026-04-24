@@ -1026,28 +1026,41 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         Fp::new(1),
     ];
 
-    // Default succinct path intentionally avoids witness-like inner tensor inputs.
-    // It validates transcript/challenge flow and PCS opening structure only.
-    pcs.verify_structure_generic(
+    // Succinct public boundary: no raw witness input is provided to verifier.
+    // Use transcript-bound PCS opening from the z-row selector as verifier-side
+    // inner tensor source, then enforce explicit claimed-evaluation checks for
+    // main/blind openings (not structure-only acceptance).
+    let z_from_proof = &proof.pcs_proof_z_eval_at_r.p_eval;
+    if z_from_proof.len() != public.cols {
+        return Err(anyhow!("z-opening p_eval length mismatch vs public cols"));
+    }
+
+    pcs.verify(
         &proof.verifier_commitment,
         &proof.pcs_proof_main,
         &outer_tensor_main,
+        z_from_proof,
+        proof.claimed_value,
         &mut tr_v,
     )?;
 
     tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_1");
-    pcs.verify_structure_generic(
+    pcs.verify(
         &proof.verifier_commitment,
         &proof.pcs_proof_blind_1,
         &outer_tensor_blind_1,
+        z_from_proof,
+        proof.blind_eval_1,
         &mut tr_v,
     )?;
 
     tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_2");
-    pcs.verify_structure_generic(
+    pcs.verify(
         &proof.verifier_commitment,
         &proof.pcs_proof_blind_2,
         &outer_tensor_blind_2,
+        z_from_proof,
+        proof.blind_eval_2,
         &mut tr_v,
     )?;
     tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");

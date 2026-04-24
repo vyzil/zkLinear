@@ -96,8 +96,8 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     out.push_str("step 3: replay transcript on inner rounds and check inner challenges\n");
     out.push_str("step 4: check masked_claim = unblinded_claim + blind_eval_1 + alpha*blind_eval_2\n");
     out.push_str("step 5: derive PCS outer tensors from transcript-bound proof claims\n");
-    out.push_str("step 6: verify PCS opening structure for main/blind1/blind2 proofs\n");
-    out.push_str("step 7: strict replay mode (separate) performs full z-bound PCS eval checks\n");
+    out.push_str("step 6: verify PCS claimed-evaluation equality for main/blind1/blind2 openings\n");
+    out.push_str("step 7: verify joint_eval_at_r and z_eval_at_r openings against sumcheck finals\n");
     out.push_str(&format!(
         "verify_result: success, masked_claim={}\n",
         public.claimed_value_masked.0
