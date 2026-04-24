@@ -1,7 +1,0 @@
-# vector y for inner-sumcheck demo
-# format:
-# size: <len>
-# data: entries
-size: 8
-data:
-2, 7, 1, 8, 2, 8, 1, 8
