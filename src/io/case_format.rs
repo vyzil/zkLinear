@@ -243,12 +243,3 @@ pub fn write_spartan_like_case_to_dir(case_dir: &Path, case: &SpartanLikeCase) -
     write_vector_data(&case_dir.join("_z.data"), &case.z)?;
     Ok(())
 }
-
-// Backward-compatible wrappers.
-pub fn load_matrix_vector_case_from_dir(case_dir: &Path) -> Result<MatrixVectorCase> {
-    load_matrix_vector_case(case_dir)
-}
-
-pub fn load_spartan_like_case_from_dir(case_dir: &Path) -> Result<SpartanLikeCase> {
-    load_spartan_like_case(case_dir)
-}
