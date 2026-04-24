@@ -25,10 +25,7 @@ use zk_linear::{
             inner_product, prove_inner_sumcheck, prove_inner_sumcheck_with_label_and_transcript,
             verify_inner_sumcheck_trace,
         },
-        outer::{
-            prove_outer_sumcheck, prove_outer_sumcheck_cubic_with_transcript,
-            verify_outer_sumcheck_trace,
-        },
+        outer::{prove_outer_sumcheck_cubic_with_transcript, verify_outer_sumcheck_trace},
     },
 };
 #[path = "testlog.rs"]
@@ -49,18 +46,31 @@ fn spartan2_001_outer_sumcheck_round_trip_is_consistent() {
     run_case!(
         "spartan2_001",
         "outer sumcheck prove/verify round-trip",
-        "input: values Vec<Fp>(len=8), output: outer trace + verify trace",
+        "input: (Az,Bz,Cz,eq_tau) Vec<Fp>(len=8), output: outer trace + verify trace",
         "field=Fp(current modulus)",
         {
-            let values: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 1)).collect();
-            let trace = prove_outer_sumcheck(&values);
+            let az: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 1)).collect();
+            let bz: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 3)).collect();
+            let cz: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) * 2 + 5)).collect();
+            let eq_tau: Vec<Fp> = vec![Fp::new(1); 8];
+            let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+            let trace = prove_outer_sumcheck_cubic_with_transcript(&az, &bz, &cz, &eq_tau, &mut tr);
             let verify = verify_outer_sumcheck_trace(&trace);
+            let expected_claim = az
+                .iter()
+                .zip(bz.iter())
+                .zip(cz.iter())
+                .zip(eq_tau.iter())
+                .fold(Fp::zero(), |acc, (((a, b), c), eq)| {
+                    acc.add(eq.mul(a.mul(*b).sub(*c)))
+                });
 
             testlog::data("outer_rounds", trace.rounds.len());
             testlog::data("final_claim", trace.final_claim.0);
 
             assert_eq!(trace.rounds.len(), 3);
             assert!(verify.final_consistent);
+            assert_eq!(trace.claim_initial, expected_claim);
             assert_eq!(verify.final_claim_from_trace, trace.final_claim);
         }
     );
@@ -74,8 +84,13 @@ fn spartan2_002_outer_sumcheck_tamper_is_detected() {
         "input: valid trace then mutate folded_values[0]",
         "expect=verify.final_consistent=false",
         {
-            let values: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 1)).collect();
-            let mut trace = prove_outer_sumcheck(&values);
+            let az: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 1)).collect();
+            let bz: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 3)).collect();
+            let cz: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) * 2 + 5)).collect();
+            let eq_tau: Vec<Fp> = vec![Fp::new(1); 8];
+            let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+            let mut trace =
+                prove_outer_sumcheck_cubic_with_transcript(&az, &bz, &cz, &eq_tau, &mut tr);
             trace.rounds[0].folded_values[0] = trace.rounds[0].folded_values[0].add(Fp::new(1));
 
             let verify = verify_outer_sumcheck_trace(&trace);

@@ -1,9 +1,7 @@
 use merlin::Transcript;
 
 use crate::core::{
-    field::Fp,
-    field_element::FieldElement,
-    transcript::{derive_round_challenge_merlin_t, derive_round_challenge_t},
+    field::Fp, field_element::FieldElement, transcript::derive_round_challenge_merlin_t,
 };
 use crate::protocol::spec_v1::OUTER_SUMCHECK_LABEL;
 
@@ -112,126 +110,6 @@ fn fold_pair(v0: Fp, v1: Fp, r: Fp) -> Fp {
 
 fn outer_contrib(a: Fp, b: Fp, c: Fp, eq: Fp) -> Fp {
     eq.mul(a.mul(b).sub(c))
-}
-
-pub fn prove_outer_sumcheck_t<F: FieldElement>(values: &[F]) -> OuterSumcheckTrace<F> {
-    assert!(!values.is_empty());
-    assert!(values.len().is_power_of_two());
-
-    let mut cur = values.to_vec();
-    let mut claim = cur.iter().fold(F::zero(), |acc, v| acc.add(*v));
-    let claim_initial = claim;
-    let mut rounds = Vec::new();
-    let mut round = 0usize;
-
-    while cur.len() > 1 {
-        let half = cur.len() / 2;
-        let (low, high) = cur.split_at(half);
-        let g0 = low.iter().fold(F::zero(), |acc, v| acc.add(*v));
-        let g1 = high.iter().fold(F::zero(), |acc, v| acc.add(*v));
-        assert_eq!(claim, g0.add(g1));
-
-        // In this simplified setting, g(t) is linear; we still publish g(0), g(2), g(3)
-        // to match Spartan-style message shape where verifier derives g(1) from claim.
-        let delta = g1.sub(g0);
-        let g2 = g0.add(delta.mul(F::from_u64(2)));
-        let g3 = g0.add(delta.mul(F::from_u64(3)));
-
-        let r = derive_round_challenge_t(OUTER_SUMCHECK_LABEL, round, g0, g2, g3);
-
-        let folded_values: Vec<F> = low
-            .iter()
-            .zip(high.iter())
-            .map(|(l, h)| l.add(r.mul(h.sub(*l))))
-            .collect();
-
-        claim = folded_values.iter().fold(F::zero(), |acc, v| acc.add(*v));
-
-        rounds.push(OuterRoundTranscript {
-            round,
-            g_at_0: g0,
-            g_at_2: g2,
-            g_at_3: g3,
-            challenge_r: r,
-            folded_values: folded_values.clone(),
-        });
-
-        cur = folded_values;
-        round += 1;
-    }
-
-    OuterSumcheckTrace {
-        claim_initial,
-        rounds,
-        final_value: cur[0],
-        final_claim: claim,
-    }
-}
-
-pub fn prove_outer_sumcheck(values: &[Fp]) -> OuterSumcheckTrace {
-    prove_outer_sumcheck_t(values)
-}
-
-pub fn prove_outer_sumcheck_with_transcript(
-    values: &[Fp],
-    tr: &mut Transcript,
-) -> OuterSumcheckTrace {
-    prove_outer_sumcheck_with_transcript_t(values, tr)
-}
-
-pub fn prove_outer_sumcheck_with_transcript_t<F: FieldElement>(
-    values: &[F],
-    tr: &mut Transcript,
-) -> OuterSumcheckTrace<F> {
-    assert!(!values.is_empty());
-    assert!(values.len().is_power_of_two());
-
-    let mut cur = values.to_vec();
-    let mut claim = cur.iter().fold(F::zero(), |acc, v| acc.add(*v));
-    let claim_initial = claim;
-    let mut rounds = Vec::new();
-    let mut round = 0usize;
-
-    while cur.len() > 1 {
-        let half = cur.len() / 2;
-        let (low, high) = cur.split_at(half);
-        let g0 = low.iter().fold(F::zero(), |acc, v| acc.add(*v));
-        let g1 = high.iter().fold(F::zero(), |acc, v| acc.add(*v));
-        assert_eq!(claim, g0.add(g1));
-
-        let delta = g1.sub(g0);
-        let g2 = g0.add(delta.mul(F::from_u64(2)));
-        let g3 = g0.add(delta.mul(F::from_u64(3)));
-
-        let r = derive_round_challenge_merlin_t(tr, OUTER_SUMCHECK_LABEL, round, g0, g2, g3);
-
-        let folded_values: Vec<F> = low
-            .iter()
-            .zip(high.iter())
-            .map(|(l, h)| l.add(r.mul(h.sub(*l))))
-            .collect();
-
-        claim = folded_values.iter().fold(F::zero(), |acc, v| acc.add(*v));
-
-        rounds.push(OuterRoundTranscript {
-            round,
-            g_at_0: g0,
-            g_at_2: g2,
-            g_at_3: g3,
-            challenge_r: r,
-            folded_values: folded_values.clone(),
-        });
-
-        cur = folded_values;
-        round += 1;
-    }
-
-    OuterSumcheckTrace {
-        claim_initial,
-        rounds,
-        final_value: cur[0],
-        final_claim: claim,
-    }
 }
 
 pub fn prove_outer_sumcheck_cubic_with_transcript(
