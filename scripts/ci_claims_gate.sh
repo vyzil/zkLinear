@@ -23,10 +23,12 @@ echo "[1/4] full test suite"
 cargo test -q
 
 echo
-echo "[2/4] conformance snapshots"
-cargo test -q --test parity_with_reference
-cargo test -q --test parity_with_external_reference
-cargo test -q --test transcript_vectors
+echo "[2/4] core integration checks"
+cargo test -q --test compiler
+cargo test -q --test spartan2
+cargo test -q --test brakedown
+cargo test -q --test e2e
+cargo test -q --test leakage
 
 echo
 echo "[3/4] metrics runner sanity"

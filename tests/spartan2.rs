@@ -2,18 +2,32 @@ use std::path::PathBuf;
 
 use merlin::Transcript;
 use zk_linear::{
-    api::spartan_like::build_spartan_like_report_data_from_dir,
     core::{
         field::{Fp, ModulusScope, MODULUS},
         transcript::{derive_round_challenge, derive_round_challenge_merlin},
     },
+    io::case_format::load_spartan_like_case_from_dir,
+    pcs::brakedown::types::BrakedownFieldProfile,
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
-        spec_v1::{append_spec_domain, NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL},
+        shared::{
+            append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
+            build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha,
+            matrix_vec_mul, sample_gamma_from_transcript_light,
+        },
+        spec_v1::{
+            append_spec_domain, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
+            OUTER_SUMCHECK_LABEL,
+        },
     },
     sumcheck::{
-        inner::{inner_product, prove_inner_sumcheck, verify_inner_sumcheck_trace},
-        outer::{prove_outer_sumcheck, verify_outer_sumcheck_trace},
+        inner::{
+            inner_product, prove_inner_sumcheck, prove_inner_sumcheck_with_label_and_transcript,
+            verify_inner_sumcheck_trace,
+        },
+        outer::{
+            prove_outer_sumcheck, prove_outer_sumcheck_with_transcript, verify_outer_sumcheck_trace,
+        },
     },
 };
 #[path = "testlog.rs"]
@@ -120,31 +134,94 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
     run_case!(
         "spartan2_005",
         "spartan2-like full flow consistency on fixture",
-        "input: tests/inner_sumcheck_spartan, output: report data with traces",
+        "input: tests/inner_sumcheck_spartan, output: reconstructed outer/inner traces",
         "modulus=m61",
         {
             let _scope = ModulusScope::enter((1u64 << 61) - 1);
-            let data = build_spartan_like_report_data_from_dir(&case_dir())
-                .expect("spartan-like flow should build");
+            let case = load_spartan_like_case_from_dir(&case_dir()).expect("load case");
 
-            testlog::data("rows", data.case.a.len());
-            testlog::data("cols", data.case.a[0].len());
-            testlog::data("outer_rounds", data.outer_trace.rounds.len());
-            testlog::data("inner_rounds", data.joint_trace.rounds.len());
+            let az = matrix_vec_mul(&case.a, &case.z);
+            let bz = matrix_vec_mul(&case.b, &case.z);
+            let cz = matrix_vec_mul(&case.c, &case.z);
+            let residual: Vec<Fp> = az
+                .iter()
+                .zip(bz.iter())
+                .zip(cz.iter())
+                .map(|((a, b), c)| a.mul(*b).sub(*c))
+                .collect();
 
-            assert!(data.outer_verify.final_consistent);
-            assert!(data.joint_verify.final_consistent);
+            let tau = derive_outer_tau_sha(
+                case.a.len().trailing_zeros() as usize,
+                &az,
+                &bz,
+                &cz,
+                &case.z,
+            );
+            let eq_tau = build_eq_weights_from_challenges(&tau);
+            let weighted_residual: Vec<Fp> = residual
+                .iter()
+                .zip(eq_tau.iter())
+                .map(|(r, w)| r.mul(*w))
+                .collect();
+
+            let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+            append_spec_domain(&mut tr);
+            append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
+            append_field_profile_to_transcript(&mut tr, BrakedownFieldProfile::Mersenne61Ext2);
+            append_case_digest_to_transcript(
+                &mut tr,
+                case.a.len(),
+                case.a[0].len(),
+                compute_case_digest(&case),
+            );
+
+            let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr);
+            let outer_verify = verify_outer_sumcheck_trace(&outer_trace);
+            let r_x = outer_trace
+                .rounds
+                .iter()
+                .map(|rr| rr.challenge_r)
+                .collect::<Vec<_>>();
+            let row_weights = build_eq_weights_from_challenges(&r_x);
+
+            let gamma = sample_gamma_from_transcript_light(&mut tr);
+            let gamma_sq = gamma.mul(gamma);
+            let a_bound = bind_rows(&case.a, &row_weights);
+            let b_bound = bind_rows(&case.b, &row_weights);
+            let c_bound = bind_rows(&case.c, &row_weights);
+            let joint_bound: Vec<Fp> = a_bound
+                .iter()
+                .zip(b_bound.iter())
+                .zip(c_bound.iter())
+                .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
+                .collect();
+
+            let inner_trace = prove_inner_sumcheck_with_label_and_transcript(
+                &joint_bound,
+                &case.z,
+                INNER_SUMCHECK_JOINT_LABEL,
+                &mut tr,
+            );
+            let inner_verify = verify_inner_sumcheck_trace(&inner_trace);
+
+            testlog::data("rows", case.a.len());
+            testlog::data("cols", case.a[0].len());
+            testlog::data("outer_rounds", outer_trace.rounds.len());
+            testlog::data("inner_rounds", inner_trace.rounds.len());
+
+            assert!(outer_verify.final_consistent);
+            assert!(inner_verify.final_consistent);
             assert_eq!(
-                data.outer_trace.rounds.len(),
-                data.case.a.len().trailing_zeros() as usize
+                outer_trace.rounds.len(),
+                case.a.len().trailing_zeros() as usize
             );
             assert_eq!(
-                data.joint_trace.rounds.len(),
-                data.case.a[0].len().trailing_zeros() as usize
+                inner_trace.rounds.len(),
+                case.a[0].len().trailing_zeros() as usize
             );
             assert_eq!(
-                data.joint_trace.claim_initial,
-                inner_product(&data.joint_bound, &data.case.z)
+                inner_trace.claim_initial,
+                inner_product(&joint_bound, &case.z)
             );
         }
     );

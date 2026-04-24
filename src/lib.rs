@@ -1,11 +1,7 @@
-pub mod api;
 pub mod core;
 pub mod field_profiles;
 pub mod io;
-pub mod lcpc_trace;
 pub mod nizk;
-pub mod parity;
 pub mod pcs;
 pub mod protocol;
-pub mod spartan;
 pub mod sumcheck;

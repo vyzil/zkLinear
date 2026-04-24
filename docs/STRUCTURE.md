@@ -37,6 +37,5 @@
 - leakage probe (reference-style risk reproduction)
 
 ## Excluded from Default Scope
-- parity snapshot comparisons
 - external reference repository pinning checks
 - long-running profiling / metrics document generation tests
