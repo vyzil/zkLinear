@@ -21,6 +21,14 @@ use zk_linear::{
         },
     },
 };
+#[path = "testlog.rs"]
+mod testlog;
+
+macro_rules! run_case {
+    ($id:expr, $summary:expr, $io:expr, $settings:expr, $body:block) => {{
+        testlog::run_case($id, $summary, $io, $settings, || $body)
+    }};
+}
 
 fn case_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/inner_sumcheck_spartan")
@@ -141,87 +149,108 @@ fn replay_degree_tensors(
 
 #[test]
 fn leakage_001_reference_path_exposes_degree_test_row_collapses() {
-    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    assert!(
-        !result.proof.pcs_proof_joint_eval_at_r.p_random_vec.is_empty(),
-        "reference-aligned proof currently includes degree-test random row-collapses"
+    run_case!(
+        "leakage_001",
+        "reference path exposes degree-test row-collapses",
+        "input: pipeline proof payload",
+        "check=p_random_vec_presence",
+        {
+            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            testlog::data(
+                "p_random_vec_len",
+                result.proof.pcs_proof_joint_eval_at_r.p_random_vec.len(),
+            );
+            assert!(
+                !result.proof.pcs_proof_joint_eval_at_r.p_random_vec.is_empty(),
+                "reference-aligned proof currently includes degree-test random row-collapses"
+            );
+        }
     );
 }
 
 #[test]
 fn leakage_002_reference_path_can_recover_bound_rows_from_p_random_vec() {
-    let result = prove_from_dir(&case_dir()).expect("prove should succeed");
-    let _mod_scope = ModulusScope::enter(result.public.field_profile.base_modulus());
+    run_case!(
+        "leakage_002",
+        "bound rows are recoverable from p_random_vec",
+        "input: proof p_random_vec + transcript-replayed degree tensors",
+        "assumption=n_rows=3 for blinded layout",
+        {
+            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let _mod_scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
-    let case = load_spartan_like_case_from_dir(&case_dir()).expect("load case");
-    let az = matrix_vec_mul(&case.a, &case.z);
-    let bz = matrix_vec_mul(&case.b, &case.z);
-    let cz = matrix_vec_mul(&case.c, &case.z);
-    let _residual: Vec<Fp> = az
-        .iter()
-        .zip(bz.iter())
-        .zip(cz.iter())
-        .map(|((a, b), c)| a.mul(*b).sub(*c))
-        .collect();
+            let case = load_spartan_like_case_from_dir(&case_dir()).expect("load case");
+            let az = matrix_vec_mul(&case.a, &case.z);
+            let bz = matrix_vec_mul(&case.b, &case.z);
+            let cz = matrix_vec_mul(&case.c, &case.z);
+            let _residual: Vec<Fp> = az
+                .iter()
+                .zip(bz.iter())
+                .zip(cz.iter())
+                .map(|((a, b), c)| a.mul(*b).sub(*c))
+                .collect();
 
-    let r_x = result
-        .proof
-        .outer_trace
-        .rounds
-        .iter()
-        .map(|r| r.challenge_r)
-        .collect::<Vec<_>>();
-    let row_weights = build_eq_weights_from_challenges(&r_x);
-    let a_bound = bind_rows(&case.a, &row_weights);
-    let b_bound = bind_rows(&case.b, &row_weights);
-    let c_bound = bind_rows(&case.c, &row_weights);
+            let r_x = result
+                .proof
+                .outer_trace
+                .rounds
+                .iter()
+                .map(|r| r.challenge_r)
+                .collect::<Vec<_>>();
+            let row_weights = build_eq_weights_from_challenges(&r_x);
+            let a_bound = bind_rows(&case.a, &row_weights);
+            let b_bound = bind_rows(&case.b, &row_weights);
+            let c_bound = bind_rows(&case.c, &row_weights);
 
-    let rand_tensors = replay_degree_tensors(&result);
-    assert!(
-        rand_tensors.len() >= 3,
-        "degree-test rounds must be >= 3 for this probe"
-    );
+            let rand_tensors = replay_degree_tensors(&result);
+            assert!(
+                rand_tensors.len() >= 3,
+                "degree-test rounds must be >= 3 for this probe"
+            );
 
-    let mut inv_mat = None;
-    let mut idx = [0usize; 3];
-    for i in 0..rand_tensors.len() {
-        for j in (i + 1)..rand_tensors.len() {
-            for k in (j + 1)..rand_tensors.len() {
-                let m = [rand_tensors[i], rand_tensors[j], rand_tensors[k]];
-                if let Some(inv) = invert_3x3(m) {
-                    inv_mat = Some(inv);
-                    idx = [i, j, k];
+            let mut inv_mat = None;
+            let mut idx = [0usize; 3];
+            for i in 0..rand_tensors.len() {
+                for j in (i + 1)..rand_tensors.len() {
+                    for k in (j + 1)..rand_tensors.len() {
+                        let m = [rand_tensors[i], rand_tensors[j], rand_tensors[k]];
+                        if let Some(inv) = invert_3x3(m) {
+                            inv_mat = Some(inv);
+                            idx = [i, j, k];
+                            break;
+                        }
+                    }
+                    if inv_mat.is_some() {
+                        break;
+                    }
+                }
+                if inv_mat.is_some() {
                     break;
                 }
             }
-            if inv_mat.is_some() {
-                break;
+            let inv = inv_mat.expect("at least one invertible 3-round subset");
+
+            let pf = &result.proof.pcs_proof_joint_eval_at_r;
+            let cols = pf.p_eval.len();
+            testlog::data("recovery_cols", cols);
+            let mut rec_a = vec![Fp::zero(); cols];
+            let mut rec_b = vec![Fp::zero(); cols];
+            let mut rec_c = vec![Fp::zero(); cols];
+            for c in 0..cols {
+                let rhs = [
+                    pf.p_random_vec[idx[0]][c],
+                    pf.p_random_vec[idx[1]][c],
+                    pf.p_random_vec[idx[2]][c],
+                ];
+                let x = mul_3x3_vec(inv, rhs);
+                rec_a[c] = x[0];
+                rec_b[c] = x[1];
+                rec_c[c] = x[2];
             }
-        }
-        if inv_mat.is_some() {
-            break;
-        }
-    }
-    let inv = inv_mat.expect("at least one invertible 3-round subset");
 
-    let pf = &result.proof.pcs_proof_joint_eval_at_r;
-    let cols = pf.p_eval.len();
-    let mut rec_a = vec![Fp::zero(); cols];
-    let mut rec_b = vec![Fp::zero(); cols];
-    let mut rec_c = vec![Fp::zero(); cols];
-    for c in 0..cols {
-        let rhs = [
-            pf.p_random_vec[idx[0]][c],
-            pf.p_random_vec[idx[1]][c],
-            pf.p_random_vec[idx[2]][c],
-        ];
-        let x = mul_3x3_vec(inv, rhs);
-        rec_a[c] = x[0];
-        rec_b[c] = x[1];
-        rec_c[c] = x[2];
-    }
-
-    assert_eq!(rec_a, a_bound);
-    assert_eq!(rec_b, b_bound);
-    assert_eq!(rec_c, c_bound);
+            assert_eq!(rec_a, a_bound);
+            assert_eq!(rec_b, b_bound);
+            assert_eq!(rec_c, c_bound);
+        }
+    );
 }

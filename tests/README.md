@@ -31,3 +31,16 @@ Spartan2-like + Brakedown + Spielman encoding.
 ```bash
 cargo test -q
 ```
+
+## Optional Runtime Logs
+By default, tests stay quiet.
+
+- Show case metadata + pass/fail + elapsed time:
+```bash
+TEST_LOG=1 cargo test -- --nocapture
+```
+
+- Show important runtime data points only:
+```bash
+TEST_LOG_DATA=1 cargo test -- --nocapture
+```
