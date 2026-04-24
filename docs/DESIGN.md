@@ -18,7 +18,7 @@ In the current codebase, the primary verification path is `nizk::spartan_brakedo
   - verifies compact sumcheck transitions and PCS claimed evaluation from public inputs only.
 - `verify_with_compiled(compiled, proof, public)`:
   - runs `verify_public` and also checks compiled/public/proof consistency for shape/profile/digest.
-- `verify_from_dir_strict(...)`:
+- `verify_strict(...)`:
   - debug/replay path that reloads the input case.
 
 ## PCS Notes

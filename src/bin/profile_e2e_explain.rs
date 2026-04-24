@@ -3,7 +3,7 @@ use std::{path::PathBuf, str};
 use anyhow::{anyhow, Result};
 use zk_linear::{
     core::field::{Fp, ModulusScope},
-    io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
+    io::case_format::{load_spartan_like_case, SpartanLikeCase},
     nizk::spartan_brakedown::{
         compile_with_profile, parse_field_profile, prove_with_compiled, verify_strict,
         verify_with_compiled,
@@ -114,7 +114,7 @@ fn main() -> Result<()> {
     })?;
 
     let _scope = ModulusScope::enter(profile.base_modulus());
-    let case = load_spartan_like_case_from_dir(&case_dir)?;
+    let case = load_spartan_like_case(&case_dir)?;
     let rows = case.a.len();
     let cols = case.a[0].len();
     let digest = compute_case_digest(&case);

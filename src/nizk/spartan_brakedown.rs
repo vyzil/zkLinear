@@ -1,4 +1,4 @@
-//! Backward-compatible facade for the NIZK pipeline API.
+//! Facade for the NIZK pipeline API.
 //! New internal layout:
 //! - `types.rs`: protocol-visible objects
 //! - `flow.rs`: prove/verify orchestration
@@ -9,12 +9,9 @@
 //! - `verify_strict(case_dir, proof)`: debug/full replay path
 
 pub use super::flow::{
-    build_pipeline_report, build_pipeline_report_from_dir,
-    build_pipeline_report_from_dir_with_profile, build_pipeline_report_with_profile, compile,
-    compile_from_dir, compile_from_dir_with_profile, compile_with_profile, parse_field_profile,
-    prove, prove_from_dir, prove_from_dir_with_profile, prove_with_compiled,
-    prove_with_compiled_from_dir, prove_with_profile, verify_from_dir, verify_from_dir_strict,
-    verify_public, verify_strict, verify_with_compiled,
+    build_pipeline_report, build_pipeline_report_with_profile, compile, compile_with_profile,
+    parse_field_profile, prove, prove_with_compiled, prove_with_profile, verify_public,
+    verify_strict, verify_with_compiled,
 };
 pub use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 pub use super::metrics::{

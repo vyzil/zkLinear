@@ -6,7 +6,7 @@ use zk_linear::{
         field::{Fp, ModulusScope, MODULUS},
         transcript::{derive_round_challenge, derive_round_challenge_merlin},
     },
-    io::case_format::load_spartan_like_case_from_dir,
+    io::case_format::load_spartan_like_case,
     pcs::brakedown::types::BrakedownFieldProfile,
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
@@ -154,7 +154,7 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
         "modulus=m61",
         {
             let _scope = ModulusScope::enter((1u64 << 61) - 1);
-            let case = load_spartan_like_case_from_dir(&case_dir()).expect("load case");
+            let case = load_spartan_like_case(&case_dir()).expect("load case");
 
             let az = matrix_vec_mul(&case.a, &case.z);
             let bz = matrix_vec_mul(&case.b, &case.z);

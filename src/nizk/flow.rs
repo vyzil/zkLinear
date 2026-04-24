@@ -17,7 +17,7 @@ use crate::{
         field::{Fp, ModulusScope},
         transcript::derive_round_challenge_merlin,
     },
-    io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
+    io::case_format::{load_spartan_like_case, SpartanLikeCase},
     pcs::{
         brakedown::{
             profiles::params_for_field_profile, types::BrakedownFieldProfile, BrakedownPcs,
@@ -234,7 +234,7 @@ pub fn compile_with_profile(
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownCompiledCircuit> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
-    let case = load_spartan_like_case_from_dir(case_dir)?;
+    let case = load_spartan_like_case(case_dir)?;
     let (rows, cols) = validate_case_shape(&case)?;
     let case_digest = compute_case_digest(&case);
     Ok(SpartanBrakedownCompiledCircuit {
@@ -251,7 +251,7 @@ pub fn prove_with_compiled(
     case_dir: &Path,
 ) -> Result<SpartanBrakedownPipelineResult> {
     let _mod_scope = ModulusScope::enter(compiled.field_profile.base_modulus());
-    let case = load_spartan_like_case_from_dir(case_dir)?;
+    let case = load_spartan_like_case(case_dir)?;
     validate_compiled_case(compiled, &case)?;
     let result = prove_impl(case_dir, compiled.field_profile)?;
     if result.public_meta.context_fingerprint != compiled.context_fingerprint
@@ -285,7 +285,7 @@ fn prove_impl(
 ) -> Result<SpartanBrakedownPipelineResult> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let t0 = Instant::now();
-    let case = load_spartan_like_case_from_dir(case_dir)?;
+    let case = load_spartan_like_case(case_dir)?;
     let (rows, cols) = validate_case_shape(&case)?;
     let k0_ms = t0.elapsed().as_secs_f64() * 1000.0;
 
@@ -438,7 +438,7 @@ impl SpartanBrakedownVerifier {
 
 fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
     let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
-    let case = load_spartan_like_case_from_dir(case_dir)?;
+    let case = load_spartan_like_case(case_dir)?;
     let (rows, cols) = validate_case_shape(&case)?;
     let case_digest = compute_case_digest(&case);
     if proof.outer_trace.rounds.len() != rows.trailing_zeros() as usize {
@@ -785,66 +785,4 @@ pub fn build_pipeline_report_with_profile(
 ) -> Result<String> {
     let result = prove_with_profile(case_dir, profile)?;
     Ok(format_pipeline_report(case_dir, &result))
-}
-
-// Backward-compatible wrappers for older call-sites.
-pub fn compile_from_dir(case_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
-    compile(case_dir)
-}
-
-pub fn compile_from_dir_with_profile(
-    case_dir: &Path,
-    profile: BrakedownFieldProfile,
-) -> Result<SpartanBrakedownCompiledCircuit> {
-    compile_with_profile(case_dir, profile)
-}
-
-pub fn prove_with_compiled_from_dir(
-    compiled: &SpartanBrakedownCompiledCircuit,
-    case_dir: &Path,
-) -> Result<SpartanBrakedownPipelineResult> {
-    prove_with_compiled(compiled, case_dir)
-}
-
-pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-    prove(case_dir)
-}
-
-pub fn prove_from_dir_with_profile(
-    case_dir: &Path,
-    profile: BrakedownFieldProfile,
-) -> Result<SpartanBrakedownPipelineResult> {
-    prove_with_profile(case_dir, profile)
-}
-
-pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
-    // Kept for compatibility; strict replay remains a debug mode path.
-    verify_strict(case_dir, proof)
-}
-
-pub fn verify_from_dir_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
-    verify_strict(case_dir, proof)
-}
-
-impl SpartanBrakedownProver {
-    pub fn prove_from_dir(self, case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-        self.prove(case_dir)
-    }
-}
-
-impl SpartanBrakedownVerifier {
-    pub fn verify_from_dir(self, case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
-        self.verify(case_dir, proof)
-    }
-}
-
-pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
-    build_pipeline_report(case_dir)
-}
-
-pub fn build_pipeline_report_from_dir_with_profile(
-    case_dir: &Path,
-    profile: BrakedownFieldProfile,
-) -> Result<String> {
-    build_pipeline_report_with_profile(case_dir, profile)
 }

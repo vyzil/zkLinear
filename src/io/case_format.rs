@@ -133,7 +133,7 @@ fn parse_vector_data(path: &Path) -> Result<Vec<Fp>> {
     Ok(vals.into_iter().map(Fp::new).collect())
 }
 
-pub fn load_matrix_vector_case_from_dir(case_dir: &Path) -> Result<MatrixVectorCase> {
+pub fn load_matrix_vector_case(case_dir: &Path) -> Result<MatrixVectorCase> {
     let a = parse_matrix_data(&case_dir.join("_A.data"))?;
     let y = parse_vector_data(&case_dir.join("_y.data"))?;
 
@@ -155,7 +155,7 @@ pub fn load_matrix_vector_case_from_dir(case_dir: &Path) -> Result<MatrixVectorC
     Ok(MatrixVectorCase { a, y })
 }
 
-pub fn load_spartan_like_case_from_dir(case_dir: &Path) -> Result<SpartanLikeCase> {
+pub fn load_spartan_like_case(case_dir: &Path) -> Result<SpartanLikeCase> {
     let a = parse_matrix_data(&case_dir.join("_A.data"))?;
     let b = parse_matrix_data(&case_dir.join("_B.data"))?;
     let c = parse_matrix_data(&case_dir.join("_C.data"))?;
@@ -242,4 +242,13 @@ pub fn write_spartan_like_case_to_dir(case_dir: &Path, case: &SpartanLikeCase) -
     write_matrix_data(&case_dir.join("_C.data"), &case.c)?;
     write_vector_data(&case_dir.join("_z.data"), &case.z)?;
     Ok(())
+}
+
+// Backward-compatible wrappers.
+pub fn load_matrix_vector_case_from_dir(case_dir: &Path) -> Result<MatrixVectorCase> {
+    load_matrix_vector_case(case_dir)
+}
+
+pub fn load_spartan_like_case_from_dir(case_dir: &Path) -> Result<SpartanLikeCase> {
+    load_spartan_like_case(case_dir)
 }

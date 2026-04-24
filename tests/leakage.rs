@@ -6,7 +6,7 @@ use zk_linear::{
         field::{Fp, ModulusScope},
         transcript::derive_round_challenge_merlin,
     },
-    io::case_format::load_spartan_like_case_from_dir,
+    io::case_format::load_spartan_like_case,
     nizk::spartan_brakedown::prove,
     pcs::brakedown::challenges::sample_field_vec_round_t,
     protocol::{
@@ -137,7 +137,7 @@ fn leakage_002_reference_path_can_recover_bound_rows_from_p_random_vec() {
             let result = prove(&case_dir()).expect("prove should succeed");
             let _mod_scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
-            let case = load_spartan_like_case_from_dir(&case_dir()).expect("load case");
+            let case = load_spartan_like_case(&case_dir()).expect("load case");
             let az = matrix_vec_mul(&case.a, &case.z);
             let bz = matrix_vec_mul(&case.b, &case.z);
             let cz = matrix_vec_mul(&case.c, &case.z);
