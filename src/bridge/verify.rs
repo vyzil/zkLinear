@@ -5,7 +5,7 @@ use crate::{
     core::field::{Fp, ModulusScope},
     core::transcript::derive_round_challenge_t,
     pcs::{
-        brakedown::{profiles::params_for_field_profile, BrakedownPcs},
+        brakedown::BrakedownPcs,
     },
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
@@ -20,7 +20,7 @@ use crate::{
 };
 
 use super::{
-    transcript::{append_bridge_public_metadata, bridge_context_fingerprint},
+    transcript::{append_bridge_public_metadata, bridge_context_fingerprint, bridge_public_params},
     types::{BridgeProofBundle, BridgeVerifierQuery, BridgeVerifyReport},
 };
 
@@ -189,13 +189,14 @@ pub fn verify_bridge_bundle(
     tr.append_message(b"polycommit", &bundle.verifier_commitment.root);
     append_u64_le(tr, b"ncols", bundle.verifier_commitment.n_cols as u64);
 
-    let expected_params = params_for_field_profile(query.cols, query.field_profile);
+    let expected_params = bridge_public_params(query.cols, query.field_profile);
     if bundle.verifier_commitment.field_profile != bundle.pcs_params.field_profile {
         return Err(anyhow!("bridge commitment/params field profile mismatch"));
     }
     if bundle.pcs_params.n_per_row != expected_params.n_per_row
         || bundle.pcs_params.n_degree_tests != expected_params.n_degree_tests
         || bundle.pcs_params.n_col_opens != expected_params.n_col_opens
+        || bundle.pcs_params.col_open_start != expected_params.col_open_start
         || bundle.pcs_params.security_bits != expected_params.security_bits
         || bundle.pcs_params.field_profile != expected_params.field_profile
         || bundle.pcs_params.auto_tune_security != expected_params.auto_tune_security

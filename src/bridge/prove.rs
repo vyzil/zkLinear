@@ -7,7 +7,7 @@ use crate::{
     api::spartan_like::build_spartan_like_report_data_from_dir_with_modulus,
     core::{field::{Fp, ModulusScope}},
     pcs::{
-        brakedown::{profiles::params_for_field_profile, types::BrakedownFieldProfile, BrakedownPcs},
+        brakedown::{types::BrakedownFieldProfile, BrakedownPcs},
         traits::PolynomialCommitmentScheme,
     },
     protocol::{
@@ -18,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    transcript::{append_bridge_public_metadata, bridge_context_fingerprint},
+    transcript::{append_bridge_public_metadata, bridge_context_fingerprint, bridge_public_params},
     types::{
         BridgeBuildResult, BridgeProofBundle, BridgeTimingMs, BridgeVerifierQuery,
         BRIDGE_TRANSCRIPT_LABEL,
@@ -61,7 +61,7 @@ pub fn prove_bridge_from_dir_with_profile(
     let k1 = t1.elapsed().as_secs_f64() * 1000.0;
 
     let t2 = Instant::now();
-    let params = params_for_field_profile(data.a_bound.len(), profile);
+    let params = bridge_public_params(data.a_bound.len(), profile);
     let pcs = BrakedownPcs::new(params.clone());
     let coeffs = flatten_rows(&[
         data.a_bound.clone(),

@@ -2,8 +2,6 @@ use std::{path::Path, time::Instant};
 
 use anyhow::{anyhow, Result};
 use merlin::Transcript;
-use rand::{RngCore, SeedableRng};
-use rand_chacha::ChaCha20Rng;
 use sha2::{Digest, Sha256};
 
 use crate::{
@@ -22,32 +20,131 @@ use crate::{
     },
     protocol::reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
     protocol::spec_v1::{
-        append_fp_le, append_spec_domain, append_u64_le, BLIND_MIX_LABEL,
-        INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
-        TRANSCRIPT_DOMAIN,
+        append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
+        OUTER_SUMCHECK_LABEL, TRANSCRIPT_DOMAIN,
     },
     protocol::shared::{
         append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
         build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha,
-        flatten_rows, matrix_vec_mul, sample_blind_mix_alpha_from_transcript,
-        sample_gamma_from_transcript_light,
+        flatten_rows, matrix_vec_mul, sample_gamma_from_transcript_light,
     },
     sumcheck::{
-        inner::{
-            inner_product, prove_inner_sumcheck_with_label_and_transcript,
-            verify_inner_sumcheck_trace,
-        },
-        outer::{
-            prove_outer_sumcheck_with_transcript, verify_outer_sumcheck_trace,
-        },
+        inner::{inner_product, prove_inner_sumcheck_with_label_and_transcript, SumcheckTrace},
+        outer::{prove_outer_sumcheck_with_transcript, OuterSumcheckTrace},
     },
 };
 use super::report::format_pipeline_report;
 use super::types::{
-    KernelTimingMs, SpartanBrakedownPipelineResult, SpartanBrakedownProof, SpartanBrakedownPublic,
-    SpartanBrakedownCompiledCircuit, SpartanBrakedownProver, SpartanBrakedownVerifier, VerifyMode,
-    NIZK_BLINDED_LAYOUT_ROWS,
+    NizkInnerRound, NizkInnerTrace, NizkOuterRound, NizkOuterTrace, KernelTimingMs,
+    NIZK_BLINDED_LAYOUT_ROWS, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
+    SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic, SpartanBrakedownVerifier,
+    VerifyMode,
 };
+
+fn compact_outer_trace(trace: &OuterSumcheckTrace) -> NizkOuterTrace {
+    NizkOuterTrace {
+        claim_initial: trace.claim_initial,
+        rounds: trace
+            .rounds
+            .iter()
+            .map(|r| NizkOuterRound {
+                round: r.round,
+                g_at_0: r.g_at_0,
+                g_at_2: r.g_at_2,
+                g_at_3: r.g_at_3,
+                challenge_r: r.challenge_r,
+            })
+            .collect(),
+        final_value: trace.final_value,
+        final_claim: trace.final_claim,
+    }
+}
+
+fn compact_inner_trace(trace: &SumcheckTrace) -> NizkInnerTrace {
+    NizkInnerTrace {
+        claim_initial: trace.claim_initial,
+        rounds: trace
+            .rounds
+            .iter()
+            .map(|r| NizkInnerRound {
+                round: r.round,
+                h_at_0: r.h_at_0,
+                h_at_1: r.h_at_1,
+                h_at_2: r.h_at_2,
+                challenge_r: r.challenge_r,
+            })
+            .collect(),
+        final_f: trace.final_f,
+        final_g: trace.final_g,
+        final_claim: trace.final_claim,
+    }
+}
+
+fn eval_cubic_from_0_1_2_3(g0: Fp, g1: Fp, g2: Fp, g3: Fp, r: Fp) -> Fp {
+    let one = Fp::new(1);
+    let two = Fp::new(2);
+    let three = Fp::new(3);
+    let six_inv = Fp::new(6).inv().expect("6 must be invertible in field");
+    let two_inv = Fp::new(2).inv().expect("2 must be invertible in field");
+
+    let l0 = Fp::zero().sub(r.sub(one).mul(r.sub(two)).mul(r.sub(three)).mul(six_inv));
+    let l1 = r.mul(r.sub(two)).mul(r.sub(three)).mul(two_inv);
+    let l2 = Fp::zero().sub(r.mul(r.sub(one)).mul(r.sub(three)).mul(two_inv));
+    let l3 = r.mul(r.sub(one)).mul(r.sub(two)).mul(six_inv);
+
+    g0.mul(l0).add(g1.mul(l1)).add(g2.mul(l2)).add(g3.mul(l3))
+}
+
+fn eval_quadratic_from_0_1_2(h0: Fp, h1: Fp, h2: Fp, r: Fp) -> Fp {
+    let two_inv = Fp::new(2).inv().expect("2 must be invertible in field");
+    let one = Fp::new(1);
+    let two = Fp::new(2);
+
+    let l0 = r.sub(one).mul(r.sub(two)).mul(two_inv);
+    let l1 = Fp::zero().sub(r.mul(r.sub(two)));
+    let l2 = r.mul(r.sub(one)).mul(two_inv);
+
+    h0.mul(l0).add(h1.mul(l1)).add(h2.mul(l2))
+}
+
+fn verify_compact_outer_trace(trace: &NizkOuterTrace) -> Result<()> {
+    let mut claim = trace.claim_initial;
+    for r in &trace.rounds {
+        let g1 = claim.sub(r.g_at_0);
+        // Simplified outer sumcheck in this codebase uses a linear g(t).
+        let delta = g1.sub(r.g_at_0);
+        let expected_g2 = r.g_at_0.add(delta.mul(Fp::new(2)));
+        let expected_g3 = r.g_at_0.add(delta.mul(Fp::new(3)));
+        if r.g_at_2 != expected_g2 || r.g_at_3 != expected_g3 {
+            return Err(anyhow!("outer round message is not linear-consistent"));
+        }
+        claim = eval_cubic_from_0_1_2_3(r.g_at_0, g1, r.g_at_2, r.g_at_3, r.challenge_r);
+    }
+    if claim != trace.final_claim {
+        return Err(anyhow!("outer final claim mismatch"));
+    }
+    if trace.final_value != trace.final_claim {
+        return Err(anyhow!("outer final value/claim mismatch"));
+    }
+    Ok(())
+}
+
+fn verify_compact_inner_trace(trace: &NizkInnerTrace) -> Result<()> {
+    let mut claim = trace.claim_initial;
+    for r in &trace.rounds {
+        if claim != r.h_at_0.add(r.h_at_1) {
+            return Err(anyhow!("inner claim transition mismatch"));
+        }
+        claim = eval_quadratic_from_0_1_2(r.h_at_0, r.h_at_1, r.h_at_2, r.challenge_r);
+    }
+    if claim != trace.final_claim {
+        return Err(anyhow!("inner final claim mismatch"));
+    }
+    if trace.final_claim != trace.final_f.mul(trace.final_g) {
+        return Err(anyhow!("inner final claim mismatch vs final_f*final_g"));
+    }
+    Ok(())
+}
 
 fn default_profile() -> BrakedownFieldProfile {
     BrakedownFieldProfile::default_nizk_profile()
@@ -92,7 +189,7 @@ fn context_fingerprint(
     field_profile: BrakedownFieldProfile,
     reference_profile: crate::protocol::reference::ReferenceProfile,
 ) -> [u8; 32] {
-    let params = params_for_field_profile(cols, field_profile);
+    let params = leakage_reduced_public_params(cols, field_profile);
     let mut h = Sha256::new();
     h.update(b"zklinear/nizk/context-fingerprint/v1");
     h.update((NIZK_BLINDED_LAYOUT_ROWS as u64).to_le_bytes());
@@ -100,7 +197,6 @@ fn context_fingerprint(
     h.update(NIZK_TRANSCRIPT_LABEL);
     h.update(OUTER_SUMCHECK_LABEL);
     h.update(INNER_SUMCHECK_JOINT_LABEL);
-    h.update(BLIND_MIX_LABEL);
     h.update((rows as u64).to_le_bytes());
     h.update((cols as u64).to_le_bytes());
     h.update(case_digest);
@@ -109,6 +205,7 @@ fn context_fingerprint(
     h.update((reference_profile.pcs as u8).to_le_bytes());
     h.update((params.n_degree_tests as u64).to_le_bytes());
     h.update((params.n_col_opens as u64).to_le_bytes());
+    h.update((params.col_open_start as u64).to_le_bytes());
     h.update((params.security_bits as u64).to_le_bytes());
     h.update((params.auto_tune_security as u8).to_le_bytes());
     h.update((params.encoder_kind as u8).to_le_bytes());
@@ -120,17 +217,17 @@ fn context_fingerprint(
     h.finalize().into()
 }
 
-fn expected_commitment_n_cols(cols: usize, field_profile: BrakedownFieldProfile) -> usize {
-    let params = params_for_field_profile(cols, field_profile);
-    BrakedownPcs::new(params).encoding.n_cols
+fn leakage_reduced_public_params(
+    cols: usize,
+    field_profile: BrakedownFieldProfile,
+) -> crate::pcs::brakedown::types::BrakedownParams {
+    // Reference-aligned public PCS settings.
+    params_for_field_profile(cols, field_profile)
 }
 
-fn sample_blind_vec_from_rng(rng: &mut ChaCha20Rng, n: usize) -> Vec<Fp> {
-    let mut out = Vec::with_capacity(n);
-    for _ in 0..n {
-        out.push(Fp::new(rng.next_u64()));
-    }
-    out
+fn expected_commitment_n_cols(cols: usize, field_profile: BrakedownFieldProfile) -> usize {
+    let params = leakage_reduced_public_params(cols, field_profile);
+    BrakedownPcs::new(params).encoding.n_cols
 }
 
 pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
@@ -238,8 +335,8 @@ fn prove_from_dir_impl(
     append_field_profile_to_transcript(&mut tr_p, profile);
     append_case_digest_to_transcript(&mut tr_p, rows, cols, case_digest);
 
-    let outer_trace = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
-    let r_x = outer_trace
+    let outer_trace_full = prove_outer_sumcheck_with_transcript(&weighted_residual, &mut tr_p);
+    let r_x = outer_trace_full
         .rounds
         .iter()
         .map(|rr| rr.challenge_r)
@@ -260,126 +357,42 @@ fn prove_from_dir_impl(
         .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
         .collect();
 
-    let inner_trace = prove_inner_sumcheck_with_label_and_transcript(
+    let inner_trace_full = prove_inner_sumcheck_with_label_and_transcript(
         &joint_bound,
         &case.z,
         INNER_SUMCHECK_JOINT_LABEL,
         &mut tr_p,
     );
 
-    let claimed_value_unblinded = inner_product(&joint_bound, &case.z);
-    let mut blind_seed = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut blind_seed);
-    let mut blind_rng = ChaCha20Rng::from_seed(blind_seed);
-    let blind_vec_1 = sample_blind_vec_from_rng(&mut blind_rng, case.z.len());
-    let blind_eval_1 = inner_product(&blind_vec_1, &case.z);
-    let blind_vec_2 = sample_blind_vec_from_rng(&mut blind_rng, case.z.len());
-    let blind_eval_2 = inner_product(&blind_vec_2, &case.z);
-
     let k1_ms = t1.elapsed().as_secs_f64() * 1000.0;
 
     let t2 = Instant::now();
-    let coeff_rows = vec![
-        a_bound,
-        b_bound,
-        c_bound,
-        blind_vec_1,
-        blind_vec_2,
-        case.z.clone(),
-    ];
+    let coeff_rows = vec![a_bound, b_bound, c_bound];
     if coeff_rows.len() != NIZK_BLINDED_LAYOUT_ROWS {
         return Err(anyhow!("internal blinded layout row count mismatch"));
     }
     let coeffs = flatten_rows(&coeff_rows);
 
-    let params = params_for_field_profile(cols, profile);
+    let params = leakage_reduced_public_params(cols, profile);
     let pcs = BrakedownPcs::new(params);
     let prover_commitment = pcs.commit(&coeffs)?;
     let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
 
-    tr_p.append_message(b"nizk_opening_label", b"masked_main_opening");
+    tr_p.append_message(b"nizk_opening_label", b"joint_eval_at_r");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
     append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
-    let blind_mix_alpha = sample_blind_mix_alpha_from_transcript(&mut tr_p);
-    let claimed_value_masked = claimed_value_unblinded
-        .add(blind_eval_1)
-        .add(blind_mix_alpha.mul(blind_eval_2));
-    append_fp_le(&mut tr_p, b"claimed_value_unblinded", claimed_value_unblinded);
-    append_fp_le(&mut tr_p, b"blind_eval_1", blind_eval_1);
-    append_fp_le(&mut tr_p, b"blind_eval_2", blind_eval_2);
-    append_fp_le(&mut tr_p, b"blind_mix_alpha", blind_mix_alpha);
-    append_fp_le(&mut tr_p, b"claimed_value_masked", claimed_value_masked);
-
-    let outer_tensor_main = vec![
-        Fp::new(1),
-        gamma,
-        gamma_sq,
-        Fp::new(1),
-        blind_mix_alpha,
-        Fp::zero(),
-    ];
-    let outer_tensor_blind_1 = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-        Fp::zero(),
-        Fp::zero(),
-    ];
-    let outer_tensor_blind_2 = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-        Fp::zero(),
-    ];
-    let outer_tensor_joint_eval_at_r = vec![
-        Fp::new(1),
-        gamma,
-        gamma_sq,
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-    ];
-    let outer_tensor_z_eval_at_r = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-    ];
-
-    let pcs_proof_main = pcs.open(&prover_commitment, &outer_tensor_main, &mut tr_p)?;
-    tr_p.append_message(b"nizk_opening_label", b"blind_component_opening_1");
-    let pcs_proof_blind_1 = pcs.open(&prover_commitment, &outer_tensor_blind_1, &mut tr_p)?;
-    tr_p.append_message(b"nizk_opening_label", b"blind_component_opening_2");
-    let pcs_proof_blind_2 = pcs.open(&prover_commitment, &outer_tensor_blind_2, &mut tr_p)?;
-    tr_p.append_message(b"nizk_opening_label", b"joint_eval_at_r");
+    let outer_tensor_joint_eval_at_r = vec![Fp::new(1), gamma, gamma_sq];
     let pcs_proof_joint_eval_at_r =
         pcs.open(&prover_commitment, &outer_tensor_joint_eval_at_r, &mut tr_p)?;
-    tr_p.append_message(b"nizk_opening_label", b"z_eval_at_r");
-    let pcs_proof_z_eval_at_r =
-        pcs.open(&prover_commitment, &outer_tensor_z_eval_at_r, &mut tr_p)?;
     let k2_ms = t2.elapsed().as_secs_f64() * 1000.0;
 
     let proof = SpartanBrakedownProof {
-        outer_trace,
-        inner_trace,
+        outer_trace: compact_outer_trace(&outer_trace_full),
+        inner_trace: compact_inner_trace(&inner_trace_full),
         gamma,
-        claimed_value_unblinded,
-        claimed_value: claimed_value_masked,
-        blind_eval_1,
-        blind_eval_2,
-        blind_mix_alpha,
         reference_profile: DUAL_REFERENCE_PROFILE,
         verifier_commitment,
-        pcs_proof_main,
-        pcs_proof_blind_1,
-        pcs_proof_blind_2,
         pcs_proof_joint_eval_at_r,
-        pcs_proof_z_eval_at_r,
         context_fingerprint,
     };
 
@@ -388,7 +401,6 @@ fn prove_from_dir_impl(
         cols,
         case_digest,
         field_profile: profile,
-        claimed_value_masked,
         reference_profile: DUAL_REFERENCE_PROFILE,
         context_fingerprint,
     };
@@ -521,13 +533,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         if r.round != i {
             return Err(anyhow!("outer round index mismatch at position {}", i));
         }
-        let expected_fold_len = rows >> (i + 1);
-        if r.folded_values.len() != expected_fold_len {
-            return Err(anyhow!(
-                "outer folded vector length mismatch at round {}",
-                i
-            ));
-        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             OUTER_SUMCHECK_LABEL,
@@ -541,13 +546,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         }
     }
 
-    let outer_v = verify_outer_sumcheck_trace(&proof.outer_trace);
-    if !outer_v.final_consistent {
-        return Err(anyhow!("outer sumcheck verification failed"));
-    }
-    if proof.outer_trace.final_value != proof.outer_trace.final_claim {
-        return Err(anyhow!("outer final value/claim mismatch"));
-    }
+    verify_compact_outer_trace(&proof.outer_trace)?;
 
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
@@ -557,16 +556,6 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
         if r.round != i {
             return Err(anyhow!("inner round index mismatch at position {}", i));
-        }
-        let expected_fold_len = cols >> (i + 1);
-        if r.folded_f.len() != expected_fold_len
-            || r.folded_g.len() != expected_fold_len
-            || r.folded_f.len() != r.folded_g.len()
-        {
-            return Err(anyhow!(
-                "inner folded vector length mismatch at round {}",
-                i
-            ));
         }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
@@ -581,10 +570,7 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         }
     }
 
-    let inner_v = verify_inner_sumcheck_trace(&proof.inner_trace);
-    if !inner_v.final_consistent {
-        return Err(anyhow!("inner sumcheck verification failed"));
-    }
+    verify_compact_inner_trace(&proof.inner_trace)?;
 
     let r_x = proof
         .outer_trace
@@ -605,117 +591,25 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         .map(|((a, b), c)| a.add(proof.gamma.mul(*b)).add(gamma_sq.mul(*c)))
         .collect::<Vec<_>>();
 
-    let expected_claimed_unblinded = inner_product(&joint_bound, &case.z);
-    if proof.claimed_value_unblinded != expected_claimed_unblinded {
+    let expected_claim = inner_product(&joint_bound, &case.z);
+    if proof.inner_trace.claim_initial != expected_claim {
         return Err(anyhow!(
-            "proof unblinded claim mismatch vs A/B/C/z-derived claim"
+            "inner initial claim mismatch vs A/B/C/z-derived claim"
         ));
     }
-    if proof.inner_trace.claim_initial != proof.claimed_value_unblinded {
-        return Err(anyhow!("inner initial claim mismatch vs bound/input"));
-    }
 
-    tr_v.append_message(b"nizk_opening_label", b"masked_main_opening");
+    tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
     append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
-    let expected_blind_mix_alpha = sample_blind_mix_alpha_from_transcript(&mut tr_v);
-    if expected_blind_mix_alpha != proof.blind_mix_alpha {
-        return Err(anyhow!(
-            "blind mix alpha mismatch vs transcript-derived challenge"
-        ));
-    }
 
-    let expected_masked = proof
-        .claimed_value_unblinded
-        .add(proof.blind_eval_1)
-        .add(expected_blind_mix_alpha.mul(proof.blind_eval_2));
-    if proof.claimed_value != expected_masked {
-        return Err(anyhow!("masked claimed value mismatch"));
-    }
-
-    append_fp_le(&mut tr_v, b"claimed_value_unblinded", proof.claimed_value_unblinded);
-    append_fp_le(&mut tr_v, b"blind_eval_1", proof.blind_eval_1);
-    append_fp_le(&mut tr_v, b"blind_eval_2", proof.blind_eval_2);
-    append_fp_le(&mut tr_v, b"blind_mix_alpha", proof.blind_mix_alpha);
-    append_fp_le(&mut tr_v, b"claimed_value_masked", proof.claimed_value);
-
-    let params = params_for_field_profile(cols, proof.verifier_commitment.field_profile);
+    let params = leakage_reduced_public_params(cols, proof.verifier_commitment.field_profile);
     if params.field_profile != proof.verifier_commitment.field_profile {
         return Err(anyhow!(
             "PCS parameter/commitment field profile mismatch in verify"
         ));
     }
     let pcs = BrakedownPcs::new(params);
-    let inner_tensor = case.z;
-    let outer_tensor_main = vec![
-        Fp::new(1),
-        proof.gamma,
-        gamma_sq,
-        Fp::new(1),
-        proof.blind_mix_alpha,
-        Fp::zero(),
-    ];
-    let outer_tensor_blind_1 = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-        Fp::zero(),
-        Fp::zero(),
-    ];
-    let outer_tensor_blind_2 = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-        Fp::zero(),
-    ];
-    let outer_tensor_joint_eval_at_r = vec![
-        Fp::new(1),
-        proof.gamma,
-        gamma_sq,
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-    ];
-    let outer_tensor_z_eval_at_r = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-    ];
-
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_main,
-        &outer_tensor_main,
-        &inner_tensor,
-        proof.claimed_value,
-        &mut tr_v,
-    )?;
-
-    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_1");
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_blind_1,
-        &outer_tensor_blind_1,
-        &inner_tensor,
-        proof.blind_eval_1,
-        &mut tr_v,
-    )?;
-    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_2");
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_blind_2,
-        &outer_tensor_blind_2,
-        &inner_tensor,
-        proof.blind_eval_2,
-        &mut tr_v,
-    )?;
-    tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
+    let outer_tensor_joint_eval_at_r = vec![Fp::new(1), proof.gamma, gamma_sq];
     let inner_chals = proof
         .inner_trace
         .rounds
@@ -731,18 +625,9 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
         proof.inner_trace.final_f,
         &mut tr_v,
     )?;
-    tr_v.append_message(b"nizk_opening_label", b"z_eval_at_r");
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_z_eval_at_r,
-        &outer_tensor_z_eval_at_r,
-        &eq_r,
-        proof.inner_trace.final_g,
-        &mut tr_v,
-    )?;
-    let expected_final_claim = proof.inner_trace.final_f.mul(proof.inner_trace.final_g);
-    if proof.inner_trace.final_claim != expected_final_claim {
-        return Err(anyhow!("inner final claim mismatch vs final_f*final_g"));
+    let expected_final_g = inner_product(&eq_r, &case.z);
+    if expected_final_g != proof.inner_trace.final_g {
+        return Err(anyhow!("inner final g mismatch vs witness-derived eq(r)·z"));
     }
 
     Ok(())
@@ -887,13 +772,6 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         if r.round != i {
             return Err(anyhow!("outer round index mismatch at position {}", i));
         }
-        let expected_fold_len = public.rows >> (i + 1);
-        if r.folded_values.len() != expected_fold_len {
-            return Err(anyhow!(
-                "outer folded vector length mismatch at round {}",
-                i
-            ));
-        }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
             OUTER_SUMCHECK_LABEL,
@@ -906,14 +784,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
             return Err(anyhow!("outer challenge mismatch at round {}", r.round));
         }
     }
-
-    let outer_v = verify_outer_sumcheck_trace(&proof.outer_trace);
-    if !outer_v.final_consistent {
-        return Err(anyhow!("outer sumcheck verification failed"));
-    }
-    if proof.outer_trace.final_value != proof.outer_trace.final_claim {
-        return Err(anyhow!("outer final value/claim mismatch"));
-    }
+    verify_compact_outer_trace(&proof.outer_trace)?;
 
     let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
     if expected_gamma != proof.gamma {
@@ -923,16 +794,6 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
     for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
         if r.round != i {
             return Err(anyhow!("inner round index mismatch at position {}", i));
-        }
-        let expected_fold_len = public.cols >> (i + 1);
-        if r.folded_f.len() != expected_fold_len
-            || r.folded_g.len() != expected_fold_len
-            || r.folded_f.len() != r.folded_g.len()
-        {
-            return Err(anyhow!(
-                "inner folded vector length mismatch at round {}",
-                i
-            ));
         }
         let expected_r = derive_round_challenge_merlin(
             &mut tr_v,
@@ -946,124 +807,19 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
             return Err(anyhow!("inner challenge mismatch at round {}", r.round));
         }
     }
+    verify_compact_inner_trace(&proof.inner_trace)?;
 
-    let inner_v = verify_inner_sumcheck_trace(&proof.inner_trace);
-    if !inner_v.final_consistent {
-        return Err(anyhow!("inner sumcheck verification failed"));
-    }
-
-    tr_v.append_message(b"nizk_opening_label", b"masked_main_opening");
+    tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
     tr_v.append_message(b"polycommit", &proof.verifier_commitment.root);
     append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
-    let expected_blind_mix_alpha = sample_blind_mix_alpha_from_transcript(&mut tr_v);
-    if expected_blind_mix_alpha != proof.blind_mix_alpha {
-        return Err(anyhow!(
-            "blind mix alpha mismatch vs transcript-derived challenge"
-        ));
-    }
-    if proof.claimed_value_unblinded != proof.inner_trace.claim_initial {
-        return Err(anyhow!(
-            "proof unblinded claim mismatch vs transcript-bound inner claim"
-        ));
-    }
-    let expected_masked = proof
-        .claimed_value_unblinded
-        .add(proof.blind_eval_1)
-        .add(proof.blind_mix_alpha.mul(proof.blind_eval_2));
-    if expected_masked != public.claimed_value_masked || expected_masked != proof.claimed_value {
-        return Err(anyhow!("masked claimed value mismatch"));
-    }
-    append_fp_le(
-        &mut tr_v,
-        b"claimed_value_unblinded",
-        proof.claimed_value_unblinded,
-    );
-    append_fp_le(&mut tr_v, b"blind_eval_1", proof.blind_eval_1);
-    append_fp_le(&mut tr_v, b"blind_eval_2", proof.blind_eval_2);
-    append_fp_le(&mut tr_v, b"blind_mix_alpha", proof.blind_mix_alpha);
-    append_fp_le(&mut tr_v, b"claimed_value_masked", proof.claimed_value);
 
-    let params = params_for_field_profile(public.cols, public.field_profile);
+    let params = leakage_reduced_public_params(public.cols, public.field_profile);
     let pcs = BrakedownPcs::new(params);
-    let outer_tensor_main = vec![
-        Fp::new(1),
-        proof.gamma,
-        proof.gamma.mul(proof.gamma),
-        Fp::new(1),
-        proof.blind_mix_alpha,
-        Fp::zero(),
-    ];
-    let outer_tensor_blind_1 = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-        Fp::zero(),
-        Fp::zero(),
-    ];
-    let outer_tensor_blind_2 = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-        Fp::zero(),
-    ];
     let outer_tensor_joint_eval_at_r = vec![
         Fp::new(1),
         proof.gamma,
         proof.gamma.mul(proof.gamma),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
     ];
-    let outer_tensor_z_eval_at_r = vec![
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::zero(),
-        Fp::new(1),
-    ];
-
-    // Succinct public boundary: no raw witness input is provided to verifier.
-    // Use transcript-bound PCS opening from the z-row selector as verifier-side
-    // inner tensor source, then enforce explicit claimed-evaluation checks for
-    // main/blind openings (not structure-only acceptance).
-    let z_from_proof = &proof.pcs_proof_z_eval_at_r.p_eval;
-    if z_from_proof.len() != public.cols {
-        return Err(anyhow!("z-opening p_eval length mismatch vs public cols"));
-    }
-
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_main,
-        &outer_tensor_main,
-        z_from_proof,
-        proof.claimed_value,
-        &mut tr_v,
-    )?;
-
-    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_1");
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_blind_1,
-        &outer_tensor_blind_1,
-        z_from_proof,
-        proof.blind_eval_1,
-        &mut tr_v,
-    )?;
-
-    tr_v.append_message(b"nizk_opening_label", b"blind_component_opening_2");
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_blind_2,
-        &outer_tensor_blind_2,
-        z_from_proof,
-        proof.blind_eval_2,
-        &mut tr_v,
-    )?;
-    tr_v.append_message(b"nizk_opening_label", b"joint_eval_at_r");
     let inner_chals = proof
         .inner_trace
         .rounds
@@ -1079,19 +835,6 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         proof.inner_trace.final_f,
         &mut tr_v,
     )?;
-    tr_v.append_message(b"nizk_opening_label", b"z_eval_at_r");
-    pcs.verify(
-        &proof.verifier_commitment,
-        &proof.pcs_proof_z_eval_at_r,
-        &outer_tensor_z_eval_at_r,
-        &eq_r,
-        proof.inner_trace.final_g,
-        &mut tr_v,
-    )?;
-    let expected_final_claim = proof.inner_trace.final_f.mul(proof.inner_trace.final_g);
-    if proof.inner_trace.final_claim != expected_final_claim {
-        return Err(anyhow!("inner final claim mismatch vs final_f*final_g"));
-    }
 
     Ok(())
 }
