@@ -24,11 +24,7 @@ pub struct NizkMeasuredRun {
     pub prove_wall_ms: f64,
     pub verify_wall_ms: f64,
     pub vc_bytes: usize,
-    pub main_bytes: usize,
-    pub blind1_bytes: usize,
-    pub blind2_bytes: usize,
     pub joint_r_bytes: usize,
-    pub z_r_bytes: usize,
     pub proof_bytes_total: usize,
 }
 
@@ -71,13 +67,8 @@ fn run_once(
     let verify_wall_ms = t_verify.elapsed().as_secs_f64() * 1000.0;
 
     let vc_bytes = serialize_verifier_commitment(&res.proof.verifier_commitment).len();
-    let main_bytes = serialize_eval_proof(&res.proof.pcs_proof_main).len();
-    let blind1_bytes = serialize_eval_proof(&res.proof.pcs_proof_blind_1).len();
-    let blind2_bytes = serialize_eval_proof(&res.proof.pcs_proof_blind_2).len();
     let joint_r_bytes = serialize_eval_proof(&res.proof.pcs_proof_joint_eval_at_r).len();
-    let z_r_bytes = serialize_eval_proof(&res.proof.pcs_proof_z_eval_at_r).len();
-    let proof_bytes_total =
-        vc_bytes + main_bytes + blind1_bytes + blind2_bytes + joint_r_bytes + z_r_bytes;
+    let proof_bytes_total = vc_bytes + joint_r_bytes;
 
     Ok(NizkMeasuredRun {
         run_id,
@@ -89,11 +80,7 @@ fn run_once(
         prove_wall_ms,
         verify_wall_ms,
         vc_bytes,
-        main_bytes,
-        blind1_bytes,
-        blind2_bytes,
         joint_r_bytes,
-        z_r_bytes,
         proof_bytes_total,
     })
 }

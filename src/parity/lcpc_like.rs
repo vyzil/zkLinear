@@ -42,7 +42,7 @@ fn to_hex(bytes: &[u8]) -> String {
 pub fn build_local_lcpc_like_snapshot(case_dir: &Path) -> Result<LcpcLikeParitySnapshot> {
     let pipeline = prove_from_dir(case_dir)?;
     let vc = &pipeline.proof.verifier_commitment;
-    let pf = &pipeline.proof.pcs_proof_main;
+    let pf = &pipeline.proof.pcs_proof_joint_eval_at_r;
 
     Ok(LcpcLikeParitySnapshot {
         field_profile: format!("{:?}", vc.field_profile),

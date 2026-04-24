@@ -74,22 +74,20 @@ fn main() -> Result<()> {
         size_rows.push((
             fmt_profile(&pstr),
             last.vc_bytes,
-            last.main_bytes,
-            last.blind1_bytes,
-            last.blind2_bytes,
+            last.joint_r_bytes,
         ));
     }
 
     md.push_str("\n## Wire Payload Size (bytes)\n\n");
     md.push_str(
-        "| profile | verifier_commitment | opening_main | opening_blind1 | opening_blind2 | pcs_subtotal |\n",
+        "| profile | verifier_commitment | opening_joint_eval_at_r | pcs_subtotal |\n",
     );
-    md.push_str("|---|---:|---:|---:|---:|---:|\n");
-    for (p, vc, m, b1, b2) in size_rows {
-        let subtotal = vc + m + b1 + b2;
+    md.push_str("|---|---:|---:|---:|\n");
+    for (p, vc, joint) in size_rows {
+        let subtotal = vc + joint;
         md.push_str(&format!(
-            "| {} | {} | {} | {} | {} | {} |\n",
-            p, vc, m, b1, b2, subtotal
+            "| {} | {} | {} | {} |\n",
+            p, vc, joint, subtotal
         ));
     }
 

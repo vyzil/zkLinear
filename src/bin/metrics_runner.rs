@@ -41,22 +41,17 @@ fn write_outputs(out_prefix: &Path, report: &MetricsReportOut) -> Result<()> {
     let json = serde_json::to_string_pretty(report)?;
     fs::write(&json_path, json).with_context(|| format!("failed to write {}", json_path.display()))?;
 
-    let mut csv = String::from(
-        "run_id,prove_ms,verify_ms,proof_bytes_total,vc_bytes,main_bytes,blind1_bytes,blind2_bytes,joint_r_bytes,z_r_bytes\n",
-    );
+    let mut csv =
+        String::from("run_id,prove_ms,verify_ms,proof_bytes_total,vc_bytes,joint_r_bytes\n");
     for r in &report.runs {
         csv.push_str(&format!(
-            "{},{:.6},{:.6},{},{},{},{},{},{},{}\n",
+            "{},{:.6},{:.6},{},{},{}\n",
             r.run_id,
             r.prove_wall_ms,
             r.verify_wall_ms,
             r.proof_bytes_total,
             r.vc_bytes,
-            r.main_bytes,
-            r.blind1_bytes,
-            r.blind2_bytes,
-            r.joint_r_bytes,
-            r.z_r_bytes
+            r.joint_r_bytes
         ));
     }
     fs::write(&csv_path, csv).with_context(|| format!("failed to write {}", csv_path.display()))?;

@@ -59,18 +59,45 @@ pub fn sample_field_vec_round_t<F: BrakedownField>(
 }
 
 pub fn sample_unique_cols(tr: &mut Transcript, n_cols: usize, n_open: usize) -> Result<Vec<usize>> {
-    if n_open > n_cols {
-        return Err(anyhow!("cannot open more columns than available"));
+    sample_unique_cols_from_start(tr, n_cols, n_open, 0)
+}
+
+pub fn sample_unique_cols_from_start(
+    tr: &mut Transcript,
+    n_cols: usize,
+    n_open: usize,
+    start_col: usize,
+) -> Result<Vec<usize>> {
+    if start_col > n_cols {
+        return Err(anyhow!("column sampling start must be <= n_cols"));
+    }
+    if start_col == n_cols {
+        if n_open == 0 {
+            tr.append_message(b"lcpc_col_ncols", &(n_cols as u64).to_le_bytes());
+            tr.append_message(b"lcpc_col_nopen", &(n_open as u64).to_le_bytes());
+            tr.append_message(b"lcpc_col_start", &(start_col as u64).to_le_bytes());
+            return Ok(Vec::new());
+        }
+        return Err(anyhow!(
+            "cannot open columns when sampling range is empty"
+        ));
+    }
+    let avail = n_cols - start_col;
+    if n_open > avail {
+        return Err(anyhow!(
+            "cannot open more columns than available in the requested range"
+        ));
     }
     tr.append_message(b"lcpc_col_ncols", &(n_cols as u64).to_le_bytes());
     tr.append_message(b"lcpc_col_nopen", &(n_open as u64).to_le_bytes());
+    tr.append_message(b"lcpc_col_start", &(start_col as u64).to_le_bytes());
 
-    let mut all: Vec<usize> = (0..n_cols).collect();
+    let mut all: Vec<usize> = (start_col..n_cols).collect();
     for i in 0..n_open {
         let off = sample_u64_below_unbiased(
             tr,
             LCPC_COL_OPEN_LABEL,
-            (n_cols - i) as u64,
+            (avail - i) as u64,
         )? as usize;
         let j = i + off;
         all.swap(i, j);

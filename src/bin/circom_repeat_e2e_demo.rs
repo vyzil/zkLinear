@@ -160,23 +160,19 @@ component main = RepeatEq({n});
     println!("  verify: {:.3} ({:.1}%)", t.k3_verify_ms, t.pct(t.k3_verify_ms));
     println!("  total: {:.3}", t.total_ms());
     println!(
-        "payload openings: main={}, blind1={}, blind2={}",
-        res.proof.pcs_proof_main.columns.len(),
-        res.proof.pcs_proof_blind_1.columns.len(),
-        res.proof.pcs_proof_blind_2.columns.len()
+        "payload openings: joint_eval_at_r={}",
+        res.proof.pcs_proof_joint_eval_at_r.columns.len()
     );
     let vc_bytes = serialize_verifier_commitment(&res.proof.verifier_commitment).len();
-    let pf_main_bytes = serialize_eval_proof(&res.proof.pcs_proof_main).len();
-    let pf_b1_bytes = serialize_eval_proof(&res.proof.pcs_proof_blind_1).len();
-    let pf_b2_bytes = serialize_eval_proof(&res.proof.pcs_proof_blind_2).len();
-    let pcs_total = vc_bytes + pf_main_bytes + pf_b1_bytes + pf_b2_bytes;
+    let pf_joint_bytes = serialize_eval_proof(&res.proof.pcs_proof_joint_eval_at_r).len();
+    let pcs_total = vc_bytes + pf_joint_bytes;
     println!("proof size(bytes):");
     println!("  verifier_commitment: {}", fmt_commas_u64(vc_bytes as u64));
-    println!("  pcs_opening_main: {}", fmt_commas_u64(pf_main_bytes as u64));
-    println!("  pcs_opening_blind1: {}", fmt_commas_u64(pf_b1_bytes as u64));
-    println!("  pcs_opening_blind2: {}", fmt_commas_u64(pf_b2_bytes as u64));
+    println!(
+        "  pcs_opening_joint_eval_at_r: {}",
+        fmt_commas_u64(pf_joint_bytes as u64)
+    );
     println!("  pcs_subtotal: {}", fmt_commas_u64(pcs_total as u64));
-    println!("claimed(masked)={}", res.proof.claimed_value.0);
 
     Ok(())
 }

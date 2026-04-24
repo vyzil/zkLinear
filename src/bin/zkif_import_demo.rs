@@ -52,6 +52,5 @@ fn main() -> Result<()> {
     );
     println!("  verify: {:.3} ({:.1}%)", t.k3_verify_ms, t.pct(t.k3_verify_ms));
     println!("  total: {:.3}", t.total_ms());
-    println!("claimed(masked)={}", res.proof.claimed_value.0);
     Ok(())
 }

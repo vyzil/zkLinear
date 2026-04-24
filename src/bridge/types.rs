@@ -15,6 +15,9 @@ pub const BRIDGE_TRANSCRIPT_LABEL: &[u8] = crate::protocol::spec_v1::BRIDGE_TRAN
 
 #[derive(Debug, Clone)]
 pub struct BridgeProofBundle {
+    // Research/debug bridge bundle.
+    // This shape intentionally keeps richer traces for cross-check workflows and
+    // is not the minimized public-proof boundary used by `nizk`.
     pub outer_trace: OuterSumcheckTrace,
     pub inner_trace: SumcheckTrace,
     pub verifier_commitment: BrakedownVerifierCommitment,

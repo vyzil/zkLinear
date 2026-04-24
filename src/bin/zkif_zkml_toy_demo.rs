@@ -167,11 +167,8 @@ fn main() -> Result<()> {
     println!("  verify: {:.3} ({:.1}%)", t.k3_verify_ms, t.pct(t.k3_verify_ms));
     println!("  total: {:.3}", t.total_ms());
     println!(
-        "proof payload: main_openings={}, blind1_openings={}, blind2_openings={}",
-        res.proof.pcs_proof_main.columns.len(),
-        res.proof.pcs_proof_blind_1.columns.len(),
-        res.proof.pcs_proof_blind_2.columns.len()
+        "proof payload: joint_eval_at_r_openings={}",
+        res.proof.pcs_proof_joint_eval_at_r.columns.len()
     );
-    println!("claimed(masked)={}", res.proof.claimed_value.0);
     Ok(())
 }
