@@ -1,2 +1,4 @@
 target/
 tests/generated_cases/
+profile/out/*
+!profile/out/.gitkeep

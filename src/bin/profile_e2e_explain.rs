@@ -225,14 +225,14 @@ fn main() -> Result<()> {
     let pcs = BrakedownPcs::new(params.clone());
 
     println!("[E2E Flow: Prover Side]");
-    println!("1) Input parse -> Az/Bz/Cz/residual 계산");
+    println!("1) Input parse -> Az/Bz/Cz/residual computation");
     println!("   - Az head: {}", fmt_vec_head(&az, show_head));
     println!("   - Bz head: {}", fmt_vec_head(&bz, show_head));
     println!("   - Cz head: {}", fmt_vec_head(&cz, show_head));
     println!("   - residual head: {}", fmt_vec_head(&residual, show_head));
     println!();
 
-    println!("2) Outer sumcheck 바인딩");
+    println!("2) Outer sumcheck binding");
     println!("   - tau(head): {}", fmt_vec_head(&tau, show_head));
     println!("   - eq(tau) head: {}", fmt_vec_head(&eq_tau, show_head));
     println!(
@@ -287,7 +287,7 @@ fn main() -> Result<()> {
     );
     println!();
 
-    println!("4) PCS commit/open 저장");
+    println!("4) PCS commit/open output");
     println!(
         "   - params: encoder={:?}, n_degree_tests={}, n_col_opens={}, col_open_start={}",
         params.encoder_kind, params.n_degree_tests, params.n_col_opens, params.col_open_start
