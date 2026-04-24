@@ -1,4 +1,7 @@
-use std::{collections::{BTreeSet, HashMap}, path::Path};
+use std::{
+    collections::{BTreeSet, HashMap},
+    path::Path,
+};
 
 use anyhow::{anyhow, bail, Result};
 use zkinterface::{
@@ -41,7 +44,11 @@ fn parse_assignment(vars: &Variables) -> Result<Vec<(u64, Fp)>> {
         .collect())
 }
 
-fn add_linear_combination_to_row(row: &mut [Fp], vars: &Variables, col_of: &HashMap<u64, usize>) -> Result<()> {
+fn add_linear_combination_to_row(
+    row: &mut [Fp],
+    vars: &Variables,
+    col_of: &HashMap<u64, usize>,
+) -> Result<()> {
     let stride = vars.value_size();
     let values = vars
         .values
@@ -95,8 +102,13 @@ fn pad_case_pow2(case: &mut SpartanLikeCase) {
 }
 
 pub fn load_spartan_like_case_from_zkif_workspace(workspace_dir: &Path) -> Result<SpartanLikeCase> {
-    let ws = Workspace::from_dir(workspace_dir)
-        .map_err(|e| anyhow!("failed to open zkif workspace {}: {}", workspace_dir.display(), e))?;
+    let ws = Workspace::from_dir(workspace_dir).map_err(|e| {
+        anyhow!(
+            "failed to open zkif workspace {}: {}",
+            workspace_dir.display(),
+            e
+        )
+    })?;
 
     let mut constraints = Vec::<BilinearConstraint>::new();
     let mut assign = HashMap::<u64, Fp>::new();
@@ -136,7 +148,10 @@ pub fn load_spartan_like_case_from_zkif_workspace(workspace_dir: &Path) -> Resul
     }
 
     if constraints.is_empty() {
-        bail!("no constraints found in zkif workspace {}", workspace_dir.display());
+        bail!(
+            "no constraints found in zkif workspace {}",
+            workspace_dir.display()
+        );
     }
 
     let ordered_ids = var_ids.into_iter().collect::<Vec<_>>();

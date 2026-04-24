@@ -7,9 +7,7 @@ use super::{
     challenges::{sample_field_vec_round_t, sample_unique_cols_from_start},
     commit::open_column_t,
     scalar::BrakedownField,
-    types::{
-        BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownProverCommitmentT,
-    },
+    types::{BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownProverCommitmentT},
     utils::append_field_vec_t,
 };
 
@@ -42,12 +40,8 @@ pub fn prove_eval_t<F: BrakedownField>(
 
     let mut p_random_vec = Vec::new();
     for round in 0..params.n_degree_tests {
-        let rand_tensor = sample_field_vec_round_t(
-            tr,
-            LCPC_DEG_TEST_LABEL,
-            round as u64,
-            comm.n_rows,
-        );
+        let rand_tensor =
+            sample_field_vec_round_t(tr, LCPC_DEG_TEST_LABEL, round as u64, comm.n_rows);
         let p_rand = collapse_rows_t(&comm.coeffs, &rand_tensor, comm.n_rows, comm.n_per_row);
         append_field_vec_t(tr, b"p_random", &p_rand);
         p_random_vec.push(p_rand);
@@ -56,12 +50,8 @@ pub fn prove_eval_t<F: BrakedownField>(
     let p_eval = collapse_rows_t(&comm.coeffs, outer_tensor, comm.n_rows, comm.n_per_row);
     append_field_vec_t(tr, b"p_eval", &p_eval);
 
-    let cols = sample_unique_cols_from_start(
-        tr,
-        comm.n_cols,
-        params.n_col_opens,
-        params.col_open_start,
-    )?;
+    let cols =
+        sample_unique_cols_from_start(tr, comm.n_cols, params.n_col_opens, params.col_open_start)?;
     let mut openings = Vec::with_capacity(cols.len());
     for c in cols {
         openings.push(open_column_t(comm, c)?);

@@ -4,6 +4,14 @@ use anyhow::{anyhow, Result};
 use merlin::Transcript;
 use sha2::{Digest, Sha256};
 
+use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
+use super::report::format_pipeline_report;
+use super::types::{
+    KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkOuterRound, NizkOuterTrace,
+    SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult, SpartanBrakedownProof,
+    SpartanBrakedownProver, SpartanBrakedownPublic, SpartanBrakedownVerifier, VerifyMode,
+    NIZK_BLINDED_LAYOUT_ROWS,
+};
 use crate::{
     core::{
         field::{Fp, ModulusScope},
@@ -12,34 +20,24 @@ use crate::{
     io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
     pcs::{
         brakedown::{
-            profiles::params_for_field_profile,
-            types::BrakedownFieldProfile,
-            BrakedownPcs,
+            profiles::params_for_field_profile, types::BrakedownFieldProfile, BrakedownPcs,
         },
         traits::PolynomialCommitmentScheme,
     },
     protocol::reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
+    protocol::shared::{
+        append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
+        build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha, flatten_rows,
+        matrix_vec_mul, sample_gamma_from_transcript_light,
+    },
     protocol::spec_v1::{
         append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
         OUTER_SUMCHECK_LABEL, TRANSCRIPT_DOMAIN,
-    },
-    protocol::shared::{
-        append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
-        build_eq_weights_from_challenges, compute_case_digest, derive_outer_tau_sha,
-        flatten_rows, matrix_vec_mul, sample_gamma_from_transcript_light,
     },
     sumcheck::{
         inner::{inner_product, prove_inner_sumcheck_with_label_and_transcript, SumcheckTrace},
         outer::{prove_outer_sumcheck_with_transcript, OuterSumcheckTrace},
     },
-};
-use super::report::format_pipeline_report;
-use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
-use super::types::{
-    NizkInnerRound, NizkInnerTrace, NizkOuterRound, NizkOuterTrace, KernelTimingMs,
-    NIZK_BLINDED_LAYOUT_ROWS, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
-    SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic, SpartanBrakedownVerifier,
-    VerifyMode,
 };
 
 fn compact_outer_trace(trace: &OuterSumcheckTrace) -> NizkOuterTrace {
@@ -319,12 +317,7 @@ fn prove_from_dir_impl(
         .map(|(r, w)| r.mul(*w))
         .collect();
     let case_digest = compute_case_digest(&case);
-    let context_fingerprint = context_fingerprint(
-        rows,
-        cols,
-        case_digest,
-        profile,
-    );
+    let context_fingerprint = context_fingerprint(rows, cols, case_digest, profile);
 
     let mut tr_p = Transcript::new(NIZK_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
@@ -686,7 +679,10 @@ fn validate_compiled_public(
     Ok(())
 }
 
-fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
+fn verify_public_succinct(
+    proof: &SpartanBrakedownProof,
+    public: &SpartanBrakedownPublic,
+) -> Result<()> {
     if public.field_profile != proof.verifier_commitment.field_profile {
         return Err(anyhow!("public/proof field profile mismatch"));
     }
@@ -699,8 +695,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
         return Err(anyhow!("public shape must be non-zero powers of two"));
     }
 
-    let expected_commitment_cols =
-        expected_commitment_n_cols(public.cols, public.field_profile);
+    let expected_commitment_cols = expected_commitment_n_cols(public.cols, public.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
         || proof.verifier_commitment.n_per_row != public.cols
         || proof.verifier_commitment.n_cols != expected_commitment_cols
@@ -768,11 +763,7 @@ fn verify_public_succinct(proof: &SpartanBrakedownProof, public: &SpartanBrakedo
 
     let params = leakage_reduced_public_params(public.cols, public.field_profile);
     let pcs = BrakedownPcs::new(params);
-    let outer_tensor_joint_eval_at_r = vec![
-        Fp::new(1),
-        proof.gamma,
-        proof.gamma.mul(proof.gamma),
-    ];
+    let outer_tensor_joint_eval_at_r = vec![Fp::new(1), proof.gamma, proof.gamma.mul(proof.gamma)];
     let inner_chals = proof
         .inner_trace
         .rounds

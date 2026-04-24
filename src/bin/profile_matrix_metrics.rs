@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
-use zk_linear::{
-    nizk::spartan_brakedown::{collect_nizk_metrics, parse_field_profile},
-};
+use zk_linear::nizk::spartan_brakedown::{collect_nizk_metrics, parse_field_profile};
 
 fn profile_list_from_arg(s: Option<String>) -> Result<Vec<String>> {
     let raw = s.unwrap_or_else(|| "toy,m61,gold".to_string());
@@ -48,7 +46,9 @@ fn main() -> Result<()> {
     md.push_str(&format!("- runs per profile: `{}`\n\n", runs));
 
     md.push_str("## Timing (ms)\n\n");
-    md.push_str("| profile | input_parse | spartan_prove_core | pcs_commit_open_prove | verify | total |\n");
+    md.push_str(
+        "| profile | input_parse | spartan_prove_core | pcs_commit_open_prove | verify | total |\n",
+    );
     md.push_str("|---|---:|---:|---:|---:|---:|\n");
 
     let mut size_rows = Vec::new();
@@ -71,24 +71,15 @@ fn main() -> Result<()> {
             mean(|r| r.total_kernel_ms)
         ));
 
-        size_rows.push((
-            fmt_profile(&pstr),
-            last.vc_bytes,
-            last.joint_r_bytes,
-        ));
+        size_rows.push((fmt_profile(&pstr), last.vc_bytes, last.joint_r_bytes));
     }
 
     md.push_str("\n## Wire Payload Size (bytes)\n\n");
-    md.push_str(
-        "| profile | verifier_commitment | opening_joint_eval_at_r | pcs_subtotal |\n",
-    );
+    md.push_str("| profile | verifier_commitment | opening_joint_eval_at_r | pcs_subtotal |\n");
     md.push_str("|---|---:|---:|---:|\n");
     for (p, vc, joint) in size_rows {
         let subtotal = vc + joint;
-        md.push_str(&format!(
-            "| {} | {} | {} | {} |\n",
-            p, vc, joint, subtotal
-        ));
+        md.push_str(&format!("| {} | {} | {} | {} |\n", p, vc, joint, subtotal));
     }
 
     println!("{md}");

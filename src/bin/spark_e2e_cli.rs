@@ -8,13 +8,11 @@ use anyhow::{anyhow, bail, Context, Result};
 use serde::{Deserialize, Serialize};
 use zk_linear::{
     core::field::{Fp, ModulusScope},
-    nizk::{
-        spartan_brakedown::{
-            compile_from_dir_with_profile, parse_field_profile, prove_with_compiled_from_dir,
-            verify_with_compiled, KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkOuterRound,
-            NizkOuterTrace, SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta,
-            SpartanBrakedownCompiledCircuit, SpartanBrakedownProof, SpartanBrakedownPublic,
-        },
+    nizk::spartan_brakedown::{
+        compile_from_dir_with_profile, parse_field_profile, prove_with_compiled_from_dir,
+        verify_with_compiled, KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkOuterRound,
+        NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownProof,
+        SpartanBrakedownProofMeta, SpartanBrakedownPublic, SpartanBrakedownPublicMeta,
     },
     pcs::brakedown::wire::{
         deserialize_eval_proof, deserialize_verifier_commitment, serialize_eval_proof,
@@ -324,7 +322,9 @@ fn proof_to_json(p: &SpartanBrakedownProof) -> ProofJson {
         inner_trace: inner_trace_to_json(&p.inner_trace),
         gamma: fp_to_u64(p.gamma),
         verifier_commitment_hex: hex::encode(serialize_verifier_commitment(&p.verifier_commitment)),
-        pcs_proof_joint_eval_at_r_hex: hex::encode(serialize_eval_proof(&p.pcs_proof_joint_eval_at_r)),
+        pcs_proof_joint_eval_at_r_hex: hex::encode(serialize_eval_proof(
+            &p.pcs_proof_joint_eval_at_r,
+        )),
     }
 }
 
@@ -626,7 +626,10 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
 
-    let case_dir = PathBuf::from(format!("tests/generated_cases/circom_repeat_2pow{}/case", k));
+    let case_dir = PathBuf::from(format!(
+        "tests/generated_cases/circom_repeat_2pow{}/case",
+        k
+    ));
     if !case_dir.exists() {
         bail!(
             "case dir not found: {} (generate it first, e.g. with circom_repeat_e2e_demo)",
@@ -819,10 +822,7 @@ fn run_inspect(args: &[String]) -> Result<()> {
         pf_joint_r_bytes.len(),
         vc_bytes + pf_joint_r_bytes.len()
     );
-    println!(
-        "  pcs openings count: joint_r={}",
-        joint_r_openings
-    );
+    println!("  pcs openings count: joint_r={}", joint_r_openings);
     Ok(())
 }
 

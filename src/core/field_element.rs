@@ -2,9 +2,7 @@ use sha2::{Digest, Sha256};
 
 use crate::{
     core::field::Fp,
-    field_profiles::{
-        BaseField64, Goldilocks64, Goldilocks64Ext2, Mersenne61, Mersenne61Ext2,
-    },
+    field_profiles::{BaseField64, Goldilocks64, Goldilocks64Ext2, Mersenne61, Mersenne61Ext2},
 };
 
 pub trait FieldElement: Copy + Clone + Eq + core::fmt::Debug {

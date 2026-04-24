@@ -1,8 +1,8 @@
 use anyhow::{anyhow, Result};
 use merlin::Transcript;
 
-use crate::core::field::Fp;
 use super::scalar::BrakedownField;
+use crate::core::field::Fp;
 use crate::protocol::spec_v1::LCPC_COL_OPEN_LABEL;
 
 pub fn sample_field_vec(tr: &mut Transcript, label: &'static [u8], n: usize) -> Vec<Fp> {
@@ -78,9 +78,7 @@ pub fn sample_unique_cols_from_start(
             tr.append_message(b"lcpc_col_start", &(start_col as u64).to_le_bytes());
             return Ok(Vec::new());
         }
-        return Err(anyhow!(
-            "cannot open columns when sampling range is empty"
-        ));
+        return Err(anyhow!("cannot open columns when sampling range is empty"));
     }
     let avail = n_cols - start_col;
     if n_open > avail {
@@ -94,11 +92,7 @@ pub fn sample_unique_cols_from_start(
 
     let mut all: Vec<usize> = (start_col..n_cols).collect();
     for i in 0..n_open {
-        let off = sample_u64_below_unbiased(
-            tr,
-            LCPC_COL_OPEN_LABEL,
-            (avail - i) as u64,
-        )? as usize;
+        let off = sample_u64_below_unbiased(tr, LCPC_COL_OPEN_LABEL, (avail - i) as u64)? as usize;
         let j = i + off;
         all.swap(i, j);
     }

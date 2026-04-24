@@ -1,8 +1,6 @@
 use crate::{
     core::field::{current_modulus, Fp},
-    field_profiles::{
-        BaseField64, Goldilocks64, Goldilocks64Ext2, Mersenne61, Mersenne61Ext2,
-    },
+    field_profiles::{BaseField64, Goldilocks64, Goldilocks64Ext2, Mersenne61, Mersenne61Ext2},
 };
 
 pub trait BrakedownField: Copy + Clone + Eq + core::fmt::Debug {

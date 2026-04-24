@@ -5,7 +5,7 @@ use merlin::Transcript;
 
 use crate::{
     api::spartan_like::build_spartan_like_report_data_from_dir_with_modulus,
-    core::{field::{Fp, ModulusScope}},
+    core::field::{Fp, ModulusScope},
     pcs::{
         brakedown::{types::BrakedownFieldProfile, BrakedownPcs},
         traits::PolynomialCommitmentScheme,
@@ -35,7 +35,8 @@ pub fn prove_bridge_from_dir_with_profile(
 ) -> Result<BridgeBuildResult> {
     let _mod_scope = ModulusScope::enter(profile.base_modulus());
     let t0 = Instant::now();
-    let data = build_spartan_like_report_data_from_dir_with_modulus(case_dir, profile.base_modulus())?;
+    let data =
+        build_spartan_like_report_data_from_dir_with_modulus(case_dir, profile.base_modulus())?;
     let k0 = t0.elapsed().as_secs_f64() * 1000.0;
 
     let t1 = Instant::now();

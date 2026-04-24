@@ -14,8 +14,13 @@ struct MtxData {
 }
 
 fn parse_matrix_market(path: &Path) -> Result<MtxData> {
-    let text = fs::read_to_string(path)
-        .map_err(|e| anyhow!("failed to read matrix market file {}: {}", path.display(), e))?;
+    let text = fs::read_to_string(path).map_err(|e| {
+        anyhow!(
+            "failed to read matrix market file {}: {}",
+            path.display(),
+            e
+        )
+    })?;
     let mut lines = text
         .lines()
         .map(str::trim)
@@ -72,7 +77,11 @@ fn parse_matrix_market(path: &Path) -> Result<MtxData> {
         );
     }
 
-    Ok(MtxData { rows, cols, entries })
+    Ok(MtxData {
+        rows,
+        cols,
+        entries,
+    })
 }
 
 fn parse_vec_values(path: &Path) -> Result<Vec<Fp>> {

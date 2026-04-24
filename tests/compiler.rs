@@ -97,7 +97,8 @@ fn compiler_002_compile_rejects_non_power_of_two_rows() {
         "expect_error=shape_power_of_two",
         {
             let dir = build_case(3, 8, 8);
-            let err = compile_from_dir(&dir).expect_err("compile should reject non-power-of-two rows");
+            let err =
+                compile_from_dir(&dir).expect_err("compile should reject non-power-of-two rows");
             testlog::data("error", &err);
             assert!(err.to_string().contains("powers of two"));
             let _ = fs::remove_dir_all(dir);
@@ -117,10 +118,9 @@ fn compiler_003_compile_rejects_witness_length_mismatch() {
             let err =
                 compile_from_dir(&dir).expect_err("compile should reject witness length mismatch");
             testlog::data("error", &err);
-            assert!(
-                err.to_string()
-                    .contains("z length must match matrix column count")
-            );
+            assert!(err
+                .to_string()
+                .contains("z length must match matrix column count"));
             let _ = fs::remove_dir_all(dir);
         }
     );
@@ -137,12 +137,15 @@ fn compiler_004_context_fingerprint_changes_with_profile() {
             let m61 = parse_field_profile("m61").expect("m61 profile should parse");
             let gold = parse_field_profile("gold").expect("gold profile should parse");
 
-            let c_m61 =
-                compile_from_dir_with_profile(&case_dir(), m61).expect("m61 compile should succeed");
-            let c_gold =
-                compile_from_dir_with_profile(&case_dir(), gold).expect("gold compile should succeed");
+            let c_m61 = compile_from_dir_with_profile(&case_dir(), m61)
+                .expect("m61 compile should succeed");
+            let c_gold = compile_from_dir_with_profile(&case_dir(), gold)
+                .expect("gold compile should succeed");
             testlog::data("m61_ctx_head", hex::encode(&c_m61.context_fingerprint[..4]));
-            testlog::data("gold_ctx_head", hex::encode(&c_gold.context_fingerprint[..4]));
+            testlog::data(
+                "gold_ctx_head",
+                hex::encode(&c_gold.context_fingerprint[..4]),
+            );
 
             assert_ne!(c_m61.context_fingerprint, c_gold.context_fingerprint);
         }

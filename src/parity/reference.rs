@@ -4,8 +4,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    api::spartan_like::build_spartan_like_report_data_from_dir,
-    core::field::Fp,
+    api::spartan_like::build_spartan_like_report_data_from_dir, core::field::Fp,
     nizk::spartan_brakedown::prove_from_dir,
 };
 

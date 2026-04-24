@@ -51,7 +51,10 @@ pub fn merkle_root(nodes: &[[u8; 32]]) -> [u8; 32] {
     *nodes.last().unwrap_or(&[0u8; 32])
 }
 
-pub fn verify_column_path_t<F: BrakedownField>(root: [u8; 32], opening: &ColumnOpeningT<F>) -> bool {
+pub fn verify_column_path_t<F: BrakedownField>(
+    root: [u8; 32],
+    opening: &ColumnOpeningT<F>,
+) -> bool {
     let mut cur = digest_list_t(&opening.values);
     let mut idx = opening.col_idx;
     for s in &opening.merkle_path {

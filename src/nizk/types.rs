@@ -1,8 +1,10 @@
+use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 use crate::{
     core::field::Fp,
-    pcs::brakedown::types::{BrakedownEvalProof, BrakedownFieldProfile, BrakedownVerifierCommitment},
+    pcs::brakedown::types::{
+        BrakedownEvalProof, BrakedownFieldProfile, BrakedownVerifierCommitment,
+    },
 };
-use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 
 pub const NIZK_BLINDED_LAYOUT_ROWS: usize = 3;
 

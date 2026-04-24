@@ -14,7 +14,10 @@ fn main() -> Result<()> {
         .unwrap_or_else(|| PathBuf::from("tests/inner_sumcheck_spartan"));
 
     let profile = parse_field_profile(&profile_s).ok_or_else(|| {
-        anyhow!("unknown profile '{}'; use one of: toy | m61 | gold", profile_s)
+        anyhow!(
+            "unknown profile '{}'; use one of: toy | m61 | gold",
+            profile_s
+        )
     })?;
 
     let report = build_pipeline_report_from_dir_with_profile(&case_dir, profile)?;

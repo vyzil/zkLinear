@@ -67,9 +67,7 @@ impl BrakedownFieldProfile {
     pub fn parse(s: &str) -> Option<Self> {
         match s.to_ascii_lowercase().as_str() {
             "toy" | "toyf97" | "f97" => Some(Self::ToyF97),
-            "m61" | "mersenne61" | "mersenne61ext2" | "ext2-m61" => {
-                Some(Self::Mersenne61Ext2)
-            }
+            "m61" | "mersenne61" | "mersenne61ext2" | "ext2-m61" => Some(Self::Mersenne61Ext2),
             "gold" | "goldilocks" | "goldilocks64ext2" | "ext2-gold" => {
                 Some(Self::Goldilocks64Ext2)
             }

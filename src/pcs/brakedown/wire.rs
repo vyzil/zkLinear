@@ -2,11 +2,11 @@ use anyhow::{anyhow, Result};
 
 use crate::core::field::Fp;
 
+use super::scalar::BrakedownField;
 use super::types::{
     BrakedownEncoderKind, BrakedownEvalProof, BrakedownEvalProofT, BrakedownFieldProfile,
     BrakedownVerifierCommitment, ColumnOpeningT,
 };
-use super::scalar::BrakedownField;
 
 const VC_TAG: &[u8; 8] = b"ZKVCB001";
 const PF_TAG: &[u8; 8] = b"ZKPFB002";

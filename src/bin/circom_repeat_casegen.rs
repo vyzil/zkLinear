@@ -4,16 +4,13 @@ use anyhow::{anyhow, bail, Result};
 use zk_linear::io::r1cs_circom::import_spartan_like_case_from_circom_json;
 
 fn run_cmd(cmd: &mut Command, label: &str) -> Result<()> {
-    let out = cmd.output().map_err(|e| anyhow!("{} spawn error: {}", label, e))?;
+    let out = cmd
+        .output()
+        .map_err(|e| anyhow!("{} spawn error: {}", label, e))?;
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr);
         let stdout = String::from_utf8_lossy(&out.stdout);
-        bail!(
-            "{} failed\nstdout:\n{}\nstderr:\n{}",
-            label,
-            stdout,
-            stderr
-        );
+        bail!("{} failed\nstdout:\n{}\nstderr:\n{}", label, stdout, stderr);
     }
     Ok(())
 }

@@ -4,19 +4,14 @@ use merlin::Transcript;
 use crate::{
     core::field::{Fp, ModulusScope},
     core::transcript::derive_round_challenge_t,
-    pcs::{
-        brakedown::BrakedownPcs,
-    },
+    pcs::brakedown::BrakedownPcs,
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
-        spec_v1::{INNER_SUMCHECK_JOINT_LABEL, OUTER_SUMCHECK_LABEL},
         shared::append_field_profile_to_transcript,
         spec_v1::{append_spec_domain, append_u64_le},
+        spec_v1::{INNER_SUMCHECK_JOINT_LABEL, OUTER_SUMCHECK_LABEL},
     },
-    sumcheck::{
-        inner::verify_inner_sumcheck_trace,
-        outer::verify_outer_sumcheck_trace,
-    },
+    sumcheck::{inner::verify_inner_sumcheck_trace, outer::verify_outer_sumcheck_trace},
 };
 
 use super::{
@@ -57,7 +52,11 @@ pub fn verify_bridge_bundle(
             "field profile mismatch between query and proof bundle"
         ));
     }
-    if query.rows == 0 || query.cols == 0 || !query.rows.is_power_of_two() || !query.cols.is_power_of_two() {
+    if query.rows == 0
+        || query.cols == 0
+        || !query.rows.is_power_of_two()
+        || !query.cols.is_power_of_two()
+    {
         return Err(anyhow!(
             "bridge public shape must be non-zero powers of two"
         ));
@@ -73,7 +72,9 @@ pub fn verify_bridge_bundle(
         ));
     }
     if bundle.reference_profile != DUAL_REFERENCE_PROFILE {
-        return Err(anyhow!("unsupported reference profile for this bridge flow"));
+        return Err(anyhow!(
+            "unsupported reference profile for this bridge flow"
+        ));
     }
     let expected_context = bridge_context_fingerprint(
         query.rows,
@@ -91,7 +92,9 @@ pub fn verify_bridge_bundle(
             "inner-sumcheck claim and verifier claimed value mismatch"
         ));
     }
-    if bundle.verifier_commitment.n_per_row == 0 || !bundle.verifier_commitment.n_per_row.is_power_of_two() {
+    if bundle.verifier_commitment.n_per_row == 0
+        || !bundle.verifier_commitment.n_per_row.is_power_of_two()
+    {
         return Err(anyhow!(
             "bridge verifier commitment n_per_row must be a non-zero power of two"
         ));
@@ -103,9 +106,7 @@ pub fn verify_bridge_bundle(
     }
     let outer_rounds = bundle.outer_trace.rounds.len();
     if outer_rounds != query.rows.trailing_zeros() as usize {
-        return Err(anyhow!(
-            "bridge outer rounds do not match public row count"
-        ));
+        return Err(anyhow!("bridge outer rounds do not match public row count"));
     }
     let max_rounds = usize::BITS as usize - 1;
     if outer_rounds > max_rounds {
@@ -115,15 +116,13 @@ pub fn verify_bridge_bundle(
     }
     for (i, r) in bundle.outer_trace.rounds.iter().enumerate() {
         if r.round != i {
-            return Err(anyhow!("bridge outer round index mismatch at position {}", i));
+            return Err(anyhow!(
+                "bridge outer round index mismatch at position {}",
+                i
+            ));
         }
-        let expected_r = derive_round_challenge_t(
-            OUTER_SUMCHECK_LABEL,
-            r.round,
-            r.g_at_0,
-            r.g_at_2,
-            r.g_at_3,
-        );
+        let expected_r =
+            derive_round_challenge_t(OUTER_SUMCHECK_LABEL, r.round, r.g_at_0, r.g_at_2, r.g_at_3);
         if expected_r != r.challenge_r {
             return Err(anyhow!("bridge outer challenge mismatch at round {}", i));
         }
@@ -140,7 +139,10 @@ pub fn verify_bridge_bundle(
     }
     for (i, r) in bundle.inner_trace.rounds.iter().enumerate() {
         if r.round != i {
-            return Err(anyhow!("bridge inner round index mismatch at position {}", i));
+            return Err(anyhow!(
+                "bridge inner round index mismatch at position {}",
+                i
+            ));
         }
         let expected_r = derive_round_challenge_t(
             INNER_SUMCHECK_JOINT_LABEL,
@@ -175,10 +177,11 @@ pub fn verify_bridge_bundle(
     if !inner_v.final_consistent {
         return Err(anyhow!("inner sumcheck verification failed"));
     }
-    if bundle.inner_trace.final_claim
-        != bundle.inner_trace.final_f.mul(bundle.inner_trace.final_g)
+    if bundle.inner_trace.final_claim != bundle.inner_trace.final_f.mul(bundle.inner_trace.final_g)
     {
-        return Err(anyhow!("bridge inner final claim mismatch vs final_f*final_g"));
+        return Err(anyhow!(
+            "bridge inner final claim mismatch vs final_f*final_g"
+        ));
     }
 
     append_spec_domain(tr);

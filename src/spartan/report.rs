@@ -1,11 +1,13 @@
 use crate::{
-    core::field::{MODULUS, Fp},
+    core::field::{Fp, MODULUS},
     sumcheck::inner::{verify_inner_sumcheck_trace, CHALLENGE_HASH_NAME, CHALLENGE_LABEL},
 };
 
 use super::{data::MatrixVectorInnerSumcheckReport, prove_matrix_vector_inner_sumcheck};
 
-pub fn format_matrix_vector_inner_sumcheck_report(report: &MatrixVectorInnerSumcheckReport) -> String {
+pub fn format_matrix_vector_inner_sumcheck_report(
+    report: &MatrixVectorInnerSumcheckReport,
+) -> String {
     fn format_dot_expansion(row: &[Fp], y: &[Fp]) -> String {
         let terms: Vec<String> = row
             .iter()

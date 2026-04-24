@@ -277,12 +277,9 @@ pub fn verify_outer_sumcheck_trace_t<F: FieldElement>(
     for r in &trace.rounds {
         let g1_derived = claim.sub(r.g_at_0);
         let claim_consistent = claim == r.g_at_0.add(g1_derived);
-        let gr =
-            eval_cubic_from_0_1_2_3_t(r.g_at_0, g1_derived, r.g_at_2, r.g_at_3, r.challenge_r);
-        let folded_claim_from_vectors = r
-            .folded_values
-            .iter()
-            .fold(F::zero(), |acc, v| acc.add(*v));
+        let gr = eval_cubic_from_0_1_2_3_t(r.g_at_0, g1_derived, r.g_at_2, r.g_at_3, r.challenge_r);
+        let folded_claim_from_vectors =
+            r.folded_values.iter().fold(F::zero(), |acc, v| acc.add(*v));
         let transition_consistent = gr == folded_claim_from_vectors;
         all_rounds_consistent &= claim_consistent && transition_consistent;
 

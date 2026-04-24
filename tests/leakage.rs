@@ -88,7 +88,10 @@ fn invert_3x3(a: [[Fp; 3]; 3]) -> Option<[[Fp; 3]; 3]> {
 fn mul_3x3_vec(a: [[Fp; 3]; 3], v: [Fp; 3]) -> [Fp; 3] {
     let mut out = [Fp::zero(); 3];
     for i in 0..3 {
-        out[i] = a[i][0].mul(v[0]).add(a[i][1].mul(v[1])).add(a[i][2].mul(v[2]));
+        out[i] = a[i][0]
+            .mul(v[0])
+            .add(a[i][1].mul(v[1]))
+            .add(a[i][2].mul(v[2]));
     }
     out
 }
@@ -137,7 +140,12 @@ fn replay_degree_tensors(
     append_u64_le(&mut tr_v, b"ncols", proof.verifier_commitment.n_cols as u64);
 
     let mut out = Vec::with_capacity(proof.pcs_proof_joint_eval_at_r.p_random_vec.len());
-    for (round, p_rand) in proof.pcs_proof_joint_eval_at_r.p_random_vec.iter().enumerate() {
+    for (round, p_rand) in proof
+        .pcs_proof_joint_eval_at_r
+        .p_random_vec
+        .iter()
+        .enumerate()
+    {
         let t = sample_field_vec_round_t::<Fp>(&mut tr_v, LCPC_DEG_TEST_LABEL, round as u64, 3);
         out.push([t[0], t[1], t[2]]);
         for v in p_rand {
@@ -161,7 +169,11 @@ fn leakage_001_reference_path_exposes_degree_test_row_collapses() {
                 result.proof.pcs_proof_joint_eval_at_r.p_random_vec.len(),
             );
             assert!(
-                !result.proof.pcs_proof_joint_eval_at_r.p_random_vec.is_empty(),
+                !result
+                    .proof
+                    .pcs_proof_joint_eval_at_r
+                    .p_random_vec
+                    .is_empty(),
                 "reference-aligned proof currently includes degree-test random row-collapses"
             );
         }

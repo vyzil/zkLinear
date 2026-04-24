@@ -50,7 +50,10 @@ pub fn preset_for_field_profile(profile: BrakedownFieldProfile) -> BrakedownSecu
     }
 }
 
-pub fn params_for_field_profile(n_per_row: usize, profile: BrakedownFieldProfile) -> BrakedownParams {
+pub fn params_for_field_profile(
+    n_per_row: usize,
+    profile: BrakedownFieldProfile,
+) -> BrakedownParams {
     preset_for_field_profile(profile).params(n_per_row)
 }
 

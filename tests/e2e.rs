@@ -73,7 +73,9 @@ fn e2e_003_nizk_public_verify_rejects_tampered_root() {
             assert!(
                 err.to_string().contains("merkle path failed")
                     || err.to_string().contains("opened column index mismatch")
-                    || err.to_string().contains("commitment encoder profile mismatch")
+                    || err
+                        .to_string()
+                        .contains("commitment encoder profile mismatch")
             );
         }
     );
@@ -94,11 +96,11 @@ fn e2e_004_nizk_public_verify_rejects_wrong_claimed_value() {
             if new_final_f == Fp::zero() {
                 new_final_f = new_final_f.add(Fp::new(1));
             }
-            let new_final_g = result
-                .proof
-                .inner_trace
-                .final_claim
-                .mul(new_final_f.inv().expect("non-zero field element must be invertible"));
+            let new_final_g = result.proof.inner_trace.final_claim.mul(
+                new_final_f
+                    .inv()
+                    .expect("non-zero field element must be invertible"),
+            );
 
             result.proof.inner_trace.final_f = new_final_f;
             result.proof.inner_trace.final_g = new_final_g;
@@ -130,7 +132,9 @@ fn e2e_005_nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
             let err = verify_with_compiled(&compiled, &result.proof, &result.public)
                 .expect_err("verify_with_compiled should fail for bad compiled fingerprint");
             testlog::data("error", &err);
-            assert!(err.to_string().contains("compiled context fingerprint mismatch"));
+            assert!(err
+                .to_string()
+                .contains("compiled context fingerprint mismatch"));
         }
     );
 }

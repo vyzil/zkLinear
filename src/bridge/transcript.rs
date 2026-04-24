@@ -50,9 +50,6 @@ pub(crate) fn bridge_context_fingerprint(
     h.finalize().into()
 }
 
-pub(crate) fn bridge_public_params(
-    cols: usize,
-    profile: BrakedownFieldProfile,
-) -> BrakedownParams {
+pub(crate) fn bridge_public_params(cols: usize, profile: BrakedownFieldProfile) -> BrakedownParams {
     params_for_field_profile(cols, profile)
 }

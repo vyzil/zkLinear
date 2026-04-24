@@ -39,7 +39,8 @@ fn write_outputs(out_prefix: &Path, report: &MetricsReportOut) -> Result<()> {
     let csv_path = out_prefix.with_extension("csv");
 
     let json = serde_json::to_string_pretty(report)?;
-    fs::write(&json_path, json).with_context(|| format!("failed to write {}", json_path.display()))?;
+    fs::write(&json_path, json)
+        .with_context(|| format!("failed to write {}", json_path.display()))?;
 
     let mut csv =
         String::from("run_id,prove_ms,verify_ms,proof_bytes_total,vc_bytes,joint_r_bytes\n");
@@ -80,8 +81,16 @@ fn main() -> Result<()> {
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
 
     let report = collect_nizk_metrics(&case_dir, profile, warmup_runs, measured_runs)?;
-    let prove_vals = report.runs.iter().map(|r| r.prove_wall_ms).collect::<Vec<_>>();
-    let verify_vals = report.runs.iter().map(|r| r.verify_wall_ms).collect::<Vec<_>>();
+    let prove_vals = report
+        .runs
+        .iter()
+        .map(|r| r.prove_wall_ms)
+        .collect::<Vec<_>>();
+    let verify_vals = report
+        .runs
+        .iter()
+        .map(|r| r.verify_wall_ms)
+        .collect::<Vec<_>>();
     let proof_vals = report
         .runs
         .iter()

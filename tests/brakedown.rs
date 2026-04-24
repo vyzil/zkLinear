@@ -72,7 +72,10 @@ fn brakedown_001_spielman_encoding_is_deterministic_for_same_seed() {
             let comm_a = pcs_a.commit(&coeffs).expect("commit A should succeed");
             let comm_b = pcs_b.commit(&coeffs).expect("commit B should succeed");
             testlog::data("n_cols", pcs_a.encoding.n_cols);
-            testlog::data("root_head", hex::encode(&comm_a.merkle_nodes.last().expect("root")[..4]));
+            testlog::data(
+                "root_head",
+                hex::encode(&comm_a.merkle_nodes.last().expect("root")[..4]),
+            );
 
             assert_eq!(comm_a.encoded, comm_b.encoded);
             assert_eq!(comm_a.merkle_nodes, comm_b.merkle_nodes);
@@ -122,7 +125,8 @@ fn brakedown_003_pcs_open_verify_succeeds_and_wrong_claim_fails() {
             let coeffs = fixture_coeffs(4, 8);
             let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
             let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
-            let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
+            let (outer, inner) =
+                build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
             let root = merkle_root(&prover_commitment.merkle_nodes);
             let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
@@ -278,7 +282,8 @@ fn brakedown_006_wire_roundtrip_succeeds_and_rejects_trailing_bytes() {
             let coeffs = fixture_coeffs(4, 8);
             let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
             let verifier_commitment = pcs.verifier_commitment(&prover_commitment);
-            let (outer, inner) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
+            let (outer, inner) =
+                build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
 
             let root = merkle_root(&prover_commitment.merkle_nodes);
             let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);

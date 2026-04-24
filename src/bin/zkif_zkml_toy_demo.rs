@@ -44,33 +44,18 @@ fn build_toy_zkml_workspace(ws_dir: &PathBuf) -> Result<()> {
     // 5..8: h (witness)
     // 9..10: y (public)
     let x = [2u64, 3, 5, 7];
-    let w1 = [
-        [1u64, 0, 2, 1],
-        [0, 1, 1, 1],
-        [1, 1, 0, 2],
-        [2, 1, 1, 0],
-    ];
+    let w1 = [[1u64, 0, 2, 1], [0, 1, 1, 1], [1, 1, 0, 2], [2, 1, 1, 0]];
     let b1 = [1u64, 2, 3, 1];
     let w2 = [[1u64, 2, 1, 0], [0, 1, 2, 1]];
     let b2 = [1u64, 2];
 
     let mut h = [0u64; 4];
     for i in 0..4 {
-        h[i] = b1[i]
-            + w1[i]
-                .iter()
-                .zip(x.iter())
-                .map(|(a, b)| a * b)
-                .sum::<u64>();
+        h[i] = b1[i] + w1[i].iter().zip(x.iter()).map(|(a, b)| a * b).sum::<u64>();
     }
     let mut y = [0u64; 2];
     for j in 0..2 {
-        y[j] = b2[j]
-            + w2[j]
-                .iter()
-                .zip(h.iter())
-                .map(|(a, b)| a * b)
-                .sum::<u64>();
+        y[j] = b2[j] + w2[j].iter().zip(h.iter()).map(|(a, b)| a * b).sum::<u64>();
     }
 
     let header = CircuitHeader {
@@ -125,7 +110,8 @@ fn build_toy_zkml_workspace(ws_dir: &PathBuf) -> Result<()> {
     let cs = ConstraintSystem { constraints };
 
     let mut sink = WorkspaceSink::new(ws_dir).map_err(|e| anyhow!(e.to_string()))?;
-    sink.push_header(header).map_err(|e| anyhow!(e.to_string()))?;
+    sink.push_header(header)
+        .map_err(|e| anyhow!(e.to_string()))?;
     sink.push_witness(witness)
         .map_err(|e| anyhow!(e.to_string()))?;
     sink.push_constraints(cs)
@@ -164,7 +150,11 @@ fn main() -> Result<()> {
         t.k2_pcs_prove_ms,
         t.pct(t.k2_pcs_prove_ms)
     );
-    println!("  verify: {:.3} ({:.1}%)", t.k3_verify_ms, t.pct(t.k3_verify_ms));
+    println!(
+        "  verify: {:.3} ({:.1}%)",
+        t.k3_verify_ms,
+        t.pct(t.k3_verify_ms)
+    );
     println!("  total: {:.3}", t.total_ms());
     println!(
         "proof payload: joint_eval_at_r_openings={}",

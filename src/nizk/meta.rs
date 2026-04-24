@@ -11,4 +11,3 @@ pub struct SpartanBrakedownPublicMeta {
     pub reference_profile: ReferenceProfile,
     pub context_fingerprint: [u8; 32],
 }
-

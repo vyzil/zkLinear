@@ -59,8 +59,13 @@ pub fn load_spartan_like_case_from_circom_json(
 
     let r1cs: Value = serde_json::from_str(&r1cs_text)
         .map_err(|e| anyhow!("invalid r1cs json {}: {}", r1cs_json_path.display(), e))?;
-    let witness: Value = serde_json::from_str(&wtns_text)
-        .map_err(|e| anyhow!("invalid witness json {}: {}", witness_json_path.display(), e))?;
+    let witness: Value = serde_json::from_str(&wtns_text).map_err(|e| {
+        anyhow!(
+            "invalid witness json {}: {}",
+            witness_json_path.display(),
+            e
+        )
+    })?;
 
     let n_vars = r1cs
         .get("nVars")

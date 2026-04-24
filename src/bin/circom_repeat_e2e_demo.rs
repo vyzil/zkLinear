@@ -22,16 +22,13 @@ fn fmt_commas_u64(v: u64) -> String {
 }
 
 fn run_cmd(cmd: &mut Command, label: &str) -> Result<()> {
-    let out = cmd.output().map_err(|e| anyhow!("{} spawn error: {}", label, e))?;
+    let out = cmd
+        .output()
+        .map_err(|e| anyhow!("{} spawn error: {}", label, e))?;
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr);
         let stdout = String::from_utf8_lossy(&out.stdout);
-        bail!(
-            "{} failed\nstdout:\n{}\nstderr:\n{}",
-            label,
-            stdout,
-            stderr
-        );
+        bail!("{} failed\nstdout:\n{}\nstderr:\n{}", label, stdout, stderr);
     }
     Ok(())
 }
@@ -46,10 +43,7 @@ fn main() -> Result<()> {
     }
     let n_constraints: usize = 1usize << k;
 
-    let base = PathBuf::from(format!(
-        "tests/generated_cases/circom_repeat_2pow{}",
-        k
-    ));
+    let base = PathBuf::from(format!("tests/generated_cases/circom_repeat_2pow{}", k));
     let ws = base.join("workspace");
     let case = base.join("case");
     fs::create_dir_all(&ws)?;
@@ -157,7 +151,11 @@ component main = RepeatEq({n});
         t.k2_pcs_prove_ms,
         t.pct(t.k2_pcs_prove_ms)
     );
-    println!("  verify: {:.3} ({:.1}%)", t.k3_verify_ms, t.pct(t.k3_verify_ms));
+    println!(
+        "  verify: {:.3} ({:.1}%)",
+        t.k3_verify_ms,
+        t.pct(t.k3_verify_ms)
+    );
     println!("  total: {:.3}", t.total_ms());
     println!(
         "payload openings: joint_eval_at_r={}",

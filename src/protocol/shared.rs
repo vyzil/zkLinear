@@ -1,11 +1,11 @@
 use merlin::Transcript;
 use sha2::{Digest, Sha256};
 
-use crate::{core::field::Fp, io::case_format::SpartanLikeCase};
 use crate::pcs::brakedown::types::BrakedownFieldProfile;
 use crate::protocol::spec_v1::{
     append_fp_le, append_u64_le, BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL, OUTER_TAU_LABEL,
 };
+use crate::{core::field::Fp, io::case_format::SpartanLikeCase};
 
 pub fn append_case_to_transcript(tr: &mut Transcript, case: &SpartanLikeCase) {
     append_u64_le(tr, b"rows", case.a.len() as u64);

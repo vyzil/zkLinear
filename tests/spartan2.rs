@@ -134,7 +134,10 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
 
             assert!(data.outer_verify.final_consistent);
             assert!(data.joint_verify.final_consistent);
-            assert_eq!(data.outer_trace.rounds.len(), data.case.a.len().trailing_zeros() as usize);
+            assert_eq!(
+                data.outer_trace.rounds.len(),
+                data.case.a.len().trailing_zeros() as usize
+            );
             assert_eq!(
                 data.joint_trace.rounds.len(),
                 data.case.a[0].len().trailing_zeros() as usize

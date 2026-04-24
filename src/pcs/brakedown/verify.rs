@@ -7,9 +7,7 @@ use super::{
     challenges::{sample_field_vec_round_t, sample_unique_cols_from_start},
     merkle::verify_column_path_t,
     scalar::BrakedownField,
-    types::{
-        BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownVerifierCommitment,
-    },
+    types::{BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownVerifierCommitment},
     utils::{append_field_vec_t, dot_product_t},
 };
 
@@ -88,24 +86,16 @@ pub fn verify_eval_structure_t<F: BrakedownField>(
             return Err(anyhow!("degree-test vector length mismatch"));
         }
 
-        let t: Vec<F> = sample_field_vec_round_t(
-            tr,
-            LCPC_DEG_TEST_LABEL,
-            round as u64,
-            commitment.n_rows,
-        );
+        let t: Vec<F> =
+            sample_field_vec_round_t(tr, LCPC_DEG_TEST_LABEL, round as u64, commitment.n_rows);
         rand_tensors.push(t);
         append_field_vec_t(tr, b"p_random", p_rand);
     }
 
     append_field_vec_t(tr, b"p_eval", &proof.p_eval);
 
-    let cols_expected = sample_unique_cols_from_start(
-        tr,
-        enc.n_cols,
-        params.n_col_opens,
-        params.col_open_start,
-    )?;
+    let cols_expected =
+        sample_unique_cols_from_start(tr, enc.n_cols, params.n_col_opens, params.col_open_start)?;
 
     let p_eval_enc = enc.encode_row_t(&proof.p_eval);
     let p_rand_enc: Vec<Vec<F>> = proof

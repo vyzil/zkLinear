@@ -1,6 +1,10 @@
 use crate::{
     core::field::Fp,
-    sumcheck::inner::{inner_product, prove_matrix_vector_inner_sumcheck as prove_matrix_vector_inner_sumcheck_core, SumcheckTrace},
+    sumcheck::inner::{
+        inner_product,
+        prove_matrix_vector_inner_sumcheck as prove_matrix_vector_inner_sumcheck_core,
+        SumcheckTrace,
+    },
 };
 
 #[derive(Debug, Clone)]

@@ -5,12 +5,10 @@ use zk_linear::{
     io::r1cs_zkif::import_spartan_like_case_from_zkif_workspace,
     nizk::spartan_brakedown::prove_from_dir,
 };
-use zkinterface::{
-    producers::{
-        builder::Sink,
-        examples::{example_circuit_header, example_constraints, example_witness},
-        workspace::WorkspaceSink,
-    },
+use zkinterface::producers::{
+    builder::Sink,
+    examples::{example_circuit_header, example_constraints, example_witness},
+    workspace::WorkspaceSink,
 };
 
 fn main() -> Result<()> {
@@ -50,7 +48,11 @@ fn main() -> Result<()> {
         t.k2_pcs_prove_ms,
         t.pct(t.k2_pcs_prove_ms)
     );
-    println!("  verify: {:.3} ({:.1}%)", t.k3_verify_ms, t.pct(t.k3_verify_ms));
+    println!(
+        "  verify: {:.3} ({:.1}%)",
+        t.k3_verify_ms,
+        t.pct(t.k3_verify_ms)
+    );
     println!("  total: {:.3}", t.total_ms());
     Ok(())
 }
