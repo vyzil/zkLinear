@@ -158,6 +158,7 @@ fn main() -> Result<()> {
         label_to_str(LCPC_DEG_TEST_LABEL),
         label_to_str(LCPC_COL_OPEN_LABEL)
     );
+    println!("- transcript order note: polycommit(root,ncols) is bound before gamma/inner");
     println!(
         "- blind mix label (reserved/reference): {}",
         label_to_str(BLIND_MIX_LABEL)
@@ -253,7 +254,26 @@ fn main() -> Result<()> {
     );
     println!();
 
-    println!("3) Joint binding + inner sumcheck");
+    println!("3) PCS commit + transcript binding");
+    println!(
+        "   - params: encoder={:?}, n_degree_tests={}, n_col_opens={}, col_open_start={}",
+        params.encoder_kind, params.n_degree_tests, params.n_col_opens, params.col_open_start
+    );
+    println!(
+        "   - encoded n_cols={} | verifier commitment dims=({}, {}, {})",
+        pcs.encoding.n_cols,
+        res.proof.verifier_commitment.n_rows,
+        res.proof.verifier_commitment.n_per_row,
+        res.proof.verifier_commitment.n_cols
+    );
+    println!(
+        "   - commitment root: {}",
+        hex::encode(res.proof.verifier_commitment.root)
+    );
+    println!("   - bound to transcript before gamma/inner");
+    println!();
+
+    println!("4) Joint binding + inner sumcheck + PCS opening");
     println!("   - gamma={}, gamma^2={}", gamma.0, gamma_sq.0);
     println!("   - a_bound head: {}", fmt_vec_head(&a_bound, show_head));
     println!("   - b_bound head: {}", fmt_vec_head(&b_bound, show_head));
@@ -284,24 +304,6 @@ fn main() -> Result<()> {
         "   - expected final_g from eq(r)·z={} | ok={}",
         expected_final_g.0,
         expected_final_g == res.proof.inner_trace.final_g
-    );
-    println!();
-
-    println!("4) PCS commit/open output");
-    println!(
-        "   - params: encoder={:?}, n_degree_tests={}, n_col_opens={}, col_open_start={}",
-        params.encoder_kind, params.n_degree_tests, params.n_col_opens, params.col_open_start
-    );
-    println!(
-        "   - encoded n_cols={} | verifier commitment dims=({}, {}, {})",
-        pcs.encoding.n_cols,
-        res.proof.verifier_commitment.n_rows,
-        res.proof.verifier_commitment.n_per_row,
-        res.proof.verifier_commitment.n_cols
-    );
-    println!(
-        "   - commitment root: {}",
-        hex::encode(res.proof.verifier_commitment.root)
     );
     println!(
         "   - proof.p_eval.len={}, p_random_vec.len={}, opened_cols={}",
