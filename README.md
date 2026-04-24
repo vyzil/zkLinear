@@ -1,190 +1,37 @@
 # zkLinear
 
-`zkLinear` is a standalone research workbench for:
-- Spartan-style sumcheck flow analysis
-- Brakedown-style (linear-code + Merkle opening) execution tracing
-- profiling, consistency testing, and future accelerator-oriented experimentation
+Spartan2-like + Brakedown-like PCS 조합을 연구/검증하는 Rust 코드베이스입니다.
+현재 기준의 실제 공개 검증 경로는 `nizk::spartan_brakedown` 입니다.
 
-## Goals
-- Exercise and inspect prover sub-phases in software
-- Compare runtime/proof-size behavior across schemes
-- Validate prove/verify consistency boundaries
-- Prepare for future extension-field experiments and hardware acceleration
+## 핵심 포인트
+- proof/public 경계를 최소화한 NIZK 경로 유지
+- metadata(`reference_profile`, `context_fingerprint`)는 sidecar로 분리
+- `spark_e2e_cli` 기반 compile/prove/verify 워크플로우 제공
 
-## Project Structure
-- `src/core/`
-  - shared field and transcript primitives
-- `src/field_profiles/`
-  - staged field-profile module for migration experiments
-  - includes:
-    - `Mersenne61` base field
-    - `Goldilocks64` base field
-    - `Ext2` skeletons for both (`D=2`)
-- `src/protocol/`
-  - shared protocol helpers used by both `bridge/` and `nizk/`
-  - case/transcript binding, row-binding helpers, shared tensor utilities
-- `src/sumcheck/`
-  - `inner.rs`: inner-sumcheck core implementation
-  - `outer.rs`: outer-sumcheck core used by the Spartan-like test path
-- `src/io/`
-  - input case parser (`_A.data`, `_B.data`, `_C.data`, `_y.data`, `_z.data`)
-- `src/api/`
-  - API entrypoints used by tests/binaries
-- `src/bridge/`
-  - protocol-skeleton bridge for Spartan-like + Brakedown-style flow
-  - includes:
-    - proof bundle type
-    - verifier query boundary type
-    - top-level bridge verify function
-- `src/nizk/`
-  - research full-style path with single-transcript flow and transcript-bound masking
-- `src/spartan/`
-  - `data.rs`: matrix-vector inner-sumcheck data/orchestration
-  - `report.rs`: human-readable trace formatting
-- `src/pcs/`
-  - `traits.rs`: lightweight PCS trait (`commit/open/verify`)
-  - `brakedown/`: modular mini Brakedown-style path
-    - `types.rs`: commitment/proof/parameter types
-    - `encoding.rs`: linear-code row encoding
-    - `merkle.rs`: Merkle hashing/path verification
-    - `commit.rs`: commitment + column opening
-    - `prove.rs`: prover-side opening proof generation
-    - `verify.rs`: verifier-side checks
-    - `wire.rs`: explicit LE wire format for verifier commitment / opening proof
-    - `demo.rs`: human-readable demo trace
-  - staged parameter tuning:
-    - `BrakedownParams::new_with_field_profile(...)`
-    - lcpc-like profiles auto-tune `n_degree_tests` / `n_col_opens`
-    - production profiles pin verifier-friendly counts (`n_degree_tests=8`, `n_col_opens=16`)
-    - `BrakedownSecurityPreset` for cleaner preset-driven setup
-- `src/lcpc_trace.rs`
-  - backward-compatible wrapper that calls `src/pcs/brakedown/demo.rs`
-- `tests/`
-  - `tests/inner_sumcheck_naive.rs`: naive inner-sumcheck trace from file inputs
-  - `tests/inner_sumcheck_spartan.rs`: Spartan-like outer+inner trace
-  - `tests/brakedown_pcs.rs`: standalone Brakedown-style PCS checks
-  - `tests/spartan_brakedown_pipeline.rs`: staged bridge (protocol-skeleton)
-  - `tests/spartan_brakedown_nizk.rs`: research full-style single-transcript path
-  - per-test folders with code+data: `tests/<part>/test.rs` and `tests/<part>/*.data`
+## 프로젝트 구조
+- `src/nizk/`: proof/public 타입, prove/verify 경계
+- `src/pcs/brakedown/`: PCS(encoding/commit/open/verify/wire)
+- `src/sumcheck/`: inner/outer sumcheck
+- `src/protocol/`: transcript/spec/shared helper
+- `src/io/`: case 및 R1CS import
+- `src/bin/spark_e2e_cli.rs`: 운영용 CLI
 
-## Run
+자세한 구조/설계는 문서 참고:
+- `docs/DESIGN.md`
+- `docs/STRUCTURE.md`
+- `docs/RUNBOOK.md`
+- `docs/SPEC_V1.md`
+
+## 빠른 실행
 ```bash
-cargo run
+cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/compiled.json m61
+cargo run --bin spark_e2e_cli -- prove /tmp/compiled.json tests/inner_sumcheck_spartan /tmp/proof.json /tmp/public.json
+cargo run --bin spark_e2e_cli -- verify /tmp/compiled.json /tmp/proof.json /tmp/public.json
 ```
 
-## Test
+## 테스트
 ```bash
 cargo test -q
-cargo test --test inner_sumcheck_naive -- --nocapture
-cargo test --test inner_sumcheck_spartan -- --nocapture
-cargo test --test brakedown_pcs -- --nocapture
-cargo test --test spartan_brakedown_pipeline -- --nocapture
-cargo test --test spartan_brakedown_nizk -- --nocapture
-cargo test --test parity_with_reference -- --nocapture
-cargo test --test parity_with_external_reference -- --nocapture
-cargo test --test profile_switch_e2e -- --nocapture
 ```
 
-Profile-switched E2E demo:
-```bash
-cargo run --bin profile_e2e_demo -- toy tests/inner_sumcheck_spartan
-cargo run --bin profile_e2e_demo -- m61 tests/inner_sumcheck_spartan
-cargo run --bin profile_e2e_demo -- gold tests/inner_sumcheck_spartan
-```
-
-Profile matrix metrics (timing + wire payload sizes):
-```bash
-cargo run --bin profile_matrix_metrics -- tests/inner_sumcheck_spartan 5 toy,m61,gold
-```
-
-File-based SPARK-like workflow (compile -> prove -> verify):
-```bash
-cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/zklinear_compiled.json m61
-cargo run --bin spark_e2e_cli -- prove /tmp/zklinear_compiled.json tests/inner_sumcheck_spartan /tmp/zklinear_proof.json /tmp/zklinear_public.json
-cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_compiled.json /tmp/zklinear_proof.json /tmp/zklinear_public.json
-```
-Each step also emits binary sidecars (`*.wire`) for machine metrics and size reporting.
-It also writes stage reports (`*.compile.report.json`, `*.prove.report.json`, `*.verify.report.json`)
-with a shared schema (profile/modulus/digest/fingerprint/runtime/payload).
-
-Size-driven run + proof inspection:
-```bash
-cargo run --bin spark_e2e_cli -- prove-k 17 /tmp/zklinear_run_k17 m61
-cargo run --bin spark_e2e_cli -- inspect /tmp/zklinear_run_k17/proof.json
-cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_run_k17/compiled.json /tmp/zklinear_run_k17/proof.json /tmp/zklinear_run_k17/public.json
-```
-
-Single metrics runner (warmup + repeated runs + CSV/JSON):
-```bash
-cargo run --bin metrics_runner -- tests/inner_sumcheck_spartan /tmp/zklinear_metrics m61 1 5
-```
-
-Generate circom repeat case only (no prove/verify run):
-```bash
-cargo run --bin circom_repeat_casegen -- 17
-```
-
-One-shot compile/prove/verify with cache flush between phases:
-```bash
-scripts/run_e2e_with_cache_flush.sh tests/inner_sumcheck_spartan /tmp/zklinear_e2e m61
-scripts/run_e2e_with_cache_flush.sh --k 17 /tmp/zklinear_run_k17 m61
-```
-
-Claims gate (full tests + conformance + metrics sanity + clippy):
-```bash
-scripts/ci_claims_gate.sh tests/inner_sumcheck_spartan m61 /tmp/zklinear_claims_gate
-```
-
-## Input Format
-Example matrix file:
-```text
-size: 2,8
-data:
-3,1,4,1,5,9,2,6,
-5,8,9,7,9,3,2,3
-```
-
-Example vector file:
-```text
-size: 8
-data:
-2,7,1,8,2,8,1,8
-```
-
-## Notes
-This repository is intentionally modular and inspection-friendly.
-It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
-
-## Docs
-- `docs/SPEC_V1.md`: pinned transcript/message/verify boundary for v1
-- `docs/REFERENCE_DIFF.md`: Spartan2-like vs lcpc/brakedown-like dual-reference boundary
-- `docs/PRODUCTION_CHECKLIST.md`: prioritized production-upgrade checklist
-- `docs/NIZK_MASKING_MODEL.md`: current masked-claim construction and scope notes
-- `docs/PARITY_TRACE_MATRIX.md`: must-match vs may-differ trace comparison matrix
-- `docs/EXTERNAL_PARITY_IMPORT.md`: how to compare local parity with external snapshots
-
-`parity_with_reference` test note:
-- set `ZKLINEAR_UPDATE_PARITY_REF=1` once to regenerate `tests/reference_vectors/parity_case_01.json`
-
-
-## Demo Caveats (Important)
-- The current Brakedown path is a **research/demo implementation** for inspection and testing.
-- The encoder path in `src/pcs/brakedown/encoding.rs` is now **configurable**:
-  - `SpielmanLike` (default): SDIG-inspired sparse precode/postcode + base RS-like layer
-  - `ToyHybrid`: systematic + RS-like parity + fixed sparse parity (legacy demo mode)
-- It is still **not** a full production Brakedown implementation or a drop-in replacement for audited reference code.
-- Tensors/challenges in tests are chosen for reproducible protocol tracing, not for production parameterization.
-- Use this repo to understand flow and verify invariants; do not treat current parameters/encoding as final cryptographic settings.
-- The bridge and NIZK paths are still **protocol skeletons**:
-  - useful for phase-by-phase analysis and interface validation
-  - not a production-ready Spartan2 integration
-- In the NIZK skeleton:
-  - outer/inner/PCS use transcript-shaped flow
-  - masking uses transcript-bound two-component form:
-    - `masked_claim = unblinded_claim + blind_eval_1 + alpha_blind * blind_eval_2`
-    - with dedicated PCS openings for:
-      - main / blind1 / blind2 checks
-      - joint-at-r / z-at-r binding checks (`inner_trace.final_f/final_g`)
-  - default verifier API is `verify_public(proof, public)`
-  - `verify_from_dir_strict` is a debug/full-replay path
-  - despite stronger masking flow, this path is still research-oriented and not a final audited ZK construction
+현재 테스트셋은 핵심 정합성(PCS/NIZK/compiled boundary/shape guard/leakage probe) 위주로 최소화되어 있습니다.

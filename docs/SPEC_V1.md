@@ -1,169 +1,61 @@
-# zkLinear Spec v1 (Pinned)
+# zkLinear Spec v1 (Current)
 
-This document pins the protocol-skeleton boundary used for production-oriented iteration.
+이 문서는 현재 코드베이스의 검증 경계와 transcript 계약을 고정한다.
 
-## 1. Transcript Engine
+## 1. Transcript
+- 엔진: `merlin`
+- 도메인: `zklinear/v1/spartan-brakedown`
+- NIZK 라벨: `zklinear/v1/spartan-brakedown/nizk`
 
-- Engine: `merlin` (single transcript engine for integrated prove/verify paths)
-- Domain separation: `zklinear/v1/spartan-brakedown`
+## 2. Canonical Sumcheck Messages
+- outer round: prover -> verifier 에 `g(0), g(2), g(3)` 전달
+- inner round: prover -> verifier 에 `h(0), h(1), h(2)` 전달
+- 각 round challenge는 transcript replay로 검증
 
-## 2. Domain/Label Constants
+## 3. Public/Proof Boundary
 
-- bridge transcript label: `zklinear/v1/spartan-brakedown/bridge`
-- nizk transcript label: `zklinear/v1/spartan-brakedown/nizk`
-- pcs demo transcript label: `zklinear/v1/spartan-brakedown/pcs-demo`
-- outer sumcheck round label: `spartan-outer-sumcheck`
-- inner sumcheck round label: `spartan-inner-sumcheck`
-- joint inner label: `spartan-inner-joint`
+### proof 포함
+- compact outer/inner trace
+- `gamma`
+- `verifier_commitment`
+- `pcs_proof_joint_eval_at_r`
 
-## 3. Round Message Shape
+### public 포함
+- `rows`, `cols`
+- `case_digest`
+- `field_profile`
 
-- outer round message: prover sends `g(0), g(2), g(3)`
-  - verifier derives `g(1)` from current claim
-- inner round message: prover sends `h(0), h(1), h(2)`
+### meta(sidecar) 포함
+- `reference_profile`
+- `context_fingerprint`
 
-## 4. Public Input Binding
+메타는 관측/운영용이며 verify accept/reject의 필수 입력이 아니다.
 
-Transcript binds:
-- circuit/witness public shape and values used by verifier path (`A,B,C,z`, rows, cols)
-- reference profile (`Spartan2Like`, `LcpcBrakedownLike`)
-- bridge/nizk public metadata (`case_digest`, `gamma`, `claimed_value` as applicable)
+## 4. Verify APIs
+- `verify_public(proof, public)`
+  - 공개 경계 검증
+  - sumcheck transition + PCS claimed-evaluation 검증
+- `verify_with_compiled(compiled, proof, public)`
+  - `verify_public` + compiled/public 일관성 체크
 
-## 5. PCS Verify Boundary
+## 5. PCS Wire Contract
+- verifier commitment 태그: `ZKVCB001`
+- eval proof 태그: `ZKPFB002`
+- unknown tag/version, trailing bytes는 reject
+- field decode는 canonical range를 강제
 
-Pinned API boundary:
-- `verify(commitment, proof, outer_tensor, inner_tensor, claimed_value, transcript) -> Result<()>`
+## 6. Column Sampling Contract
+- open column은 transcript 기반 deterministic sampling
+- sampling range는 `[col_open_start, n_cols)`
+- `n_open <= n_cols - col_open_start` 강제
 
-Verifier accepts/rejects caller-provided `claimed_value`.
+## 7. Profile Contract
+- default reference profile: `Spartan2Like + LcpcBrakedownLike`
+- default field profile: `Mersenne61Ext2`
+- production-like preset에서는 고정 challenge count를 사용
+  - `n_degree_tests = 8`
+  - `n_col_opens = 16`
 
-## 5.1 NIZK Masking Contract
-
-For the full-style NIZK path, the masked claim is transcript-bound as:
-
-- `masked_claim = unblinded_claim + blind_eval_1 + alpha_blind * blind_eval_2`
-
-where:
-- `blind_eval_1 = <blind_vec_1, z>`
-- `blind_eval_2 = <blind_vec_2, z>`
-- `alpha_blind` is sampled from the same transcript
-
-PCS openings are verified for:
-- main tensor (masked claim)
-- blind tensor #1 (`blind_eval_1`)
-- blind tensor #2 (`blind_eval_2`)
-- joint polynomial evaluation at inner point `r`
-- witness vector evaluation at inner point `r`
-
-Current row layout used by NIZK PCS commitment:
-- row 0: `a_bound`
-- row 1: `b_bound`
-- row 2: `c_bound`
-- row 3: `blind_vec_1`
-- row 4: `blind_vec_2`
-- row 5: `z`
-
-Verifier-side claim binding checks (succinct path):
-- `claimed_unblinded == inner_trace.claim_initial`
-- `claimed_masked = claimed_unblinded + blind_eval_1 + alpha_blind * blind_eval_2`
-- `joint_eval_at_r == inner_trace.final_f`
-- `z_eval_at_r == inner_trace.final_g`
-- `inner_trace.final_claim == inner_trace.final_f * inner_trace.final_g`
-
-## 6. Serialization in Transcript/Hash Input
-
-- field element encoding: `u64` little-endian
-- integer scalar encoding (e.g. round/ncols): `u64` little-endian
-
-## 6.1 Brakedown Wire Envelope (Pinned)
-
-Verifier-commitment and eval-proof wire payloads are versioned by fixed 8-byte tags:
-- verifier commitment tag: `ZKVCB001`
-- eval proof tag: `ZKPFB002`
-
-Compatibility policy:
-- unknown tag/version is rejected at decode boundary
-- trailing bytes are rejected at decode boundary
-- field element decode enforces canonical range: `0 <= x < modulus`
-  - encoded `u64` values `>= modulus` are rejected
-
-This repository treats the wire boundary as strict and fail-closed.
-
-## 6.2 Challenge/Query Sampling (Pinned)
-
-Brakedown challenge/query sampling in this repository is transcript-driven and
-deterministic:
-
-- degree-test vectors and column-open queries are derived directly from merlin
-  challenge bytes
-- no external RNG seed injection at verifier boundary
-- degree-test vectors are sampled with explicit round binding (`round_idx`)
-- column-open query sampler is bound to `(n_cols, n_open)` metadata
-- bounded integer sampling uses rejection sampling to reduce modulo bias
-- field-element sampling enforces canonical `0 <= x < modulus`
-
-This keeps prover/verifier replay consistent and makes sampling behavior
-explicit for profiling and regression tests.
-
-## 7. Reference Profile Policy
-
-Default enforced profile:
-- protocol: `Spartan2Like`
-- pcs: `LcpcBrakedownLike`
-
-Default runtime field profile in this repository:
-- `Mersenne61Ext2` (`BrakedownParams::new(...)`)
-- toy profile remains available only through explicit constructors/presets (`new_toy`, `DemoToy`)
-
-Any profile mismatch at verification boundary is rejected.
-
-## 7.1 Brakedown Production-Candidate Parameter Contract
-
-For production-oriented profiling (still non-audited), this repository pins the
-following Brakedown parameter shape:
-
-- `field_profile`: non-toy (`Mersenne61Ext2` or `Goldilocks64Ext2`)
-- `auto_tune_security`: `false`
-- `encoder_kind`: `SpielmanLike`
-- `encoder_seed`: `0`
-- `spel_layers`: `3`
-- `spel_pre_density`: `5`
-- `spel_post_density`: `4`
-- `spel_base_rs_parity`: `16`
-
-Code-level predicate:
-- `BrakedownParams::is_spec_v1_production_candidate() == true`
-
-This contract is intended to keep benchmark/profiling runs comparable and
-fail-fast on accidental parameter drift.
-
-For this pinned profile, challenge counts are fixed to:
-
-- `n_degree_tests = 8`
-- `n_col_opens = 16`
-
-Separately, when auto-tuned mode is enabled in lcpc-like experiments, counts are
-derived by:
-
-- `n_degree_tests = ceil(lambda / max(1, flog2(|F|) - floor(log2(n_cols))))`
-- `n_col_opens = clamp[1, n_cols]( ceil( -lambda / log2(1 - delta/3) ) )`
-  - `delta = rel_distance_hint(encoder_kind)`
-  - `rel_distance_hint(SpielmanLike) = 0.040105193951347796`
-  - `rel_distance_hint(ToyHybrid) = 0.08`
-
-where `lambda = security_bits`.
-
-## 8. Scope Note
-
-This pinning applies to the protocol skeleton and verification boundary in this repository.
-It does not claim full production cryptographic equivalence to Spartan2 or lcpc reference code.
-
-## 9. Transcript Snapshot Vectors
-
-Pinned local transcript snapshot vector:
-- `tests/reference_vectors/transcript_case_01.json`
-
-Generation/update command:
-- `ZKLINEAR_UPDATE_TRANSCRIPT_REF=1 cargo test --test transcript_vectors`
-
-Verification command:
-- `cargo test --test transcript_vectors`
+## 8. Scope
+- 본 spec은 이 저장소의 현재 구현 경계 정의다.
+- Spartan2/lcpc와의 완전 동등성(바이트 단위)을 주장하지 않는다.
