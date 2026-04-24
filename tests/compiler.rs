@@ -5,7 +5,7 @@ use std::{
 };
 
 use zk_linear::nizk::spartan_brakedown::{
-    compile_from_dir, compile_from_dir_with_profile, parse_field_profile, prove_from_dir,
+    compile, compile_with_profile, parse_field_profile, prove,
 };
 #[path = "testlog.rs"]
 mod testlog;
@@ -73,8 +73,8 @@ fn compiler_001_compile_is_deterministic_on_reference_case() {
         "input: case dir, output: compiled metadata",
         "profile=default",
         {
-            let c1 = compile_from_dir(&case_dir()).expect("compile should succeed");
-            let c2 = compile_from_dir(&case_dir()).expect("compile should succeed");
+            let c1 = compile(&case_dir()).expect("compile should succeed");
+            let c2 = compile(&case_dir()).expect("compile should succeed");
 
             testlog::data("rows", c1.rows);
             testlog::data("cols", c1.cols);
@@ -97,8 +97,7 @@ fn compiler_002_compile_rejects_non_power_of_two_rows() {
         "expect_error=shape_power_of_two",
         {
             let dir = build_case(3, 8, 8);
-            let err =
-                compile_from_dir(&dir).expect_err("compile should reject non-power-of-two rows");
+            let err = compile(&dir).expect_err("compile should reject non-power-of-two rows");
             testlog::data("error", &err);
             assert!(err.to_string().contains("powers of two"));
             let _ = fs::remove_dir_all(dir);
@@ -115,8 +114,7 @@ fn compiler_003_compile_rejects_witness_length_mismatch() {
         "expect_error=z_length_mismatch",
         {
             let dir = build_case(4, 8, 7);
-            let err =
-                compile_from_dir(&dir).expect_err("compile should reject witness length mismatch");
+            let err = compile(&dir).expect_err("compile should reject witness length mismatch");
             testlog::data("error", &err);
             assert!(err
                 .to_string()
@@ -137,10 +135,9 @@ fn compiler_004_context_fingerprint_changes_with_profile() {
             let m61 = parse_field_profile("m61").expect("m61 profile should parse");
             let gold = parse_field_profile("gold").expect("gold profile should parse");
 
-            let c_m61 = compile_from_dir_with_profile(&case_dir(), m61)
-                .expect("m61 compile should succeed");
-            let c_gold = compile_from_dir_with_profile(&case_dir(), gold)
-                .expect("gold compile should succeed");
+            let c_m61 = compile_with_profile(&case_dir(), m61).expect("m61 compile should succeed");
+            let c_gold =
+                compile_with_profile(&case_dir(), gold).expect("gold compile should succeed");
             testlog::data("m61_ctx_head", hex::encode(&c_m61.context_fingerprint[..4]));
             testlog::data(
                 "gold_ctx_head",
@@ -161,7 +158,7 @@ fn compiler_005_prove_rejects_invalid_case_shape_early() {
         "expect_error=shape_power_of_two",
         {
             let dir = build_case(3, 8, 8);
-            let err = prove_from_dir(&dir).expect_err("prove should reject invalid shape");
+            let err = prove(&dir).expect_err("prove should reject invalid shape");
             testlog::data("error", &err);
             assert!(err.to_string().contains("powers of two"));
             let _ = fs::remove_dir_all(dir);

@@ -225,11 +225,11 @@ pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
     BrakedownFieldProfile::parse(s)
 }
 
-pub fn compile_from_dir(case_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
-    compile_from_dir_with_profile(case_dir, default_profile())
+pub fn compile(case_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
+    compile_with_profile(case_dir, default_profile())
 }
 
-pub fn compile_from_dir_with_profile(
+pub fn compile_with_profile(
     case_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownCompiledCircuit> {
@@ -246,14 +246,14 @@ pub fn compile_from_dir_with_profile(
     })
 }
 
-pub fn prove_with_compiled_from_dir(
+pub fn prove_with_compiled(
     compiled: &SpartanBrakedownCompiledCircuit,
     case_dir: &Path,
 ) -> Result<SpartanBrakedownPipelineResult> {
     let _mod_scope = ModulusScope::enter(compiled.field_profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
     validate_compiled_case(compiled, &case)?;
-    let result = prove_from_dir_impl(case_dir, compiled.field_profile)?;
+    let result = prove_impl(case_dir, compiled.field_profile)?;
     if result.public_meta.context_fingerprint != compiled.context_fingerprint
         || result.proof_meta.context_fingerprint != compiled.context_fingerprint
     {
@@ -262,24 +262,24 @@ pub fn prove_with_compiled_from_dir(
     Ok(result)
 }
 
-pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-    SpartanBrakedownProver::new(default_profile()).prove_from_dir(case_dir)
+pub fn prove(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+    SpartanBrakedownProver::new(default_profile()).prove(case_dir)
 }
 
-pub fn prove_from_dir_with_profile(
+pub fn prove_with_profile(
     case_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownPipelineResult> {
-    SpartanBrakedownProver::new(profile).prove_from_dir(case_dir)
+    SpartanBrakedownProver::new(profile).prove(case_dir)
 }
 
 impl SpartanBrakedownProver {
-    pub fn prove_from_dir(self, case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
-        prove_from_dir_impl(case_dir, self.profile)
+    pub fn prove(self, case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+        prove_impl(case_dir, self.profile)
     }
 }
 
-fn prove_from_dir_impl(
+fn prove_impl(
     case_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<SpartanBrakedownPipelineResult> {
@@ -399,14 +399,8 @@ fn prove_from_dir_impl(
     })
 }
 
-pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
-    // Backward-compatible wrapper: strict replay is debug-only.
-    // Default verifier path for deployment-facing call-sites is `verify_public`.
-    verify_from_dir_strict(case_dir, proof)
-}
-
-pub fn verify_from_dir_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
-    verify_from_dir_strict_impl(case_dir, proof)
+pub fn verify_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    verify_strict_impl(case_dir, proof)
 }
 
 pub fn verify_public(proof: &SpartanBrakedownProof, public: &SpartanBrakedownPublic) -> Result<()> {
@@ -423,9 +417,9 @@ pub fn verify_with_compiled(
 }
 
 impl SpartanBrakedownVerifier {
-    pub fn verify_from_dir(self, case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    pub fn verify(self, case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
         match self.mode {
-            VerifyMode::StrictReplay => verify_from_dir_strict_impl(case_dir, proof),
+            VerifyMode::StrictReplay => verify_strict_impl(case_dir, proof),
             VerifyMode::Succinct => Err(anyhow!(
                 "succinct verifier requires explicit public input; use verify_public(proof, public)"
             )),
@@ -442,7 +436,7 @@ impl SpartanBrakedownVerifier {
     }
 }
 
-fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+fn verify_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
     let _mod_scope = ModulusScope::enter(proof.verifier_commitment.field_profile.base_modulus());
     let case = load_spartan_like_case_from_dir(case_dir)?;
     let (rows, cols) = validate_case_shape(&case)?;
@@ -781,14 +775,76 @@ fn verify_public_succinct(
     Ok(())
 }
 
+pub fn build_pipeline_report(case_dir: &Path) -> Result<String> {
+    build_pipeline_report_with_profile(case_dir, default_profile())
+}
+
+pub fn build_pipeline_report_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<String> {
+    let result = prove_with_profile(case_dir, profile)?;
+    Ok(format_pipeline_report(case_dir, &result))
+}
+
+// Backward-compatible wrappers for older call-sites.
+pub fn compile_from_dir(case_dir: &Path) -> Result<SpartanBrakedownCompiledCircuit> {
+    compile(case_dir)
+}
+
+pub fn compile_from_dir_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<SpartanBrakedownCompiledCircuit> {
+    compile_with_profile(case_dir, profile)
+}
+
+pub fn prove_with_compiled_from_dir(
+    compiled: &SpartanBrakedownCompiledCircuit,
+    case_dir: &Path,
+) -> Result<SpartanBrakedownPipelineResult> {
+    prove_with_compiled(compiled, case_dir)
+}
+
+pub fn prove_from_dir(case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+    prove(case_dir)
+}
+
+pub fn prove_from_dir_with_profile(
+    case_dir: &Path,
+    profile: BrakedownFieldProfile,
+) -> Result<SpartanBrakedownPipelineResult> {
+    prove_with_profile(case_dir, profile)
+}
+
+pub fn verify_from_dir(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    // Kept for compatibility; strict replay remains a debug mode path.
+    verify_strict(case_dir, proof)
+}
+
+pub fn verify_from_dir_strict(case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+    verify_strict(case_dir, proof)
+}
+
+impl SpartanBrakedownProver {
+    pub fn prove_from_dir(self, case_dir: &Path) -> Result<SpartanBrakedownPipelineResult> {
+        self.prove(case_dir)
+    }
+}
+
+impl SpartanBrakedownVerifier {
+    pub fn verify_from_dir(self, case_dir: &Path, proof: &SpartanBrakedownProof) -> Result<()> {
+        self.verify(case_dir, proof)
+    }
+}
+
 pub fn build_pipeline_report_from_dir(case_dir: &Path) -> Result<String> {
-    build_pipeline_report_from_dir_with_profile(case_dir, default_profile())
+    build_pipeline_report(case_dir)
 }
 
 pub fn build_pipeline_report_from_dir_with_profile(
     case_dir: &Path,
     profile: BrakedownFieldProfile,
 ) -> Result<String> {
-    let result = prove_from_dir_with_profile(case_dir, profile)?;
-    Ok(format_pipeline_report(case_dir, &result))
+    build_pipeline_report_with_profile(case_dir, profile)
 }

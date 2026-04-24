@@ -2,8 +2,7 @@ use std::{fs, path::PathBuf};
 
 use anyhow::{anyhow, Result};
 use zk_linear::{
-    io::r1cs_zkif::import_spartan_like_case_from_zkif_workspace,
-    nizk::spartan_brakedown::prove_from_dir,
+    io::r1cs_zkif::import_spartan_like_case_from_zkif_workspace, nizk::spartan_brakedown::prove,
 };
 use zkinterface::producers::{
     builder::Sink,
@@ -27,7 +26,7 @@ fn main() -> Result<()> {
         .map_err(|e| anyhow!(e.to_string()))?;
 
     import_spartan_like_case_from_zkif_workspace(&src_ws, &dst_case)?;
-    let res = prove_from_dir(&dst_case)?;
+    let res = prove(&dst_case)?;
 
     println!("generated zkif workspace: {}", src_ws.display());
     println!("generated zklinear case: {}", dst_case.display());

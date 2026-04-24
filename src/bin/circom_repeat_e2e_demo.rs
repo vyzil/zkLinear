@@ -3,7 +3,7 @@ use std::{fs, path::PathBuf, process::Command};
 use anyhow::{anyhow, bail, Result};
 use zk_linear::{
     io::r1cs_circom::import_spartan_like_case_from_circom_json,
-    nizk::spartan_brakedown::prove_from_dir,
+    nizk::spartan_brakedown::prove,
     pcs::brakedown::wire::{serialize_eval_proof, serialize_verifier_commitment},
 };
 
@@ -125,7 +125,7 @@ component main = RepeatEq({n});
         &case,
     )?;
 
-    let res = prove_from_dir(&case)?;
+    let res = prove(&case)?;
 
     println!(
         "circom constraints: 2^{} = {}",

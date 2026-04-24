@@ -7,7 +7,7 @@ use zk_linear::{
         transcript::derive_round_challenge_merlin,
     },
     io::case_format::load_spartan_like_case_from_dir,
-    nizk::spartan_brakedown::prove_from_dir,
+    nizk::spartan_brakedown::prove,
     pcs::brakedown::challenges::sample_field_vec_round_t,
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
@@ -109,7 +109,7 @@ fn leakage_001_reference_path_exposes_degree_test_row_collapses() {
         "input: pipeline proof payload",
         "check=p_random_vec_presence",
         {
-            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let result = prove(&case_dir()).expect("prove should succeed");
             testlog::data(
                 "p_random_vec_len",
                 result.proof.pcs_proof_joint_eval_at_r.p_random_vec.len(),
@@ -134,7 +134,7 @@ fn leakage_002_reference_path_can_recover_bound_rows_from_p_random_vec() {
         "input: proof p_random_vec + transcript-replayed degree tensors",
         "assumption=n_rows=1 witness layout",
         {
-            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let result = prove(&case_dir()).expect("prove should succeed");
             let _mod_scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
             let case = load_spartan_like_case_from_dir(&case_dir()).expect("load case");

@@ -9,9 +9,9 @@ use serde::{Deserialize, Serialize};
 use zk_linear::{
     core::field::{Fp, ModulusScope},
     nizk::spartan_brakedown::{
-        compile_from_dir_with_profile, parse_field_profile, prove_with_compiled_from_dir,
-        verify_with_compiled, KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkJointChallenges,
-        NizkOuterRound, NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownProof,
+        compile_with_profile, parse_field_profile, prove_with_compiled, verify_with_compiled,
+        KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkJointChallenges, NizkOuterRound,
+        NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownProof,
         SpartanBrakedownProofMeta, SpartanBrakedownPublic, SpartanBrakedownPublicMeta,
     },
     pcs::brakedown::wire::{
@@ -529,7 +529,7 @@ fn run_compile(args: &[String]) -> Result<()> {
     let profile = parse_field_profile(&profile_s)
         .ok_or_else(|| anyhow!("unknown profile '{}'; use toy|m61|gold", profile_s))?;
     let started = Instant::now();
-    let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
+    let compiled = compile_with_profile(&case_dir, profile)?;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
     let compiled_wire = sidecar_wire_path(&out_compiled);
     let report_path = out_compiled.with_extension("compile.report.json");
@@ -577,7 +577,7 @@ fn run_prove(args: &[String]) -> Result<()> {
         compiled_from_json(&compiled_json)?
     };
     let started = Instant::now();
-    let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
+    let res = prove_with_compiled(&compiled, &case_dir)?;
     let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
 
     write_json(&proof_path, &proof_to_json(&res.proof))?;
@@ -666,7 +666,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     let public_wire = sidecar_wire_path(&public_path);
 
     let t_compile = Instant::now();
-    let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
+    let compiled = compile_with_profile(&case_dir, profile)?;
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
     let compile_report_path = out_dir.join("compile.report.json");
     write_json(&compiled_path, &compiled_to_json(&compiled))?;
@@ -689,7 +689,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     )?;
 
     let t_prove = Instant::now();
-    let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
+    let res = prove_with_compiled(&compiled, &case_dir)?;
     let prove_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
     let prove_report_path = out_dir.join("prove.report.json");
     write_json(&proof_path, &proof_to_json(&res.proof))?;

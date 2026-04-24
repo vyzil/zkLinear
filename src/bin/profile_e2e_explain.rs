@@ -5,8 +5,8 @@ use zk_linear::{
     core::field::{Fp, ModulusScope},
     io::case_format::{load_spartan_like_case_from_dir, SpartanLikeCase},
     nizk::spartan_brakedown::{
-        compile_from_dir_with_profile, parse_field_profile, prove_with_compiled_from_dir,
-        verify_from_dir_strict, verify_with_compiled,
+        compile_with_profile, parse_field_profile, prove_with_compiled, verify_strict,
+        verify_with_compiled,
     },
     pcs::brakedown::{
         profiles::params_for_field_profile,
@@ -172,8 +172,8 @@ fn main() -> Result<()> {
     );
     println!();
 
-    let compiled = compile_from_dir_with_profile(&case_dir, profile)?;
-    let res = prove_with_compiled_from_dir(&compiled, &case_dir)?;
+    let compiled = compile_with_profile(&case_dir, profile)?;
+    let res = prove_with_compiled(&compiled, &case_dir)?;
 
     let az = matrix_vec_mul(&case.a, &case.z);
     let bz = matrix_vec_mul(&case.b, &case.z);
@@ -361,7 +361,7 @@ fn main() -> Result<()> {
     verify_with_compiled(&compiled, &res.proof, &res.public)?;
     println!("- succinct(public+proof) verify: PASS");
 
-    verify_from_dir_strict(&case_dir, &res.proof)?;
+    verify_strict(&case_dir, &res.proof)?;
     println!("- strict replay(case+proof) verify: PASS");
 
     println!(

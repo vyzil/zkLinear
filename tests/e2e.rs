@@ -3,8 +3,7 @@ use std::{fs, path::PathBuf};
 use zk_linear::{
     core::field::{Fp, ModulusScope},
     nizk::spartan_brakedown::{
-        compile_from_dir, prove_from_dir, prove_with_compiled_from_dir, verify_from_dir_strict,
-        verify_public, verify_with_compiled,
+        compile, prove, prove_with_compiled, verify_public, verify_strict, verify_with_compiled,
     },
     protocol::reference::DUAL_REFERENCE_PROFILE,
 };
@@ -33,7 +32,7 @@ fn e2e_001_nizk_public_verify_succeeds_on_valid_proof() {
         "input: case dir -> (proof, public)",
         "verify=public boundary",
         {
-            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let result = prove(&case_dir()).expect("prove should succeed");
             testlog::data("rows", result.public.rows);
             testlog::data("cols", result.public.cols);
             verify_public(&result.proof, &result.public).expect("verify should succeed");
@@ -49,9 +48,8 @@ fn e2e_002_nizk_strict_replay_verify_succeeds() {
         "input: case dir + proof",
         "verify=strict replay",
         {
-            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
-            verify_from_dir_strict(&case_dir(), &result.proof)
-                .expect("strict replay verify should succeed");
+            let result = prove(&case_dir()).expect("prove should succeed");
+            verify_strict(&case_dir(), &result.proof).expect("strict replay verify should succeed");
         }
     );
 }
@@ -64,7 +62,7 @@ fn e2e_003_nizk_public_verify_rejects_tampered_root() {
         "input: valid proof with root bit flipped",
         "verify=public boundary",
         {
-            let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let mut result = prove(&case_dir()).expect("prove should succeed");
             result.proof.verifier_commitment.root[0] ^= 1;
 
             let err = verify_public(&result.proof, &result.public)
@@ -93,7 +91,7 @@ fn e2e_004_nizk_public_verify_rejects_wrong_claimed_value() {
         "input: mutate final_f/final_g while keeping final_claim relation",
         "verify=public boundary",
         {
-            let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let mut result = prove(&case_dir()).expect("prove should succeed");
             let _scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
             let mut new_final_f = result.proof.inner_trace.final_f.add(Fp::new(1));
@@ -125,8 +123,8 @@ fn e2e_005_nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
         "input: compiled + proof + public with later compiled fingerprint tamper",
         "verify=compiled boundary",
         {
-            let mut compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
-            let result = prove_with_compiled_from_dir(&compiled, &case_dir())
+            let mut compiled = compile(&case_dir()).expect("compile should succeed");
+            let result = prove_with_compiled(&compiled, &case_dir())
                 .expect("prove with compiled should succeed");
 
             verify_with_compiled(&compiled, &result.proof, &result.public)
@@ -151,7 +149,7 @@ fn e2e_006_pipeline_metadata_sidecars_are_consistent() {
         "input: pipeline result",
         "meta=reference_profile+context_fingerprint",
         {
-            let result = prove_from_dir(&case_dir()).expect("prove should succeed");
+            let result = prove(&case_dir()).expect("prove should succeed");
             testlog::data(
                 "ctx_head",
                 hex::encode(&result.proof_meta.context_fingerprint[..4]),
@@ -183,7 +181,7 @@ fn e2e_007_cli_verify_path_uses_compiled_public_boundary_only() {
                 "CLI verify path must use verify_with_compiled"
             );
             assert!(
-                !cli_src.contains("verify_from_dir_strict("),
+                !cli_src.contains("verify_strict("),
                 "strict replay verifier must stay out of CLI verify path"
             );
         }

@@ -1,9 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{anyhow, Result};
-use zk_linear::nizk::spartan_brakedown::{
-    build_pipeline_report_from_dir_with_profile, parse_field_profile,
-};
+use zk_linear::nizk::spartan_brakedown::{build_pipeline_report_with_profile, parse_field_profile};
 
 fn main() -> Result<()> {
     let mut args = std::env::args().skip(1);
@@ -20,7 +18,7 @@ fn main() -> Result<()> {
         )
     })?;
 
-    let report = build_pipeline_report_from_dir_with_profile(&case_dir, profile)?;
+    let report = build_pipeline_report_with_profile(&case_dir, profile)?;
     println!("{}", report);
     Ok(())
 }

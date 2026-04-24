@@ -4,9 +4,7 @@ use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    nizk::spartan_brakedown::{
-        compile_from_dir_with_profile, prove_with_compiled_from_dir, verify_with_compiled,
-    },
+    nizk::spartan_brakedown::{compile_with_profile, prove_with_compiled, verify_with_compiled},
     pcs::brakedown::{
         types::BrakedownFieldProfile,
         wire::{serialize_eval_proof, serialize_verifier_commitment},
@@ -59,7 +57,7 @@ fn run_once(
     run_id: usize,
 ) -> Result<NizkMeasuredRun> {
     let t_prove = Instant::now();
-    let res = prove_with_compiled_from_dir(compiled, case_dir)?;
+    let res = prove_with_compiled(compiled, case_dir)?;
     let prove_wall_ms = t_prove.elapsed().as_secs_f64() * 1000.0;
 
     let t_verify = Instant::now();
@@ -95,7 +93,7 @@ pub fn collect_nizk_metrics(
         return Err(anyhow!("measured_runs must be >= 1"));
     }
     let t_compile = Instant::now();
-    let compiled = compile_from_dir_with_profile(case_dir, profile)?;
+    let compiled = compile_with_profile(case_dir, profile)?;
     let compile_ms = t_compile.elapsed().as_secs_f64() * 1000.0;
 
     for _ in 0..warmup_runs {
