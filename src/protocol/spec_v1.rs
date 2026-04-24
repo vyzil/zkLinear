@@ -11,7 +11,6 @@ pub const OUTER_SUMCHECK_LABEL: &[u8] = b"spartan-outer-sumcheck";
 pub const INNER_SUMCHECK_LABEL: &[u8] = b"spartan-inner-sumcheck";
 pub const INNER_SUMCHECK_JOINT_LABEL: &[u8] = b"spartan-inner-joint";
 
-pub const BLIND_VEC_LABEL: &[u8] = b"spartan_nizk_blind_vec";
 pub const BLIND_MIX_LABEL: &[u8] = b"spartan_nizk_blind_mix_alpha";
 pub const GAMMA_LABEL: &[u8] = b"gamma";
 pub const GAMMA_DOMAIN: &[u8] = b"spartan-like-joint-challenge";

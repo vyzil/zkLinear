@@ -11,10 +11,14 @@ Current masked claim relation:
 where:
 - `blind_eval_1 = <blind_vec_1, z>`
 - `blind_eval_2 = <blind_vec_2, z>`
-- `alpha_blind` is transcript-derived
+- `blind_vec_1`, `blind_vec_2` are sampled from prover RNG (not transcript-deterministic)
+- `alpha_blind` is transcript-derived **after** commitment metadata is bound
 
 Verifier checks:
-- transcript replay for `blind_vec_1`, `blind_vec_2`, `alpha_blind`
+- transcript replay for `alpha_blind` with commit-then-challenge ordering
+- proof-level claim binding:
+  - `claimed_unblinded == inner_trace.claim_initial`
+  - `claimed_masked = claimed_unblinded + blind_eval_1 + alpha_blind * blind_eval_2`
 - algebraic consistency of masked claim relation
 - PCS opening for:
   - main tensor (masked claim)
@@ -34,5 +38,6 @@ This remains a research implementation and does **not** claim:
 - full production ZK proof of security
 - audited leakage bounds under all side-channel models
 - final parity with Spartan2/lcpc production constructions
+- full witness-binding guarantees in the succinct (proof+public-only) path
 
 Use this model for protocol skeleton validation and profiling, not as a finalized cryptographic statement.

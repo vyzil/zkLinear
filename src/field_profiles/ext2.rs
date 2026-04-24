@@ -1,4 +1,5 @@
 use core::marker::PhantomData;
+use core::ops::{Add, Mul, Sub};
 
 use super::base::{BaseField64, Goldilocks64, Mersenne61};
 
@@ -14,6 +15,7 @@ pub struct Ext2<C: Ext2Config> {
     _cfg: PhantomData<C>,
 }
 
+#[allow(clippy::should_implement_trait)]
 impl<C: Ext2Config> Ext2<C> {
     pub fn new(c0: C::Base, c1: C::Base) -> Self {
         Self {
@@ -59,6 +61,30 @@ impl<C: Ext2Config> Ext2<C> {
         let c0 = a.mul(denom_inv);
         let c1 = C::Base::zero().sub(b).mul(denom_inv);
         Some(Self::new(c0, c1))
+    }
+}
+
+impl<C: Ext2Config> Add for Ext2<C> {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Ext2::add(self, rhs)
+    }
+}
+
+impl<C: Ext2Config> Sub for Ext2<C> {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Ext2::sub(self, rhs)
+    }
+}
+
+impl<C: Ext2Config> Mul for Ext2<C> {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Ext2::mul(self, rhs)
     }
 }
 

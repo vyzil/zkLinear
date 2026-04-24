@@ -19,13 +19,15 @@ fn sample_u64_below_unbiased(
     tr: &mut Transcript,
     label: &'static [u8],
     upper_exclusive: u64,
-) -> u64 {
-    assert!(upper_exclusive > 0, "upper bound must be positive");
+) -> Result<u64> {
+    if upper_exclusive == 0 {
+        return Err(anyhow!("upper bound must be positive"));
+    }
     let zone = u64::MAX - (u64::MAX % upper_exclusive);
     loop {
         let x = next_u64(tr, label);
         if x < zone {
-            return x % upper_exclusive;
+            return Ok(x % upper_exclusive);
         }
     }
 }
@@ -69,7 +71,7 @@ pub fn sample_unique_cols(tr: &mut Transcript, n_cols: usize, n_open: usize) -> 
             tr,
             LCPC_COL_OPEN_LABEL,
             (n_cols - i) as u64,
-        ) as usize;
+        )? as usize;
         let j = i + off;
         all.swap(i, j);
     }

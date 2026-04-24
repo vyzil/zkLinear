@@ -26,7 +26,7 @@ fn parity_must_match_subset_between_spartan_like_and_nizk() {
     let rows = sp.case.a.len();
     let cols = sp.case.a[0].len();
     assert_eq!(cols, sp.case.z.len());
-    assert_eq!(sp.case.z.len(), nz.public.inner_tensor.len());
+    assert_eq!(cols, nz.public.cols);
     assert_eq!(1usize << nz.proof.outer_trace.rounds.len(), rows);
     assert_eq!(1usize << nz.proof.inner_trace.rounds.len(), cols);
     assert_eq!(nz.proof.outer_trace.rounds.len(), rows.trailing_zeros() as usize);

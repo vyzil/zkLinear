@@ -95,9 +95,9 @@ fn build_toy_zkml_workspace(ws_dir: &PathBuf) -> Result<()> {
     // hidden constraints: 1 * (b1_i + sum w1_i_k * x_k) = h_i
     for i in 0..4 {
         let mut terms_b = vec![(0u64, b1[i])];
-        for k in 0..4 {
-            if w1[i][k] != 0 {
-                terms_b.push(((k as u64) + 1, w1[i][k]));
+        for (k, &coeff) in w1[i].iter().enumerate() {
+            if coeff != 0 {
+                terms_b.push(((k as u64) + 1, coeff));
             }
         }
         constraints.push(BilinearConstraint {
@@ -110,9 +110,9 @@ fn build_toy_zkml_workspace(ws_dir: &PathBuf) -> Result<()> {
     // output constraints: 1 * (b2_j + sum w2_j_i * h_i) = y_j
     for j in 0..2 {
         let mut terms_b = vec![(0u64, b2[j])];
-        for i in 0..4 {
-            if w2[j][i] != 0 {
-                terms_b.push(((i as u64) + 5, w2[j][i]));
+        for (i, &coeff) in w2[j].iter().enumerate() {
+            if coeff != 0 {
+                terms_b.push(((i as u64) + 5, coeff));
             }
         }
         constraints.push(BilinearConstraint {

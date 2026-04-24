@@ -113,6 +113,23 @@ impl<F: BrakedownField> BrakedownPcsT<F> {
             transcript,
         )
     }
+
+    pub fn verify_structure_generic(
+        &self,
+        verifier_commitment: &BrakedownVerifierCommitment,
+        proof: &BrakedownEvalProofT<F>,
+        outer_tensor: &[F],
+        transcript: &mut Transcript,
+    ) -> Result<()> {
+        verify::verify_eval_structure_t(
+            verifier_commitment,
+            proof,
+            outer_tensor,
+            &self.encoding,
+            &self.params,
+            transcript,
+        )
+    }
 }
 
 impl PolynomialCommitmentScheme for BrakedownPcsT<Fp> {

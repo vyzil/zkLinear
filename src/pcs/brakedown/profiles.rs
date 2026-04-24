@@ -83,7 +83,7 @@ pub fn rel_distance_hint(kind: BrakedownEncoderKind) -> f64 {
 pub fn tuned_n_degree_tests(lambda: usize, n_cols: usize, flog2: usize) -> usize {
     let lg_n = (usize::BITS - (n_cols.max(1)).leading_zeros() - 1) as usize;
     let den = flog2.saturating_sub(lg_n).max(1);
-    (lambda + den - 1) / den
+    lambda.div_ceil(den)
 }
 
 pub fn tuned_n_col_opens(lambda: usize, rel_distance: f64, n_cols: usize) -> usize {

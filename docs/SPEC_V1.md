@@ -51,6 +51,23 @@ PCS openings are verified for:
 - main tensor (masked claim)
 - blind tensor #1 (`blind_eval_1`)
 - blind tensor #2 (`blind_eval_2`)
+- joint polynomial evaluation at inner point `r`
+- witness vector evaluation at inner point `r`
+
+Current row layout used by NIZK PCS commitment:
+- row 0: `a_bound`
+- row 1: `b_bound`
+- row 2: `c_bound`
+- row 3: `blind_vec_1`
+- row 4: `blind_vec_2`
+- row 5: `z`
+
+Verifier-side claim binding checks (succinct path):
+- `claimed_unblinded == inner_trace.claim_initial`
+- `claimed_masked = claimed_unblinded + blind_eval_1 + alpha_blind * blind_eval_2`
+- `joint_eval_at_r == inner_trace.final_f`
+- `z_eval_at_r == inner_trace.final_g`
+- `inner_trace.final_claim == inner_trace.final_f * inner_trace.final_g`
 
 ## 6. Serialization in Transcript/Hash Input
 
@@ -105,7 +122,7 @@ For production-oriented profiling (still non-audited), this repository pins the
 following Brakedown parameter shape:
 
 - `field_profile`: non-toy (`Mersenne61Ext2` or `Goldilocks64Ext2`)
-- `auto_tune_security`: `true`
+- `auto_tune_security`: `false`
 - `encoder_kind`: `SpielmanLike`
 - `encoder_seed`: `0`
 - `spel_layers`: `3`
@@ -119,7 +136,13 @@ Code-level predicate:
 This contract is intended to keep benchmark/profiling runs comparable and
 fail-fast on accidental parameter drift.
 
-Auto-tuned security counts are pinned to:
+For this pinned profile, challenge counts are fixed to:
+
+- `n_degree_tests = 8`
+- `n_col_opens = 16`
+
+Separately, when auto-tuned mode is enabled in lcpc-like experiments, counts are
+derived by:
 
 - `n_degree_tests = ceil(lambda / max(1, flog2(|F|) - floor(log2(n_cols))))`
 - `n_col_opens = clamp[1, n_cols]( ceil( -lambda / log2(1 - delta/3) ) )`

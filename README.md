@@ -103,12 +103,36 @@ cargo run --bin spark_e2e_cli -- compile tests/inner_sumcheck_spartan /tmp/zklin
 cargo run --bin spark_e2e_cli -- prove /tmp/zklinear_compiled.json tests/inner_sumcheck_spartan /tmp/zklinear_proof.json /tmp/zklinear_public.json
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_compiled.json /tmp/zklinear_proof.json /tmp/zklinear_public.json
 ```
+Each step also emits binary sidecars (`*.wire`) for machine metrics and size reporting.
+It also writes stage reports (`*.compile.report.json`, `*.prove.report.json`, `*.verify.report.json`)
+with a shared schema (profile/modulus/digest/fingerprint/runtime/payload).
 
 Size-driven run + proof inspection:
 ```bash
 cargo run --bin spark_e2e_cli -- prove-k 17 /tmp/zklinear_run_k17 m61
 cargo run --bin spark_e2e_cli -- inspect /tmp/zklinear_run_k17/proof.json
 cargo run --bin spark_e2e_cli -- verify /tmp/zklinear_run_k17/compiled.json /tmp/zklinear_run_k17/proof.json /tmp/zklinear_run_k17/public.json
+```
+
+Single metrics runner (warmup + repeated runs + CSV/JSON):
+```bash
+cargo run --bin metrics_runner -- tests/inner_sumcheck_spartan /tmp/zklinear_metrics m61 1 5
+```
+
+Generate circom repeat case only (no prove/verify run):
+```bash
+cargo run --bin circom_repeat_casegen -- 17
+```
+
+One-shot compile/prove/verify with cache flush between phases:
+```bash
+scripts/run_e2e_with_cache_flush.sh tests/inner_sumcheck_spartan /tmp/zklinear_e2e m61
+scripts/run_e2e_with_cache_flush.sh --k 17 /tmp/zklinear_run_k17 m61
+```
+
+Claims gate (full tests + conformance + metrics sanity + clippy):
+```bash
+scripts/ci_claims_gate.sh tests/inner_sumcheck_spartan m61 /tmp/zklinear_claims_gate
 ```
 
 ## Input Format
@@ -158,5 +182,9 @@ It is not intended to be a byte-for-byte production clone of Spartan2/lcpc.
   - outer/inner/PCS use transcript-shaped flow
   - masking uses transcript-bound two-component form:
     - `masked_claim = unblinded_claim + blind_eval_1 + alpha_blind * blind_eval_2`
-    - with dedicated PCS openings for main / blind1 / blind2 checks
+    - with dedicated PCS openings for:
+      - main / blind1 / blind2 checks
+      - joint-at-r / z-at-r binding checks (`inner_trace.final_f/final_g`)
+  - default verifier API is `verify_public(proof, public)`
+  - `verify_from_dir_strict` is a debug/full-replay path
   - despite stronger masking flow, this path is still research-oriented and not a final audited ZK construction

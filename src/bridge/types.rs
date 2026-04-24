@@ -2,7 +2,7 @@ use crate::{
     api::spartan_like::SpartanLikeReportData,
     core::field::Fp,
     pcs::brakedown::types::{
-        BrakedownEvalProof, BrakedownParams, BrakedownVerifierCommitment,
+        BrakedownEvalProof, BrakedownFieldProfile, BrakedownParams, BrakedownVerifierCommitment,
     },
     protocol::reference::ReferenceProfile,
     sumcheck::{
@@ -22,17 +22,22 @@ pub struct BridgeProofBundle {
     pub claimed_evaluation: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
+    pub context_fingerprint: [u8; 32],
     pub reference_profile: ReferenceProfile,
     pub pcs_params: BrakedownParams,
 }
 
 #[derive(Debug, Clone)]
 pub struct BridgeVerifierQuery {
-    pub outer_tensor: Vec<Fp>,
-    pub inner_tensor: Vec<Fp>,
+    // Public verifier metadata only.
+    // Witness-like tensors are intentionally excluded from this boundary.
+    pub rows: usize,
+    pub cols: usize,
+    pub field_profile: BrakedownFieldProfile,
     pub claimed_value: Fp,
     pub gamma: Fp,
     pub public_case_digest: [u8; 32],
+    pub context_fingerprint: [u8; 32],
     pub reference_profile: ReferenceProfile,
 }
 

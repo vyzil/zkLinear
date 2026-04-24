@@ -4,6 +4,7 @@ use merlin::Transcript;
 use zk_linear::{
     bridge::{prove_bridge_from_dir, verify_bridge_bundle, BRIDGE_TRANSCRIPT_LABEL},
     core::field::Fp,
+    pcs::brakedown::types::BrakedownFieldProfile,
     protocol::reference::{PcsReference, ProtocolReference},
 };
 
@@ -116,11 +117,12 @@ fn spartan_brakedown_style_pipeline_main_like() {
 
     println!("payload -> pcs_commit_open_prove:");
     println!("  coeff rows=[A_bound, B_bound, C_bound] [source=spartan_prove_core row binding]");
+    let derived_outer_tensor = [Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
     println!(
         "  outer tensor=[1, gamma, gamma^2] [source=spartan_prove_core challenge] => {:?}",
-        query.outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>()
+        derived_outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>()
     );
-    println!("  inner tensor=z [source=input_parse input]");
+    println!("  inner tensor=z [source=input_parse input, verifier-side hidden in bridge query]");
     println!(
         "  claimed value=<joint_bound,z>={} [source=spartan_prove_core inner claim]",
         query.claimed_value.0
@@ -158,8 +160,8 @@ fn spartan_brakedown_style_pipeline_main_like() {
     println!("payload -> verify:");
     println!("  proof_bundle: outer/inner sumcheck traces + PCS commitment/opening");
     println!(
-        "  verifier_query: outer_tensor={:?}, claimed_value={}, case_digest={}",
-        query.outer_tensor.iter().map(|x| x.0).collect::<Vec<_>>(),
+        "  verifier_query: gamma={}, claimed_value={}, case_digest={}",
+        query.gamma.0,
         query.claimed_value.0,
         hex::encode(query.public_case_digest)
     );
@@ -277,7 +279,15 @@ fn bridge_verify_fails_on_public_metadata_mismatch() {
     let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
     let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
         .expect_err("verify should fail on public metadata mismatch");
-    assert!(err.to_string().contains("public case digest mismatch"));
+    assert!(
+        err.to_string().contains("public case digest mismatch")
+            || err
+                .to_string()
+                .contains("context fingerprint mismatch between query and proof bundle")
+            || err
+                .to_string()
+                .contains("bridge public context fingerprint mismatch")
+    );
 }
 
 #[test]
@@ -292,4 +302,224 @@ fn bridge_verify_fails_on_reference_profile_mismatch() {
     let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
         .expect_err("verify should fail on reference profile mismatch");
     assert!(err.to_string().contains("reference profile mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_non_standard_reference_profile_even_if_matched() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    built.bundle.reference_profile.pcs = PcsReference::ExperimentalAlt;
+    built.verifier_query.reference_profile.protocol = ProtocolReference::ExperimentalAlt;
+    built.verifier_query.reference_profile.pcs = PcsReference::ExperimentalAlt;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on non-standard reference profile");
+    assert!(err
+        .to_string()
+        .contains("unsupported reference profile for this bridge flow"));
+}
+
+#[test]
+fn bridge_verify_fails_on_field_profile_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.field_profile = BrakedownFieldProfile::Goldilocks64Ext2;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on field profile mismatch");
+    assert!(err
+        .to_string()
+        .contains("field profile mismatch between query and proof bundle"));
+}
+
+#[test]
+fn bridge_verify_fails_on_commitment_row_count_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.verifier_commitment.n_rows = 4;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on commitment row count mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge verifier commitment row count mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_commitment_n_cols_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.verifier_commitment.n_cols += 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on commitment encoded cols mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge verifier commitment encoded column count mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_tampered_outer_challenge() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.outer_trace.rounds[0].challenge_r =
+        built.bundle.outer_trace.rounds[0].challenge_r.add(Fp::new(1));
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on tampered outer challenge");
+    assert!(err
+        .to_string()
+        .contains("bridge outer challenge mismatch at round"));
+}
+
+#[test]
+fn bridge_verify_fails_on_tampered_inner_challenge() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.inner_trace.rounds[0].challenge_r =
+        built.bundle.inner_trace.rounds[0].challenge_r.add(Fp::new(1));
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on tampered inner challenge");
+    assert!(err
+        .to_string()
+        .contains("bridge inner challenge mismatch at round"));
+}
+
+#[test]
+fn bridge_verify_fails_on_public_cols_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.cols += 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on public cols mismatch");
+    assert!(
+        err.to_string()
+            .contains("bridge public shape must be non-zero powers of two")
+            || err
+                .to_string()
+                .contains("bridge verifier commitment width mismatch vs public query")
+    );
+}
+
+#[test]
+fn bridge_verify_fails_on_public_rows_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.rows += 2;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on public rows mismatch");
+    assert!(
+        err.to_string()
+            .contains("bridge public shape must be non-zero powers of two")
+            || err
+                .to_string()
+                .contains("bridge outer rounds do not match public row count")
+    );
+}
+
+#[test]
+fn bridge_verify_fails_on_zero_public_shape() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.rows = 0;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on zero public shape");
+    assert!(err
+        .to_string()
+        .contains("bridge public shape must be non-zero powers of two"));
+}
+
+#[test]
+fn bridge_verify_fails_on_non_power_of_two_public_shape() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.cols += 1; // case cols is power-of-two; +1 makes it non-power-of-two
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on non-power-of-two public shape");
+    assert!(err
+        .to_string()
+        .contains("bridge public shape must be non-zero powers of two"));
+}
+
+#[test]
+fn bridge_verify_fails_on_context_fingerprint_mismatch() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let mut query = built.verifier_query.clone();
+    query.context_fingerprint[0] ^= 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &query, &mut tr_v)
+        .expect_err("verify should fail on context fingerprint mismatch");
+    assert!(err
+        .to_string()
+        .contains("context fingerprint mismatch between query and proof bundle"));
+}
+
+#[test]
+fn bridge_verify_fails_on_outer_final_value_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.outer_trace.final_value = built.bundle.outer_trace.final_value.add(Fp::new(1));
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on outer final value mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge outer final value/claim mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_pcs_param_contract_mismatch() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    built.bundle.pcs_params.n_col_opens += 1;
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail on pcs param contract mismatch");
+    assert!(err
+        .to_string()
+        .contains("bridge PCS parameter contract mismatch"));
+}
+
+#[test]
+fn bridge_verify_fails_on_excessive_outer_round_count() {
+    let dir = case_dir();
+    let mut built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    let seed_round = built.bundle.outer_trace.rounds[0].clone();
+    built.bundle.outer_trace.rounds = vec![seed_round; usize::BITS as usize];
+
+    let mut tr_v = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
+    let err = verify_bridge_bundle(&built.bundle, &built.verifier_query, &mut tr_v)
+        .expect_err("verify should fail for excessive outer rounds");
+    assert!(
+        err.to_string()
+            .contains("bridge outer rounds do not match public row count")
+            || err
+                .to_string()
+                .contains("bridge outer round count exceeds machine word capacity")
+    );
 }

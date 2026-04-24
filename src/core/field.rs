@@ -1,4 +1,5 @@
 use std::cell::Cell;
+use std::ops::{Add, Mul, Sub};
 
 pub const MODULUS: u64 = 97;
 
@@ -35,6 +36,7 @@ impl Drop for ModulusScope {
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Fp(pub u64);
 
+#[allow(clippy::should_implement_trait)]
 impl Fp {
     pub fn new(v: u64) -> Self {
         let p = current_modulus();
@@ -93,5 +95,29 @@ impl Fp {
             acc = ((acc << 8) + b as u128) % p as u128;
         }
         Self(acc as u64)
+    }
+}
+
+impl Add for Fp {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Fp::add(self, rhs)
+    }
+}
+
+impl Sub for Fp {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Fp::sub(self, rhs)
+    }
+}
+
+impl Mul for Fp {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Fp::mul(self, rhs)
     }
 }

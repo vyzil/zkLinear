@@ -12,13 +12,13 @@ use crate::{
     },
     protocol::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
-        shared::{compute_case_digest, flatten_rows},
+        shared::{append_field_profile_to_transcript, compute_case_digest, flatten_rows},
         spec_v1::{append_spec_domain, append_u64_le},
     },
 };
 
 use super::{
-    transcript::append_bridge_public_metadata,
+    transcript::{append_bridge_public_metadata, bridge_context_fingerprint},
     types::{
         BridgeBuildResult, BridgeProofBundle, BridgeTimingMs, BridgeVerifierQuery,
         BRIDGE_TRANSCRIPT_LABEL,
@@ -40,15 +40,22 @@ pub fn prove_bridge_from_dir_with_profile(
 
     let t1 = Instant::now();
     let claimed = data.joint_trace.claim_initial;
-    let outer_tensor = vec![Fp::new(1), data.gamma, data.gamma_sq];
-    let inner_tensor = data.case.z.clone();
     let case_digest = compute_case_digest(&data.case);
+    let context_fingerprint = bridge_context_fingerprint(
+        data.case.a.len(),
+        data.case.a[0].len(),
+        case_digest,
+        profile,
+        DUAL_REFERENCE_PROFILE,
+    );
     let query = BridgeVerifierQuery {
-        outer_tensor,
-        inner_tensor,
+        rows: data.case.a.len(),
+        cols: data.case.a[0].len(),
+        field_profile: profile,
         claimed_value: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
+        context_fingerprint,
         reference_profile: DUAL_REFERENCE_PROFILE,
     };
     let k1 = t1.elapsed().as_secs_f64() * 1000.0;
@@ -67,11 +74,13 @@ pub fn prove_bridge_from_dir_with_profile(
     let mut tr_p = Transcript::new(BRIDGE_TRANSCRIPT_LABEL);
     append_spec_domain(&mut tr_p);
     append_reference_profile_to_transcript(&mut tr_p, &query.reference_profile);
+    append_field_profile_to_transcript(&mut tr_p, profile);
     append_bridge_public_metadata(&mut tr_p, &query);
     tr_p.append_message(b"bridge_opening_label", b"bridge_main_opening");
     tr_p.append_message(b"polycommit", &verifier_commitment.root);
     append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
-    let pcs_opening_proof = pcs.open(&prover_commitment, &query.outer_tensor, &mut tr_p)?;
+    let outer_tensor = vec![Fp::new(1), query.gamma, query.gamma.mul(query.gamma)];
+    let pcs_opening_proof = pcs.open(&prover_commitment, &outer_tensor, &mut tr_p)?;
     let k2 = t2.elapsed().as_secs_f64() * 1000.0;
 
     let bundle = BridgeProofBundle {
@@ -82,6 +91,7 @@ pub fn prove_bridge_from_dir_with_profile(
         claimed_evaluation: claimed,
         gamma: data.gamma,
         public_case_digest: case_digest,
+        context_fingerprint,
         reference_profile: DUAL_REFERENCE_PROFILE,
         pcs_params: params,
     };

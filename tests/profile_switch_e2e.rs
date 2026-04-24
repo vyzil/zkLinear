@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use zk_linear::{
     bridge::{prove_bridge_from_dir_with_profile, verify_bridge_bundle, BRIDGE_TRANSCRIPT_LABEL},
     nizk::spartan_brakedown::{
-        parse_field_profile, prove_from_dir, prove_from_dir_with_profile, verify_from_dir,
+        parse_field_profile, prove_from_dir, prove_from_dir_with_profile, verify_public,
     },
     pcs::brakedown::types::BrakedownFieldProfile,
 };
@@ -28,7 +28,7 @@ fn nizk_e2e_runs_for_all_field_profiles() {
         let res = prove_from_dir_with_profile(&case_dir(), profile)
             .expect("prove_from_dir_with_profile should succeed");
         assert_eq!(res.proof.verifier_commitment.field_profile, profile);
-        verify_from_dir(&case_dir(), &res.proof).expect("verify_from_dir should succeed");
+        verify_public(&res.proof, &res.public).expect("verify_public should succeed");
     }
 }
 

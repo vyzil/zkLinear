@@ -31,7 +31,7 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     ));
     out.push_str(&format!(
         "  unblinded_claim(inner sumcheck)={}\n",
-        public.claimed_value_unblinded.0
+        proof.claimed_value_unblinded.0
     ));
     out.push_str(&format!("  blind_eval_1={}\n", proof.blind_eval_1.0));
     out.push_str(&format!("  blind_eval_2={}\n", proof.blind_eval_2.0));
@@ -71,7 +71,7 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     out.push_str(&format!("  - gamma={}\n", proof.gamma.0));
     out.push_str(&format!(
         "  - unblinded_claim={}\n",
-        public.claimed_value_unblinded.0
+        proof.claimed_value_unblinded.0
     ));
     out.push_str(&format!("  - blind_eval_1={}\n", proof.blind_eval_1.0));
     out.push_str(&format!("  - blind_eval_2={}\n", proof.blind_eval_2.0));
@@ -86,28 +86,18 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     out.push_str("  - pcs blind opening proof #1 (blind component 1)\n");
     out.push_str("  - pcs blind opening proof #2 (blind component 2)\n");
     out.push_str("public verifier input:\n");
-    out.push_str("  - (A,B,C,z) loaded from case_dir\n");
-    out.push_str(&format!(
-        "  - outer_tensor_main=[1,gamma,gamma^2,1,alpha]=[1,{},{},1,{}]\n",
-        proof.gamma.0,
-        proof.gamma.mul(proof.gamma).0,
-        proof.blind_mix_alpha.0
-    ));
-    out.push_str("  - outer_tensor_blind_1=[0,0,0,1,0]\n");
-    out.push_str("  - outer_tensor_blind_2=[0,0,0,0,1]\n");
-    out.push_str(&format!(
-        "  - inner_tensor(z) len={} (from input)\n",
-        public.inner_tensor.len()
-    ));
+    out.push_str("  - rows, cols, case_digest, reference_profile\n");
+    out.push_str("  - claimed_value_masked\n");
+    out.push_str("  - no witness-like tensor inputs on succinct public boundary\n");
 
     out.push_str("\n[Verify]\n");
-    out.push_str("step 1: replay transcript on (A,B,C,z) + outer rounds and check r_x\n");
-    out.push_str("step 2: derive gamma from same transcript and check equality\n");
+    out.push_str("step 1: replay transcript on public metadata + outer rounds and check r_x\n");
+    out.push_str("step 2: derive gamma from transcript and check equality\n");
     out.push_str("step 3: replay transcript on inner rounds and check inner challenges\n");
     out.push_str("step 4: check masked_claim = unblinded_claim + blind_eval_1 + alpha*blind_eval_2\n");
-    out.push_str("step 5: verify PCS main opening for masked_claim\n");
-    out.push_str("step 6: verify PCS blind opening #1 for blind_eval_1\n");
-    out.push_str("step 7: verify PCS blind opening #2 for blind_eval_2\n");
+    out.push_str("step 5: derive PCS outer tensors from transcript-bound proof claims\n");
+    out.push_str("step 6: verify PCS opening structure for main/blind1/blind2 proofs\n");
+    out.push_str("step 7: strict replay mode (separate) performs full z-bound PCS eval checks\n");
     out.push_str(&format!(
         "verify_result: success, masked_claim={}\n",
         public.claimed_value_masked.0
