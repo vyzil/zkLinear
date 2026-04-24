@@ -50,20 +50,21 @@ fn invert_3x3(a: [[Fp; 3]; 3]) -> Option<[[Fp; 3]; 3]> {
         }
 
         let inv = aug[col][col].inv()?;
-        for k in 0..6 {
-            aug[col][k] = aug[col][k].mul(inv);
+        for cell in aug[col].iter_mut().take(6) {
+            *cell = cell.mul(inv);
         }
+        let pivot_snapshot = aug[col].clone();
 
-        for r in 0..3 {
+        for (r, row) in aug.iter_mut().enumerate().take(3) {
             if r == col {
                 continue;
             }
-            let factor = aug[r][col];
+            let factor = row[col];
             if factor == Fp::zero() {
                 continue;
             }
-            for k in 0..6 {
-                aug[r][k] = aug[r][k].sub(factor.mul(aug[col][k]));
+            for (dst, src) in row.iter_mut().zip(pivot_snapshot.iter()).take(6) {
+                *dst = dst.sub(factor.mul(*src));
             }
         }
     }

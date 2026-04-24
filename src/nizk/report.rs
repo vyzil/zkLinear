@@ -52,7 +52,7 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
     out.push_str(&format!("total_ms: {:.3}\n", t.total_ms()));
     out.push_str(&format!("field: F_{}\n", current_modulus()));
     out.push_str(&format!("pcs_profile: {:?}\n", proof.verifier_commitment.field_profile));
-    out.push_str(&format!("verify_mode: succinct(public+proof)\n"));
+    out.push_str("verify_mode: succinct(public+proof)\n");
 
     out
 }
