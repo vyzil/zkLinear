@@ -10,7 +10,7 @@
     "field_profile": "Mersenne61Ext2",
     "reference_profile": "ReferenceProfile { protocol: Spartan2Like, pcs: LcpcBrakedownLike }",
     "case_digest_hex": "2a0540af85abaf62bce94fb3366c4aafcc483efc63ac292b779eab97c9ae8533",
-    "context_fingerprint_hex": "e14e08974a81200e189bfa1b6c2ebcfd66ee81631527215fee20abe988333cce",
+    "context_fingerprint_hex": "056a18c6d7c13773cee7b89709049003f422cd063cc926b97a4fe2842c5cc5ef",
     "gamma": 1825352804577219694,
     "claimed_value": 1053445030473334579,
     "outer_challenges": [
@@ -24,22 +24,22 @@
     ],
     "pcs_root_hex": "6225065a2d03222f4e49f79bd487fe817d2ce3b500e01cf572c9f184919603a0",
     "pcs_open_col_indices": [
-      15,
+      22,
+      10,
       25,
-      5,
       16,
-      11,
-      13,
-      0,
-      12,
-      26,
-      29,
-      27,
-      28,
-      32,
+      5,
+      1,
+      21,
       31,
-      30,
-      7
+      15,
+      4,
+      29,
+      11,
+      8,
+      14,
+      26,
+      19
     ]
   },
   "nizk": {
@@ -53,7 +53,7 @@
     "field_profile": "Mersenne61Ext2",
     "reference_profile": "ReferenceProfile { protocol: Spartan2Like, pcs: LcpcBrakedownLike }",
     "gamma": 934690140386866018,
-    "claimed_unblinded": 997175585084459721,
+    "inner_claim_initial": 997175585084459721,
     "outer_challenges": [
       445262401123031339,
       416254162823172458

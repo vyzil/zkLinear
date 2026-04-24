@@ -433,6 +433,24 @@ fn bridge_verify_fails_on_public_rows_mismatch() {
 }
 
 #[test]
+fn bridge_public_openings_follow_reference_degree_tests() {
+    let dir = case_dir();
+    let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
+    assert!(
+        !built.bundle.pcs_opening_proof.p_random_vec.is_empty(),
+        "bridge public path should include reference degree-test vectors"
+    );
+    assert_eq!(
+        built.bundle.pcs_opening_proof.p_random_vec.len(),
+        built.bundle.pcs_params.n_degree_tests
+    );
+    assert_eq!(
+        built.bundle.pcs_opening_proof.columns.len(),
+        built.bundle.pcs_params.n_col_opens
+    );
+}
+
+#[test]
 fn bridge_verify_fails_on_zero_public_shape() {
     let dir = case_dir();
     let built = prove_bridge_from_dir(&dir).expect("bridge prove should succeed");
