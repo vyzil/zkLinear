@@ -11,7 +11,7 @@ This document fixes the current verification boundary and transcript contract of
   2. bind `polycommit` root + `ncols`
   3. sample outer `tau` from transcript (`OUTER_TAU_LABEL`, indexed draws)
   4. outer sumcheck rounds (`g(0), g(2), g(3)` per round)
-  5. sample `gamma`
+  5. sample joint challenges `(r_a, r_b, r_c)`
   6. inner sumcheck rounds (`h(0), h(1), h(2)` per round)
   7. append opening label and run PCS transcript (degree tests + column opens)
 
@@ -24,7 +24,7 @@ This document fixes the current verification boundary and transcript contract of
 
 ### Included in `proof`
 - compact outer/inner trace
-- `gamma`
+- `joint_challenges (r_a, r_b, r_c)`
 - `verifier_commitment`
 - `pcs_proof_joint_eval_at_r`
 

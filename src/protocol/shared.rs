@@ -3,7 +3,8 @@ use sha2::{Digest, Sha256};
 
 use crate::pcs::brakedown::types::BrakedownFieldProfile;
 use crate::protocol::spec_v1::{
-    append_fp_le, append_u64_le, BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL, OUTER_TAU_LABEL,
+    append_fp_le, append_u64_le, BLIND_MIX_LABEL, JOINT_CHALLENGE_DOMAIN, JOINT_CHALLENGE_RA_LABEL,
+    JOINT_CHALLENGE_RB_LABEL, JOINT_CHALLENGE_RC_LABEL, OUTER_TAU_LABEL,
 };
 use crate::{core::field::Fp, io::case_format::SpartanLikeCase};
 
@@ -79,27 +80,22 @@ pub fn compute_case_digest(case: &SpartanLikeCase) -> [u8; 32] {
     h.finalize().into()
 }
 
-pub fn sample_gamma_from_transcript(tr: &mut Transcript, az: &[Fp], bz: &[Fp], cz: &[Fp]) -> Fp {
-    tr.append_message(b"gamma_domain", GAMMA_DOMAIN);
-    for v in az {
-        append_fp_le(tr, b"Az", *v);
-    }
-    for v in bz {
-        append_fp_le(tr, b"Bz", *v);
-    }
-    for v in cz {
-        append_fp_le(tr, b"Cz", *v);
-    }
-    let mut out = [0u8; 32];
-    tr.challenge_bytes(GAMMA_LABEL, &mut out);
-    Fp::from_challenge(out)
-}
+pub fn sample_joint_challenges_from_transcript(tr: &mut Transcript) -> (Fp, Fp, Fp) {
+    tr.append_message(b"joint_challenge_domain", JOINT_CHALLENGE_DOMAIN);
 
-pub fn sample_gamma_from_transcript_light(tr: &mut Transcript) -> Fp {
-    tr.append_message(b"gamma_domain", GAMMA_DOMAIN);
     let mut out = [0u8; 32];
-    tr.challenge_bytes(GAMMA_LABEL, &mut out);
-    Fp::from_challenge(out)
+    tr.challenge_bytes(JOINT_CHALLENGE_RA_LABEL, &mut out);
+    let r_a = Fp::from_challenge(out);
+
+    let mut out = [0u8; 32];
+    tr.challenge_bytes(JOINT_CHALLENGE_RB_LABEL, &mut out);
+    let r_b = Fp::from_challenge(out);
+
+    let mut out = [0u8; 32];
+    tr.challenge_bytes(JOINT_CHALLENGE_RC_LABEL, &mut out);
+    let r_c = Fp::from_challenge(out);
+
+    (r_a, r_b, r_c)
 }
 
 pub fn sample_blind_mix_alpha_from_transcript(tr: &mut Transcript) -> Fp {

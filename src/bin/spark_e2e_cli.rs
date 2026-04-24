@@ -10,8 +10,8 @@ use zk_linear::{
     core::field::{Fp, ModulusScope},
     nizk::spartan_brakedown::{
         compile_from_dir_with_profile, parse_field_profile, prove_with_compiled_from_dir,
-        verify_with_compiled, KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkOuterRound,
-        NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownProof,
+        verify_with_compiled, KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkJointChallenges,
+        NizkOuterRound, NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownProof,
         SpartanBrakedownProofMeta, SpartanBrakedownPublic, SpartanBrakedownPublicMeta,
     },
     pcs::brakedown::wire::{
@@ -72,10 +72,17 @@ struct InnerTraceJson {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct JointChallengesJson {
+    r_a: u64,
+    r_b: u64,
+    r_c: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ProofJson {
     outer_trace: OuterTraceJson,
     inner_trace: InnerTraceJson,
-    gamma: u64,
+    joint_challenges: JointChallengesJson,
     verifier_commitment_hex: String,
     pcs_proof_joint_eval_at_r_hex: String,
 }
@@ -101,7 +108,7 @@ struct CompiledWire {
 struct ProofWire {
     outer_trace: OuterTraceJson,
     inner_trace: InnerTraceJson,
-    gamma: u64,
+    joint_challenges: JointChallengesJson,
     verifier_commitment: Vec<u8>,
     pcs_proof_joint_eval_at_r: Vec<u8>,
 }
@@ -270,6 +277,22 @@ fn inner_trace_from_json(t: &InnerTraceJson) -> NizkInnerTrace {
     }
 }
 
+fn joint_challenges_to_json(j: &NizkJointChallenges) -> JointChallengesJson {
+    JointChallengesJson {
+        r_a: fp_to_u64(j.r_a),
+        r_b: fp_to_u64(j.r_b),
+        r_c: fp_to_u64(j.r_c),
+    }
+}
+
+fn joint_challenges_from_json(j: &JointChallengesJson) -> NizkJointChallenges {
+    NizkJointChallenges {
+        r_a: u64_to_fp(j.r_a),
+        r_b: u64_to_fp(j.r_b),
+        r_c: u64_to_fp(j.r_c),
+    }
+}
+
 fn compiled_to_json(c: &SpartanBrakedownCompiledCircuit) -> CompiledJson {
     CompiledJson {
         rows: c.rows,
@@ -318,7 +341,7 @@ fn proof_to_json(p: &SpartanBrakedownProof) -> ProofJson {
     ProofJson {
         outer_trace: outer_trace_to_json(&p.outer_trace),
         inner_trace: inner_trace_to_json(&p.inner_trace),
-        gamma: fp_to_u64(p.gamma),
+        joint_challenges: joint_challenges_to_json(&p.joint_challenges),
         verifier_commitment_hex: hex::encode(serialize_verifier_commitment(&p.verifier_commitment)),
         pcs_proof_joint_eval_at_r_hex: hex::encode(serialize_eval_proof(
             &p.pcs_proof_joint_eval_at_r,
@@ -330,7 +353,7 @@ fn proof_to_wire(p: &SpartanBrakedownProof) -> ProofWire {
     ProofWire {
         outer_trace: outer_trace_to_json(&p.outer_trace),
         inner_trace: inner_trace_to_json(&p.inner_trace),
-        gamma: fp_to_u64(p.gamma),
+        joint_challenges: joint_challenges_to_json(&p.joint_challenges),
         verifier_commitment: serialize_verifier_commitment(&p.verifier_commitment),
         pcs_proof_joint_eval_at_r: serialize_eval_proof(&p.pcs_proof_joint_eval_at_r),
     }
@@ -340,7 +363,7 @@ fn proof_from_json(j: &ProofJson) -> Result<SpartanBrakedownProof> {
     Ok(SpartanBrakedownProof {
         outer_trace: outer_trace_from_json(&j.outer_trace),
         inner_trace: inner_trace_from_json(&j.inner_trace),
-        gamma: u64_to_fp(j.gamma),
+        joint_challenges: joint_challenges_from_json(&j.joint_challenges),
         verifier_commitment: deserialize_verifier_commitment(
             &hex::decode(&j.verifier_commitment_hex).context("bad verifier_commitment hex")?,
         )?,
@@ -355,7 +378,7 @@ fn proof_from_wire(j: &ProofWire) -> Result<SpartanBrakedownProof> {
     Ok(SpartanBrakedownProof {
         outer_trace: outer_trace_from_json(&j.outer_trace),
         inner_trace: inner_trace_from_json(&j.inner_trace),
-        gamma: u64_to_fp(j.gamma),
+        joint_challenges: joint_challenges_from_json(&j.joint_challenges),
         verifier_commitment: deserialize_verifier_commitment(&j.verifier_commitment)?,
         pcs_proof_joint_eval_at_r: deserialize_eval_proof(&j.pcs_proof_joint_eval_at_r)?,
     })
@@ -812,7 +835,12 @@ fn run_inspect(args: &[String]) -> Result<()> {
         proof_wire.outer_trace.rounds.len(),
         proof_wire.inner_trace.rounds.len()
     );
-    println!("  gamma={}", proof_wire.gamma);
+    println!(
+        "  joint_challenges=(r_a={}, r_b={}, r_c={})",
+        proof_wire.joint_challenges.r_a,
+        proof_wire.joint_challenges.r_b,
+        proof_wire.joint_challenges.r_c
+    );
     println!("  proof_wire_bytes={}", proof_wire_bytes);
     println!(
         "  pcs payload bytes: vc={}, joint_r={}, subtotal={}",

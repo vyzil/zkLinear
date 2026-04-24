@@ -27,7 +27,10 @@ pub fn format_pipeline_report(case_dir: &Path, result: &SpartanBrakedownPipeline
         "inner rounds: {}\n",
         proof.inner_trace.rounds.len()
     ));
-    out.push_str(&format!("gamma: {}\n", proof.gamma.0));
+    out.push_str(&format!(
+        "joint challenges: r_a={}, r_b={}, r_c={}\n",
+        proof.joint_challenges.r_a.0, proof.joint_challenges.r_b.0, proof.joint_challenges.r_c.0
+    ));
     out.push_str(&format!("input_parse_ms: {:.3}\n", t.k0_input_parse_ms));
     out.push_str(&format!(
         "spartan_prove_core_ms: {:.3}\n",

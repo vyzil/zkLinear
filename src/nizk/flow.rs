@@ -7,10 +7,10 @@ use sha2::{Digest, Sha256};
 use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 use super::report::format_pipeline_report;
 use super::types::{
-    KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkOuterRound, NizkOuterTrace,
-    SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult, SpartanBrakedownProof,
-    SpartanBrakedownProver, SpartanBrakedownPublic, SpartanBrakedownVerifier, VerifyMode,
-    NIZK_BLINDED_LAYOUT_ROWS,
+    KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkJointChallenges, NizkOuterRound,
+    NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
+    SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic,
+    SpartanBrakedownVerifier, VerifyMode, NIZK_BLINDED_LAYOUT_ROWS,
 };
 use crate::{
     core::{
@@ -28,7 +28,7 @@ use crate::{
     protocol::shared::{
         append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
         build_eq_weights_from_challenges, compute_case_digest, flatten_rows, matrix_vec_mul,
-        sample_gamma_from_transcript_light, sample_outer_tau_from_transcript,
+        sample_joint_challenges_from_transcript, sample_outer_tau_from_transcript,
     },
     protocol::spec_v1::{
         append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
@@ -351,14 +351,13 @@ fn prove_from_dir_impl(
     let b_bound = bind_rows(&case.b, &row_weights);
     let c_bound = bind_rows(&case.c, &row_weights);
 
-    let gamma = sample_gamma_from_transcript_light(&mut tr_p);
-    let gamma_sq = gamma.mul(gamma);
+    let (r_a, r_b, r_c) = sample_joint_challenges_from_transcript(&mut tr_p);
 
     let joint_bound: Vec<Fp> = a_bound
         .iter()
         .zip(b_bound.iter())
         .zip(c_bound.iter())
-        .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
+        .map(|((a, b), c)| r_a.mul(*a).add(r_b.mul(*b)).add(r_c.mul(*c)))
         .collect();
 
     let inner_trace_full = prove_inner_sumcheck_with_label_and_transcript(
@@ -380,7 +379,7 @@ fn prove_from_dir_impl(
     let proof = SpartanBrakedownProof {
         outer_trace: compact_outer_trace(&outer_trace_full),
         inner_trace: compact_inner_trace(&inner_trace_full),
-        gamma,
+        joint_challenges: NizkJointChallenges { r_a, r_b, r_c },
         verifier_commitment,
         pcs_proof_joint_eval_at_r,
     };
@@ -535,9 +534,14 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
 
     verify_compact_outer_trace(&proof.outer_trace)?;
 
-    let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
-    if expected_gamma != proof.gamma {
-        return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
+    let expected_joint = sample_joint_challenges_from_transcript(&mut tr_v);
+    if expected_joint.0 != proof.joint_challenges.r_a
+        || expected_joint.1 != proof.joint_challenges.r_b
+        || expected_joint.2 != proof.joint_challenges.r_c
+    {
+        return Err(anyhow!(
+            "joint challenges mismatch vs transcript-derived challenges"
+        ));
     }
 
     for (i, r) in proof.inner_trace.rounds.iter().enumerate() {
@@ -570,12 +574,18 @@ fn verify_from_dir_strict_impl(case_dir: &Path, proof: &SpartanBrakedownProof) -
     let b_bound = bind_rows(&case.b, &row_weights);
     let c_bound = bind_rows(&case.c, &row_weights);
 
-    let gamma_sq = proof.gamma.mul(proof.gamma);
     let joint_bound = a_bound
         .iter()
         .zip(b_bound.iter())
         .zip(c_bound.iter())
-        .map(|((a, b), c)| a.add(proof.gamma.mul(*b)).add(gamma_sq.mul(*c)))
+        .map(|((a, b), c)| {
+            proof
+                .joint_challenges
+                .r_a
+                .mul(*a)
+                .add(proof.joint_challenges.r_b.mul(*b))
+                .add(proof.joint_challenges.r_c.mul(*c))
+        })
         .collect::<Vec<_>>();
 
     let expected_claim = inner_product(&joint_bound, &case.z);
@@ -738,9 +748,14 @@ fn verify_public_succinct(
     }
     verify_compact_outer_trace(&proof.outer_trace)?;
 
-    let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
-    if expected_gamma != proof.gamma {
-        return Err(anyhow!("gamma mismatch vs transcript-derived challenge"));
+    let expected_joint = sample_joint_challenges_from_transcript(&mut tr_v);
+    if expected_joint.0 != proof.joint_challenges.r_a
+        || expected_joint.1 != proof.joint_challenges.r_b
+        || expected_joint.2 != proof.joint_challenges.r_c
+    {
+        return Err(anyhow!(
+            "joint challenges mismatch vs transcript-derived challenges"
+        ));
     }
 
     for (i, r) in proof.inner_trace.rounds.iter().enumerate() {

@@ -13,7 +13,7 @@ use zk_linear::{
         shared::{
             append_case_digest_to_transcript, append_field_profile_to_transcript, bind_rows,
             build_eq_weights_from_challenges, compute_case_digest, matrix_vec_mul,
-            sample_gamma_from_transcript_light, sample_outer_tau_from_transcript,
+            sample_joint_challenges_from_transcript, sample_outer_tau_from_transcript,
         },
         spec_v1::{
             append_spec_domain, INNER_SUMCHECK_JOINT_LABEL, NIZK_TRANSCRIPT_LABEL,
@@ -178,8 +178,7 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
                 .collect::<Vec<_>>();
             let row_weights = build_eq_weights_from_challenges(&r_x);
 
-            let gamma = sample_gamma_from_transcript_light(&mut tr);
-            let gamma_sq = gamma.mul(gamma);
+            let (r_a, r_b, r_c) = sample_joint_challenges_from_transcript(&mut tr);
             let a_bound = bind_rows(&case.a, &row_weights);
             let b_bound = bind_rows(&case.b, &row_weights);
             let c_bound = bind_rows(&case.c, &row_weights);
@@ -187,7 +186,7 @@ fn spartan2_005_full_flow_is_consistent_on_fixture() {
                 .iter()
                 .zip(b_bound.iter())
                 .zip(c_bound.iter())
-                .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
+                .map(|((a, b), c)| r_a.mul(*a).add(r_b.mul(*b)).add(r_c.mul(*c)))
                 .collect();
 
             let inner_trace = prove_inner_sumcheck_with_label_and_transcript(

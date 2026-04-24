@@ -44,11 +44,18 @@ pub struct NizkInnerTrace {
 }
 
 #[derive(Debug, Clone)]
+pub struct NizkJointChallenges {
+    pub r_a: Fp,
+    pub r_b: Fp,
+    pub r_c: Fp,
+}
+
+#[derive(Debug, Clone)]
 pub struct SpartanBrakedownProof {
     // Canonical sumcheck transcript messages only (no folded/intermediate vectors).
     pub outer_trace: NizkOuterTrace,
     pub inner_trace: NizkInnerTrace,
-    pub gamma: Fp,
+    pub joint_challenges: NizkJointChallenges,
     pub verifier_commitment: BrakedownVerifierCommitment,
     pub pcs_proof_joint_eval_at_r: BrakedownEvalProof,
 }

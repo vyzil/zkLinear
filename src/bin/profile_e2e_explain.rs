@@ -21,8 +21,9 @@ use zk_linear::{
             sample_outer_tau_from_transcript,
         },
         spec_v1::{
-            append_spec_domain, append_u64_le, BLIND_MIX_LABEL, GAMMA_DOMAIN, GAMMA_LABEL,
-            INNER_SUMCHECK_JOINT_LABEL, LCPC_COL_OPEN_LABEL, LCPC_DEG_TEST_LABEL,
+            append_spec_domain, append_u64_le, BLIND_MIX_LABEL, INNER_SUMCHECK_JOINT_LABEL,
+            JOINT_CHALLENGE_DOMAIN, JOINT_CHALLENGE_RA_LABEL, JOINT_CHALLENGE_RB_LABEL,
+            JOINT_CHALLENGE_RC_LABEL, LCPC_COL_OPEN_LABEL, LCPC_DEG_TEST_LABEL,
             NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL, OUTER_TAU_LABEL, TRANSCRIPT_DOMAIN,
         },
     },
@@ -147,9 +148,11 @@ fn main() -> Result<()> {
         label_to_str(OUTER_SUMCHECK_LABEL)
     );
     println!(
-        "- gamma FS: Merlin(domain={}, challenge={})",
-        label_to_str(GAMMA_DOMAIN),
-        label_to_str(GAMMA_LABEL)
+        "- joint challenges FS: Merlin(domain={}, challenges=[{}, {}, {}])",
+        label_to_str(JOINT_CHALLENGE_DOMAIN),
+        label_to_str(JOINT_CHALLENGE_RA_LABEL),
+        label_to_str(JOINT_CHALLENGE_RB_LABEL),
+        label_to_str(JOINT_CHALLENGE_RC_LABEL)
     );
     println!(
         "- inner round FS: Merlin(label={}, round_idx, h0,h1,h2)",
@@ -161,7 +164,7 @@ fn main() -> Result<()> {
         label_to_str(LCPC_COL_OPEN_LABEL)
     );
     println!(
-        "- transcript order note: polycommit(root,ncols) is bound before tau/outer/gamma/inner"
+        "- transcript order note: polycommit(root,ncols) is bound before tau/outer/joint/inner"
     );
     println!(
         "- blind mix label (reserved/reference): {}",
@@ -220,13 +223,14 @@ fn main() -> Result<()> {
     let b_bound = bind_rows(&case.b, &row_weights);
     let c_bound = bind_rows(&case.c, &row_weights);
 
-    let gamma = res.proof.gamma;
-    let gamma_sq = gamma.mul(gamma);
+    let r_a = res.proof.joint_challenges.r_a;
+    let r_b = res.proof.joint_challenges.r_b;
+    let r_c = res.proof.joint_challenges.r_c;
     let joint_bound = a_bound
         .iter()
         .zip(b_bound.iter())
         .zip(c_bound.iter())
-        .map(|((a, b), c)| a.add(gamma.mul(*b)).add(gamma_sq.mul(*c)))
+        .map(|((a, b), c)| r_a.mul(*a).add(r_b.mul(*b)).add(r_c.mul(*c)))
         .collect::<Vec<_>>();
     let expected_inner_claim = dot(&joint_bound, &case.z);
 
@@ -264,7 +268,7 @@ fn main() -> Result<()> {
         "   - commitment root: {}",
         hex::encode(res.proof.verifier_commitment.root)
     );
-    println!("   - bound to transcript before tau/outer/gamma/inner");
+    println!("   - bound to transcript before tau/outer/joint/inner");
     println!();
 
     println!("3) Outer sumcheck binding");
@@ -289,7 +293,7 @@ fn main() -> Result<()> {
     println!();
 
     println!("4) Joint binding + inner sumcheck + PCS opening");
-    println!("   - gamma={}, gamma^2={}", gamma.0, gamma_sq.0);
+    println!("   - r_a={}, r_b={}, r_c={}", r_a.0, r_b.0, r_c.0);
     println!("   - a_bound head: {}", fmt_vec_head(&a_bound, show_head));
     println!("   - b_bound head: {}", fmt_vec_head(&b_bound, show_head));
     println!("   - c_bound head: {}", fmt_vec_head(&c_bound, show_head));
@@ -342,7 +346,9 @@ fn main() -> Result<()> {
 
     println!("[Proof/Public Boundary]");
     println!("- public: rows, cols, case_digest, field_profile");
-    println!("- proof: outer_trace + inner_trace + gamma + verifier_commitment + pcs_opening");
+    println!(
+        "- proof: outer_trace + inner_trace + (r_a,r_b,r_c) + verifier_commitment + pcs_opening"
+    );
     println!(
         "- serialized bytes: verifier_commitment={}B, pcs_opening={}B, subtotal={}B",
         vc_bytes,
@@ -359,7 +365,7 @@ fn main() -> Result<()> {
     println!("- strict replay(case+proof) verify: PASS");
 
     println!(
-        "- verifier read set: public(rows/cols/digest/profile), sumcheck messages, gamma, commitment root+dims, PCS opening"
+        "- verifier read set: public(rows/cols/digest/profile), sumcheck messages, (r_a,r_b,r_c), commitment root+dims, PCS opening"
     );
     println!("- verifier compute set: FS challenge replay, compact sumcheck transitions, PCS opening consistency + claimed eval check");
     println!();

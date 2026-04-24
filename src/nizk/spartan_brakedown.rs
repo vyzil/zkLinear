@@ -20,8 +20,8 @@ pub use super::metrics::{
     NizkMetricsReport,
 };
 pub use super::types::{
-    KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkOuterRound, NizkOuterTrace,
-    SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult, SpartanBrakedownProof,
-    SpartanBrakedownProver, SpartanBrakedownPublic, SpartanBrakedownVerifier, VerifyMode,
-    NIZK_BLINDED_LAYOUT_ROWS,
+    KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkJointChallenges, NizkOuterRound,
+    NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
+    SpartanBrakedownProof, SpartanBrakedownProver, SpartanBrakedownPublic,
+    SpartanBrakedownVerifier, VerifyMode, NIZK_BLINDED_LAYOUT_ROWS,
 };

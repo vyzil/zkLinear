@@ -13,7 +13,7 @@ use zk_linear::{
         reference::{append_reference_profile_to_transcript, DUAL_REFERENCE_PROFILE},
         shared::{
             append_case_digest_to_transcript, append_field_profile_to_transcript, matrix_vec_mul,
-            sample_gamma_from_transcript_light, sample_outer_tau_from_transcript,
+            sample_joint_challenges_from_transcript, sample_outer_tau_from_transcript,
         },
         spec_v1::{
             append_spec_domain, append_u64_le, INNER_SUMCHECK_JOINT_LABEL, LCPC_DEG_TEST_LABEL,
@@ -61,8 +61,10 @@ fn replay_degree_tensors(
         assert_eq!(expected_r, r.challenge_r);
     }
 
-    let expected_gamma = sample_gamma_from_transcript_light(&mut tr_v);
-    assert_eq!(expected_gamma, proof.gamma);
+    let expected_joint = sample_joint_challenges_from_transcript(&mut tr_v);
+    assert_eq!(expected_joint.0, proof.joint_challenges.r_a);
+    assert_eq!(expected_joint.1, proof.joint_challenges.r_b);
+    assert_eq!(expected_joint.2, proof.joint_challenges.r_c);
 
     for r in &proof.inner_trace.rounds {
         let expected_r = derive_round_challenge_merlin(
