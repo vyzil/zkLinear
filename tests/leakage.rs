@@ -140,7 +140,7 @@ fn replay_degree_tensors(
 }
 
 #[test]
-fn reference_path_exposes_degree_test_row_collapses() {
+fn leakage_001_reference_path_exposes_degree_test_row_collapses() {
     let result = prove_from_dir(&case_dir()).expect("prove should succeed");
     assert!(
         !result.proof.pcs_proof_joint_eval_at_r.p_random_vec.is_empty(),
@@ -149,7 +149,7 @@ fn reference_path_exposes_degree_test_row_collapses() {
 }
 
 #[test]
-fn reference_path_can_recover_bound_rows_from_p_random_vec() {
+fn leakage_002_reference_path_can_recover_bound_rows_from_p_random_vec() {
     let result = prove_from_dir(&case_dir()).expect("prove should succeed");
     let _mod_scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 

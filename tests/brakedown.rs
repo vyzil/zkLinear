@@ -46,7 +46,7 @@ fn build_tensors(n_rows: usize, n_per_row: usize) -> (Vec<Fp>, Vec<Fp>) {
 }
 
 #[test]
-fn spielman_encoding_is_deterministic_for_same_seed() {
+fn brakedown_001_spielman_encoding_is_deterministic_for_same_seed() {
     let mut params = BrakedownParams::new_toy(8);
     params.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     params.encoder_seed = 42;
@@ -63,7 +63,7 @@ fn spielman_encoding_is_deterministic_for_same_seed() {
 }
 
 #[test]
-fn spielman_encoding_changes_with_seed() {
+fn brakedown_002_spielman_encoding_changes_with_seed() {
     let mut p0 = BrakedownParams::new_toy(8);
     p0.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     p0.encoder_seed = 1;
@@ -83,7 +83,7 @@ fn spielman_encoding_changes_with_seed() {
 }
 
 #[test]
-fn pcs_open_verify_succeeds_and_wrong_claim_fails() {
+fn brakedown_003_pcs_open_verify_succeeds_and_wrong_claim_fails() {
     let mut params = BrakedownParams::new_toy(8);
     params.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     let pcs = BrakedownPcs::new(params);
@@ -139,7 +139,7 @@ fn pcs_open_verify_succeeds_and_wrong_claim_fails() {
 }
 
 #[test]
-fn col_open_start_avoids_systematic_region() {
+fn brakedown_004_col_open_start_avoids_systematic_region() {
     let mut params = BrakedownParams::new_toy(8);
     params.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     params.col_open_start = 8;
@@ -166,7 +166,7 @@ fn col_open_start_avoids_systematic_region() {
 }
 
 #[test]
-fn challenge_sampling_contract_for_col_start() {
+fn brakedown_005_challenge_sampling_contract_for_col_start() {
     let mut t = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
     append_spec_domain(&mut t);
 
@@ -204,7 +204,7 @@ fn challenge_sampling_contract_for_col_start() {
 }
 
 #[test]
-fn wire_roundtrip_succeeds_and_rejects_trailing_bytes() {
+fn brakedown_006_wire_roundtrip_succeeds_and_rejects_trailing_bytes() {
     let mut params = BrakedownParams::new_toy(8);
     params.encoder_kind = BrakedownEncoderKind::SpielmanLike;
     let pcs = BrakedownPcs::new(params);

@@ -22,7 +22,7 @@ fn case_dir() -> PathBuf {
 }
 
 #[test]
-fn outer_sumcheck_round_trip_is_consistent() {
+fn spartan2_001_outer_sumcheck_round_trip_is_consistent() {
     let values: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 1)).collect();
     let trace = prove_outer_sumcheck(&values);
     let verify = verify_outer_sumcheck_trace(&trace);
@@ -33,7 +33,7 @@ fn outer_sumcheck_round_trip_is_consistent() {
 }
 
 #[test]
-fn outer_sumcheck_tamper_is_detected() {
+fn spartan2_002_outer_sumcheck_tamper_is_detected() {
     let values: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) + 1)).collect();
     let mut trace = prove_outer_sumcheck(&values);
     trace.rounds[0].folded_values[0] = trace.rounds[0].folded_values[0].add(Fp::new(1));
@@ -43,7 +43,7 @@ fn outer_sumcheck_tamper_is_detected() {
 }
 
 #[test]
-fn inner_sumcheck_round_trip_is_consistent() {
+fn spartan2_003_inner_sumcheck_round_trip_is_consistent() {
     let f: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) * 3 + 2)).collect();
     let g: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) * 5 + 1)).collect();
 
@@ -57,7 +57,7 @@ fn inner_sumcheck_round_trip_is_consistent() {
 }
 
 #[test]
-fn inner_sumcheck_tamper_is_detected() {
+fn spartan2_004_inner_sumcheck_tamper_is_detected() {
     let f: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) * 3 + 2)).collect();
     let g: Vec<Fp> = (0..8).map(|i| Fp::new((i as u64) * 5 + 1)).collect();
 
@@ -69,7 +69,7 @@ fn inner_sumcheck_tamper_is_detected() {
 }
 
 #[test]
-fn spartan2_like_full_flow_is_consistent_on_fixture() {
+fn spartan2_005_full_flow_is_consistent_on_fixture() {
     let _scope = ModulusScope::enter((1u64 << 61) - 1);
     let data =
         build_spartan_like_report_data_from_dir(&case_dir()).expect("spartan-like flow should build");
@@ -85,7 +85,7 @@ fn spartan2_like_full_flow_is_consistent_on_fixture() {
 }
 
 #[test]
-fn transcript_challenge_vectors_are_stable() {
+fn spartan2_006_transcript_challenge_vectors_are_stable() {
     let g0 = Fp::new(25);
     let g2 = Fp::new(61);
     let g3 = Fp::new(72);

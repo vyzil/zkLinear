@@ -18,19 +18,19 @@ fn repo_path(rel: &str) -> PathBuf {
 }
 
 #[test]
-fn nizk_public_verify_succeeds_on_valid_proof() {
+fn e2e_001_nizk_public_verify_succeeds_on_valid_proof() {
     let result = prove_from_dir(&case_dir()).expect("prove should succeed");
     verify_public(&result.proof, &result.public).expect("verify should succeed");
 }
 
 #[test]
-fn nizk_strict_replay_verify_succeeds() {
+fn e2e_002_nizk_strict_replay_verify_succeeds() {
     let result = prove_from_dir(&case_dir()).expect("prove should succeed");
     verify_from_dir_strict(&case_dir(), &result.proof).expect("strict replay verify should succeed");
 }
 
 #[test]
-fn nizk_public_verify_rejects_tampered_root() {
+fn e2e_003_nizk_public_verify_rejects_tampered_root() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     result.proof.verifier_commitment.root[0] ^= 1;
 
@@ -44,7 +44,7 @@ fn nizk_public_verify_rejects_tampered_root() {
 }
 
 #[test]
-fn nizk_public_verify_rejects_wrong_claimed_value() {
+fn e2e_004_nizk_public_verify_rejects_wrong_claimed_value() {
     let mut result = prove_from_dir(&case_dir()).expect("prove should succeed");
     let _scope = ModulusScope::enter(result.public.field_profile.base_modulus());
 
@@ -67,7 +67,7 @@ fn nizk_public_verify_rejects_wrong_claimed_value() {
 }
 
 #[test]
-fn nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
+fn e2e_005_nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
     let mut compiled = compile_from_dir(&case_dir()).expect("compile should succeed");
     let result =
         prove_with_compiled_from_dir(&compiled, &case_dir()).expect("prove with compiled should succeed");
@@ -82,7 +82,7 @@ fn nizk_compiled_verify_succeeds_and_detects_context_mismatch() {
 }
 
 #[test]
-fn pipeline_metadata_sidecars_are_consistent() {
+fn e2e_006_pipeline_metadata_sidecars_are_consistent() {
     let result = prove_from_dir(&case_dir()).expect("prove should succeed");
 
     assert_eq!(result.proof_meta.reference_profile, DUAL_REFERENCE_PROFILE);
@@ -94,7 +94,7 @@ fn pipeline_metadata_sidecars_are_consistent() {
 }
 
 #[test]
-fn cli_verify_path_uses_compiled_public_boundary_only() {
+fn e2e_007_cli_verify_path_uses_compiled_public_boundary_only() {
     let cli_src = fs::read_to_string(repo_path("src/bin/spark_e2e_cli.rs"))
         .expect("failed to read spark_e2e_cli.rs");
 

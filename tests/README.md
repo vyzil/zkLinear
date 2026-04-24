@@ -15,6 +15,14 @@ Spartan2-like + Brakedown + Spielman encoding.
 - `leakage.rs`
   - leakage probes for current reference-like degree-test exposure
 
+## Naming Convention
+- Test IDs are prefixed by suite and sequence number:
+  - `compiler_###_*`
+  - `spartan2_###_*`
+  - `brakedown_###_*`
+  - `e2e_###_*`
+  - `leakage_###_*`
+
 ## Fixture Data
 - `tests/inner_sumcheck_spartan/`
   - `_A.data`, `_B.data`, `_C.data`, `_z.data`

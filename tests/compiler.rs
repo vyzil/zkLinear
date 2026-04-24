@@ -58,7 +58,7 @@ fn build_case(rows: usize, cols: usize, z_len: usize) -> PathBuf {
 }
 
 #[test]
-fn compile_is_deterministic_on_reference_case() {
+fn compiler_001_compile_is_deterministic_on_reference_case() {
     let c1 = compile_from_dir(&case_dir()).expect("compile should succeed");
     let c2 = compile_from_dir(&case_dir()).expect("compile should succeed");
 
@@ -69,7 +69,7 @@ fn compile_is_deterministic_on_reference_case() {
 }
 
 #[test]
-fn compile_rejects_non_power_of_two_rows() {
+fn compiler_002_compile_rejects_non_power_of_two_rows() {
     let dir = build_case(3, 8, 8);
     let err = compile_from_dir(&dir).expect_err("compile should reject non-power-of-two rows");
     assert!(err.to_string().contains("powers of two"));
@@ -77,7 +77,7 @@ fn compile_rejects_non_power_of_two_rows() {
 }
 
 #[test]
-fn compile_rejects_witness_length_mismatch() {
+fn compiler_003_compile_rejects_witness_length_mismatch() {
     let dir = build_case(4, 8, 7);
     let err = compile_from_dir(&dir).expect_err("compile should reject witness length mismatch");
     assert!(
@@ -88,7 +88,7 @@ fn compile_rejects_witness_length_mismatch() {
 }
 
 #[test]
-fn context_fingerprint_changes_with_profile() {
+fn compiler_004_context_fingerprint_changes_with_profile() {
     let m61 = parse_field_profile("m61").expect("m61 profile should parse");
     let gold = parse_field_profile("gold").expect("gold profile should parse");
 
@@ -101,7 +101,7 @@ fn context_fingerprint_changes_with_profile() {
 }
 
 #[test]
-fn prove_rejects_invalid_case_shape_early() {
+fn compiler_005_prove_rejects_invalid_case_shape_early() {
     let dir = build_case(3, 8, 8);
     let err = prove_from_dir(&dir).expect_err("prove should reject invalid shape");
     assert!(err.to_string().contains("powers of two"));
