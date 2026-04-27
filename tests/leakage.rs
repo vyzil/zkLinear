@@ -173,8 +173,8 @@ fn leakage_002_reference_path_can_recover_bound_rows_from_p_random_vec() {
             let cols = pf.p_eval.len();
             testlog::data("recovery_cols", cols);
             let mut recovered_z = vec![Fp::zero(); cols];
-            for c in 0..cols {
-                recovered_z[c] = pf.p_random_vec[round_idx][c].mul(scalar_inv);
+            for (c, slot) in recovered_z.iter_mut().enumerate().take(cols) {
+                *slot = pf.p_random_vec[round_idx][c].mul(scalar_inv);
             }
 
             assert_eq!(recovered_z, instance.z);

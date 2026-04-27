@@ -43,11 +43,12 @@ See `profile/README.md` for arguments and outputs.
 
 ## R1CS Import Tooling Notes
 - `tests/generated_cases/` is a local workspace and is intentionally not tracked in Git.
+  (historical directory name; contents are instance artifacts)
 - If you use Circom import binaries, install `circom`, `snarkjs`, and `node`.
 - ZKIF import binaries are feature-gated and use the Rust `zkinterface` crate.
 - Enable ZKIF tools with `--features zkif`.
 
-Generate local example cases:
+Generate local example instances:
 ```bash
 ./scripts/generate_local_cases.sh
 # optional: choose circom size k for 2^k constraints

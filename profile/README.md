@@ -40,19 +40,19 @@ Outputs are written under `profile/out/`.
 
 - `scripts/explain_e2e.sh`
   - Runs `profile_e2e_explain` and prints step-by-step E2E trace.
-  - Args: `[case_dir] [profile] [head_len]`
+  - Args: `[instance_dir] [profile] [head_len]`
 
 - `scripts/profile_matrix.sh`
   - Runs profile matrix summary as Markdown.
-  - Args: `[case_dir] [runs] [profiles_csv] [out_md]`
+  - Args: `[instance_dir] [runs] [profiles_csv] [out_md]`
 
 - `scripts/profile_metrics.sh`
   - Runs repeated metrics and writes JSON/CSV.
-  - Args: `[case_dir] [out_prefix] [profile] [warmup_runs] [measured_runs]`
+  - Args: `[instance_dir] [out_prefix] [profile] [warmup_runs] [measured_runs]`
 
 - `scripts/profile_perf.sh`
   - Same metrics runner under `perf stat` with hardware counters.
-  - Args: `[case_dir] [out_prefix] [profile] [warmup_runs] [measured_runs]`
+  - Args: `[instance_dir] [out_prefix] [profile] [warmup_runs] [measured_runs]`
 
 ## Notes
 

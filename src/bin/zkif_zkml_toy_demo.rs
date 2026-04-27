@@ -121,16 +121,16 @@ fn build_toy_zkml_workspace(ws_dir: &PathBuf) -> Result<()> {
 fn main() -> Result<()> {
     let base = PathBuf::from("tests/generated_cases/zkif_zkml_toy");
     let src_ws = base.join("workspace");
-    let dst_case = base.join("instance");
+    let dst_instance = base.join("instance");
     fs::create_dir_all(&src_ws)?;
-    fs::create_dir_all(&dst_case)?;
+    fs::create_dir_all(&dst_instance)?;
 
     build_toy_zkml_workspace(&src_ws)?;
-    import_spartan_like_instance_from_zkif_workspace(&src_ws, &dst_case)?;
-    let res = prove(&dst_case)?;
+    import_spartan_like_instance_from_zkif_workspace(&src_ws, &dst_instance)?;
+    let res = prove(&dst_instance)?;
 
     println!("generated zkif workspace: {}", src_ws.display());
-    println!("generated zklinear instance: {}", dst_case.display());
+    println!("generated zklinear instance: {}", dst_instance.display());
     println!("model: toy MLP (4 -> 4 -> 2), affine-only");
     let t = &res.timings;
     println!("timing(ms):");

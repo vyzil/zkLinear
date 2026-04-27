@@ -77,7 +77,7 @@ fn next_pow2(x: usize) -> usize {
     }
 }
 
-fn pad_case_pow2(instance: &mut SpartanLikeInstance) {
+fn pad_instance_pow2(instance: &mut SpartanLikeInstance) {
     let rows = instance.a.len();
     let cols = instance.z.len();
     let target_rows = next_pow2(rows);
@@ -192,7 +192,7 @@ pub fn load_spartan_like_instance_from_zkif_workspace(
     }
 
     let mut instance = SpartanLikeInstance { a, b, c, z };
-    pad_case_pow2(&mut instance);
+    pad_instance_pow2(&mut instance);
     Ok(instance)
 }
 

@@ -77,7 +77,7 @@ fn parse_args() -> Result<(PathBuf, String, usize)> {
     Ok((instance_dir, profile_s, show_head))
 }
 
-fn print_case_snapshot(instance: &SpartanLikeInstance, show_head: usize) {
+fn print_instance_snapshot(instance: &SpartanLikeInstance, show_head: usize) {
     println!("[Input Snapshot]");
     println!(
         "- A: {}x{} | first row head: {}",
@@ -130,7 +130,7 @@ fn main() -> Result<()> {
     println!("- circuit_digest(A,B,C only): {}", hex::encode(digest));
     println!();
 
-    print_case_snapshot(&instance, show_head);
+    print_instance_snapshot(&instance, show_head);
     println!();
 
     println!("[Randomness + Transcript Contract]");

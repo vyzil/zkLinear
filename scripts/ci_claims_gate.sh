@@ -2,17 +2,17 @@
 set -euo pipefail
 
 # Usage:
-#   scripts/ci_claims_gate.sh [case_dir] [profile] [out_dir]
+#   scripts/ci_claims_gate.sh [instance_dir] [profile] [out_dir]
 #
 # Purpose:
 #   A local CI-like gate to run before sharing performance/security claims.
 
-CASE_DIR="${1:-tests/inner_sumcheck_spartan}"
+INSTANCE_DIR="${1:-tests/inner_sumcheck_spartan}"
 PROFILE="${2:-m61}"
 OUT_DIR="${3:-/tmp/zklinear_claims_gate}"
 OUT_PREFIX="${OUT_DIR}/metrics"
 
-echo "[gate] case_dir=${CASE_DIR}"
+echo "[gate] instance_dir=${INSTANCE_DIR}"
 echo "[gate] profile=${PROFILE}"
 echo "[gate] out_dir=${OUT_DIR}"
 
@@ -32,7 +32,7 @@ cargo test -q --test leakage
 
 echo
 echo "[3/4] metrics runner sanity"
-cargo run --quiet --bin metrics_runner -- "${CASE_DIR}" "${OUT_PREFIX}" "${PROFILE}" 0 1
+cargo run --quiet --bin metrics_runner -- "${INSTANCE_DIR}" "${OUT_PREFIX}" "${PROFILE}" 0 1
 
 JSON_PATH="${OUT_PREFIX}.json"
 CSV_PATH="${OUT_PREFIX}.csv"

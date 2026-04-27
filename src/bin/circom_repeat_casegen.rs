@@ -3,6 +3,8 @@ use std::{fs, path::PathBuf, process::Command};
 use anyhow::{anyhow, bail, Result};
 use zk_linear::io::r1cs_circom::import_spartan_like_instance_from_circom_json;
 
+// NOTE: keep this binary name for compatibility with existing local scripts.
+// It generates an `instance/` directory under `tests/generated_cases/...`.
 fn run_cmd(cmd: &mut Command, label: &str) -> Result<()> {
     let out = cmd
         .output()

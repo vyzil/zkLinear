@@ -653,7 +653,7 @@ fn run_prove_k(args: &[String]) -> Result<()> {
     ));
     if !instance_dir.exists() {
         bail!(
-            "instance dir not found: {} (generate it first, e.g. with circom_repeat_e2e_demo)",
+            "instance dir not found: {} (generate it first, e.g. with scripts/generate_local_cases.sh)",
             instance_dir.display()
         );
     }

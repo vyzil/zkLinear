@@ -39,7 +39,7 @@ impl BrakedownEncoderKind {
 #[repr(u8)]
 #[derive(Clone, Debug, Copy, PartialEq, Eq)]
 pub enum BrakedownFieldProfile {
-    // Legacy toy path currently used by the existing F_97 pipeline.
+    // Lightweight profile for toy/debug runs.
     ToyF97 = 1,
     // Candidate production-oriented paths (base field + D=2 extension).
     Mersenne61Ext2 = 2,
@@ -169,11 +169,11 @@ impl BrakedownParams {
         )
     }
 
-    /// Profile helper for staged migration:
+    /// Profile helper for profile-controlled experiments:
     /// - keeps the same encoder path
     /// - enables security-parameter auto-tuning from field profile and encoded column count
     pub fn new_with_field_profile(n_per_row: usize, field_profile: BrakedownFieldProfile) -> Self {
-        // Keep lcpc-like migration profile distinct from production-pinned defaults.
+        // Keep this path distinct from production-pinned defaults.
         Self::with_profile_defaults(
             n_per_row,
             field_profile,

@@ -13,9 +13,9 @@ use zkinterface::producers::{
 fn main() -> Result<()> {
     let base = PathBuf::from("tests/generated_cases/zkif_example");
     let src_ws = base.join("workspace");
-    let dst_case = base.join("instance");
+    let dst_instance = base.join("instance");
     fs::create_dir_all(&src_ws)?;
-    fs::create_dir_all(&dst_case)?;
+    fs::create_dir_all(&dst_instance)?;
 
     let mut sink = WorkspaceSink::new(&src_ws).map_err(|e| anyhow!(e.to_string()))?;
     sink.push_header(example_circuit_header())
@@ -25,11 +25,11 @@ fn main() -> Result<()> {
     sink.push_constraints(example_constraints())
         .map_err(|e| anyhow!(e.to_string()))?;
 
-    import_spartan_like_instance_from_zkif_workspace(&src_ws, &dst_case)?;
-    let res = prove(&dst_case)?;
+    import_spartan_like_instance_from_zkif_workspace(&src_ws, &dst_instance)?;
+    let res = prove(&dst_instance)?;
 
     println!("generated zkif workspace: {}", src_ws.display());
-    println!("generated zklinear instance: {}", dst_case.display());
+    println!("generated zklinear instance: {}", dst_instance.display());
     let t = &res.timings;
     println!("timing(ms):");
     println!(

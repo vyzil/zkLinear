@@ -27,8 +27,9 @@ For options and output paths, see `profile/README.md`.
 
 ## Local Instance Generation (Circom / ZKIF)
 `tests/generated_cases/` is local-only and not tracked in Git.
+(historical directory name; it stores generated instances)
 
-Generate local cases:
+Generate local instances:
 ```bash
 ./scripts/generate_local_cases.sh
 ./scripts/generate_local_cases.sh 12

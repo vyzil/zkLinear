@@ -55,8 +55,8 @@ fn write_vector(path: &PathBuf, len: usize) {
     fs::write(path, body).expect("write vector");
 }
 
-fn build_case(rows: usize, cols: usize, z_len: usize) -> PathBuf {
-    let dir = unique_tmp_dir("zklinear_compiler_case");
+fn build_instance(rows: usize, cols: usize, z_len: usize) -> PathBuf {
+    let dir = unique_tmp_dir("zklinear_compiler_instance");
     fs::create_dir_all(&dir).expect("create temp instance dir");
     write_matrix(&dir.join("_A.data"), rows, cols);
     write_matrix(&dir.join("_B.data"), rows, cols);
@@ -66,7 +66,7 @@ fn build_case(rows: usize, cols: usize, z_len: usize) -> PathBuf {
 }
 
 #[test]
-fn compiler_001_compile_is_deterministic_on_reference_case() {
+fn compiler_001_compile_is_deterministic_on_reference_instance() {
     run_instance!(
         "compiler_001",
         "compile determinism on reference instance",
@@ -96,7 +96,7 @@ fn compiler_002_compile_rejects_non_power_of_two_rows() {
         "input: synthetic bad instance rows=3",
         "expect_error=shape_power_of_two",
         {
-            let dir = build_case(3, 8, 8);
+            let dir = build_instance(3, 8, 8);
             let err = compile(&dir).expect_err("compile should reject non-power-of-two rows");
             testlog::data("error", &err);
             assert!(err.to_string().contains("powers of two"));
@@ -113,7 +113,7 @@ fn compiler_003_compile_rejects_witness_length_mismatch() {
         "input: synthetic bad instance z_len=7 with cols=8",
         "expect_error=z_length_mismatch",
         {
-            let dir = build_case(4, 8, 7);
+            let dir = build_instance(4, 8, 7);
             let err = compile(&dir).expect_err("compile should reject witness length mismatch");
             testlog::data("error", &err);
             assert!(err
@@ -151,14 +151,14 @@ fn compiler_004_context_fingerprint_changes_with_profile() {
 }
 
 #[test]
-fn compiler_005_prove_rejects_invalid_case_shape_early() {
+fn compiler_005_prove_rejects_invalid_instance_shape_early() {
     run_instance!(
         "compiler_005",
         "prove path rejects invalid shape before proving",
         "input: synthetic bad instance rows=3",
         "expect_error=shape_power_of_two",
         {
-            let dir = build_case(3, 8, 8);
+            let dir = build_instance(3, 8, 8);
             let err = prove(&dir).expect_err("prove should reject invalid shape");
             testlog::data("error", &err);
             assert!(err.to_string().contains("powers of two"));
