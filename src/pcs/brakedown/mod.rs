@@ -1,6 +1,5 @@
 pub mod challenges;
 pub mod commit;
-pub mod demo;
 pub mod encoding;
 pub mod merkle;
 pub mod profiles;

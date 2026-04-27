@@ -5,7 +5,6 @@ use merlin::Transcript;
 use sha2::{Digest, Sha256};
 
 use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
-use super::report::format_pipeline_report;
 use super::types::{
     KernelTimingMs, NizkInnerRound, NizkInnerTrace, NizkJointChallenges, NizkOuterRound,
     NizkOuterTrace, SpartanBrakedownCompiledCircuit, SpartanBrakedownPipelineResult,
@@ -778,16 +777,4 @@ fn verify_public_succinct(
     )?;
 
     Ok(())
-}
-
-pub fn build_pipeline_report(instance_dir: &Path) -> Result<String> {
-    build_pipeline_report_with_profile(instance_dir, default_profile())
-}
-
-pub fn build_pipeline_report_with_profile(
-    instance_dir: &Path,
-    profile: BrakedownFieldProfile,
-) -> Result<String> {
-    let result = prove_with_profile(instance_dir, profile)?;
-    Ok(format_pipeline_report(instance_dir, &result))
 }

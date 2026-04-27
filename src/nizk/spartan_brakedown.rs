@@ -1,17 +1,15 @@
-//! Facade for the NIZK pipeline API.
+//! Facade for the NIZK API.
 //! New internal layout:
 //! - `types.rs`: protocol-visible objects
 //! - `flow.rs`: prove/verify orchestration
-//! - `report.rs`: human-readable formatting
 //!
 //! Verification entrypoints:
 //! - `verify_public(proof, public)`: default succinct verifier path
 //! - `verify_strict(instance_dir, proof)`: debug/full replay path
 
 pub use super::flow::{
-    build_pipeline_report, build_pipeline_report_with_profile, compile, compile_with_profile,
-    parse_field_profile, prove, prove_with_compiled, prove_with_profile, verify_public,
-    verify_strict, verify_with_compiled,
+    compile, compile_with_profile, parse_field_profile, prove, prove_with_compiled,
+    prove_with_profile, verify_public, verify_strict, verify_with_compiled,
 };
 pub use super::meta::{SpartanBrakedownProofMeta, SpartanBrakedownPublicMeta};
 pub use super::metrics::{
