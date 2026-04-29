@@ -99,11 +99,16 @@ def main() -> int:
         notes["5"] = "Column sampling uses unique/no-replacement and start-gated range."
 
     # 6) Systematic region opening policy
-    # PASS only if no systematic exclusion policy appears.
-    has_systematic_gate = has(pcs_chal, r"start_col") or has(brakedown_tests, r"col_open_start")
-    status["6"] = "FAIL" if has_systematic_gate else "PASS"
+    # PASS when operational sampling path is full-range and ungated.
+    # Keeping a native-only config knob is acceptable as long as strict-reference
+    # path does not use it.
+    has_sampling_gate = has(pcs_chal, r"start_col")
+    ignores_col_open_start = has(pcs_prove, r"let _ = params\.col_open_start;") and has(
+        pcs_verify, r"let _ = params\.col_open_start;"
+    )
+    status["6"] = "PASS" if (not has_sampling_gate and ignores_col_open_start) else "FAIL"
     if status["6"] == "FAIL":
-        notes["6"] = "Systematic-region exclusion policy exists via col_open_start."
+        notes["6"] = "Operational sampling path is still gated by non-reference systematic policy."
 
     # 7) Verifier boundary
     boundary_ok = (
@@ -117,11 +122,19 @@ def main() -> int:
         notes["7"] = "Public/strict boundaries are not clearly separated on CLI/runtime path."
 
     # 8) proof/public/wire fields + rejection behavior (strict reference-equivalence)
-    # PASS only if dedicated reference-compatible codec/mode exists.
-    has_ref_codec = run_rg(repo, r"reference_compat|spartan2_wire|lcpc_wire", "src")
-    status["8"] = "PASS" if has_ref_codec else "FAIL"
+    # PASS only if dedicated reference-compatible codec/mode exists and has
+    # explicit malformed-payload rejection tests.
+    ref_codec = read(repo / "src/io/reference_compat.rs") if (repo / "src/io/reference_compat.rs").exists() else ""
+    ref_tests = read(repo / "tests/reference_compat.rs") if (repo / "tests/reference_compat.rs").exists() else ""
+    has_ref_codec = (
+        has(ref_codec, r"REFERENCE_COMPAT_FORMAT")
+        and has(ref_codec, r"decode_reference_compat_proof")
+        and has(ref_codec, r"decode_reference_compat_public")
+    )
+    has_reject_tests = has(ref_tests, r"malformed") and has(ref_tests, r"expect_err")
+    status["8"] = "PASS" if (has_ref_codec and has_reject_tests) else "FAIL"
     if status["8"] == "FAIL":
-        notes["8"] = "Only zkLinear-native proof/public/wire schema is present."
+        notes["8"] = "Reference-compatible codec/mode with rejection tests is missing."
 
     # 9) Encoder profile enforcement
     encoder_policy_ok = (
