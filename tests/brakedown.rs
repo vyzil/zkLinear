@@ -4,7 +4,7 @@ use zk_linear::{
     field_profiles::Mersenne61,
     pcs::{
         brakedown::{
-            challenges::{sample_field_vec_t, sample_unique_cols, sample_unique_cols_from_start},
+            challenges::{sample_cols, sample_field_vec_t, sample_unique_cols},
             merkle::merkle_root,
             types::{BrakedownEncoderKind, BrakedownParams},
             wire::{
@@ -182,39 +182,65 @@ fn brakedown_003_pcs_open_verify_succeeds_and_wrong_claim_fails() {
 fn brakedown_004_col_open_start_avoids_systematic_region() {
     run_instance!(
         "brakedown_004",
-        "systematic region is excluded by col_open_start",
-        "input: col_open_start=8 with n_per_row=8",
-        "expect: opened col_idx >= 8",
+        "column sampling remains full-range regardless of col_open_start",
+        "input: two parameter sets differing only in col_open_start",
+        "expect: identical opened columns under same transcript context",
         {
-            let mut params = BrakedownParams::new_toy(8);
-            params.encoder_kind = BrakedownEncoderKind::SpielmanLike;
-            params.col_open_start = 8;
-            params.n_col_opens = 3;
-
-            let pcs = BrakedownPcs::new(params);
+            let mut p0 = BrakedownParams::new_toy(8);
+            p0.encoder_kind = BrakedownEncoderKind::SpielmanLike;
+            p0.col_open_start = 0;
+            p0.n_col_opens = 3;
+            let mut p1 = p0.clone();
+            p1.col_open_start = 8;
+            let pcs_0 = BrakedownPcs::new(p0);
+            let pcs_1 = BrakedownPcs::new(p1);
             let coeffs = fixture_coeffs(4, 8);
-            let prover_commitment = pcs.commit(&coeffs).expect("commit should succeed");
-            let (outer, _) = build_tensors(prover_commitment.n_rows, prover_commitment.n_per_row);
+            let comm_0 = pcs_0.commit(&coeffs).expect("commit should succeed");
+            let comm_1 = pcs_1.commit(&coeffs).expect("commit should succeed");
+            let (outer_0, _) = build_tensors(comm_0.n_rows, comm_0.n_per_row);
+            let (outer_1, _) = build_tensors(comm_1.n_rows, comm_1.n_per_row);
 
-            let root = merkle_root(&prover_commitment.merkle_nodes);
-            let mut tr_p = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
-            append_spec_domain(&mut tr_p);
-            tr_p.append_message(b"polycommit", &root);
-            append_u64_le(&mut tr_p, b"ncols", pcs.encoding.n_cols as u64);
-            let proof = pcs
-                .open(&prover_commitment, &outer, &mut tr_p)
+            let root_0 = merkle_root(&comm_0.merkle_nodes);
+            let root_1 = merkle_root(&comm_1.merkle_nodes);
+            let mut tr0 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+            append_spec_domain(&mut tr0);
+            tr0.append_message(b"polycommit", &root_0);
+            append_u64_le(&mut tr0, b"ncols", pcs_0.encoding.n_cols as u64);
+            let proof_0 = pcs_0
+                .open(&comm_0, &outer_0, &mut tr0)
+                .expect("open should succeed");
+            let mut tr1 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+            append_spec_domain(&mut tr1);
+            tr1.append_message(b"polycommit", &root_1);
+            append_u64_le(&mut tr1, b"ncols", pcs_1.encoding.n_cols as u64);
+            let proof_1 = pcs_1
+                .open(&comm_1, &outer_1, &mut tr1)
                 .expect("open should succeed");
             testlog::data(
                 "opened_cols",
                 format!(
                     "{:?}",
-                    proof.columns.iter().map(|c| c.col_idx).collect::<Vec<_>>()
+                    proof_0
+                        .columns
+                        .iter()
+                        .map(|c| c.col_idx)
+                        .collect::<Vec<_>>()
                 ),
             );
 
-            assert!(
-                proof.columns.iter().all(|c| c.col_idx >= 8),
-                "opened columns should avoid systematic region when col_open_start is set"
+            let c0 = proof_0
+                .columns
+                .iter()
+                .map(|c| c.col_idx)
+                .collect::<Vec<_>>();
+            let c1 = proof_1
+                .columns
+                .iter()
+                .map(|c| c.col_idx)
+                .collect::<Vec<_>>();
+            assert_eq!(
+                c0, c1,
+                "col_open_start should not change full-range sampling"
             );
         }
     );
@@ -225,27 +251,15 @@ fn brakedown_005_challenge_sampling_contract_for_col_start() {
     run_instance!(
         "brakedown_005",
         "column-sampling boundary and determinism contract",
-        "input: transcript-driven sampling with different (n_cols,n_open,start)",
-        "expect: boundary checks + deterministic outputs",
+        "input: transcript-driven sampling with (n_cols,n_open)",
+        "expect: full-range with-replacement sampling + deterministic outputs",
         {
             let mut t = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
             append_spec_domain(&mut t);
 
-            let err = sample_unique_cols_from_start(&mut t, 10, 1, 11)
-                .expect_err("start beyond n_cols should fail");
-            assert!(err.to_string().contains("must be <= n_cols"));
-
-            let mut t2 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
-            append_spec_domain(&mut t2);
-            let empty = sample_unique_cols_from_start(&mut t2, 10, 0, 10)
-                .expect("empty range with zero openings should succeed");
-            assert!(empty.is_empty());
-
-            let mut t3 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
-            append_spec_domain(&mut t3);
-            let err = sample_unique_cols_from_start(&mut t3, 10, 1, 10)
-                .expect_err("empty range with openings should fail");
-            assert!(err.to_string().contains("range is empty"));
+            let err =
+                sample_cols(&mut t, 0, 1).expect_err("n_cols=0 must fail for column sampling");
+            assert!(err.to_string().contains("n_cols is zero"));
 
             let mut t4 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
             let mut t5 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
@@ -258,6 +272,20 @@ fn brakedown_005_challenge_sampling_contract_for_col_start() {
             let c2 = sample_unique_cols(&mut t5, 64, 12).expect("sampling should succeed");
             testlog::data("sample_cols_head", format!("{:?}", &c1[..4]));
             assert_eq!(c1, c2);
+            assert!(c1.iter().all(|&c| c < 64));
+
+            let mut t6 = Transcript::new(PCS_DEMO_TRANSCRIPT_LABEL);
+            append_spec_domain(&mut t6);
+            t6.append_message(b"ctx", b"same");
+            let c_wr = sample_cols(&mut t6, 4, 64).expect("sampling should succeed");
+            let uniq = c_wr
+                .iter()
+                .copied()
+                .collect::<std::collections::BTreeSet<_>>();
+            assert!(
+                uniq.len() < c_wr.len(),
+                "with-replacement sampling should permit duplicate column indices"
+            );
 
             let v_m61 = sample_field_vec_t::<Mersenne61>(&mut t5, b"deg-test", 32);
             for x in v_m61 {

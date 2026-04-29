@@ -4,7 +4,7 @@ use sha2::{Digest, Sha256};
 use crate::pcs::brakedown::types::BrakedownFieldProfile;
 use crate::protocol::spec_v1::{
     append_fp_le, append_u64_le, BLIND_MIX_LABEL, JOINT_CHALLENGE_DOMAIN, JOINT_CHALLENGE_RA_LABEL,
-    JOINT_CHALLENGE_RB_LABEL, JOINT_CHALLENGE_RC_LABEL, OUTER_TAU_LABEL,
+    JOINT_CHALLENGE_RB_LABEL, JOINT_CHALLENGE_RC_LABEL, JOINT_CHALLENGE_R_LABEL, OUTER_TAU_LABEL,
 };
 use crate::{core::field::Fp, io::instance_format::SpartanLikeInstance};
 
@@ -82,19 +82,17 @@ pub fn compute_instance_digest(instance: &SpartanLikeInstance) -> [u8; 32] {
 
 pub fn sample_joint_challenges_from_transcript(tr: &mut Transcript) -> (Fp, Fp, Fp) {
     tr.append_message(b"joint_challenge_domain", JOINT_CHALLENGE_DOMAIN);
-
     let mut out = [0u8; 32];
-    tr.challenge_bytes(JOINT_CHALLENGE_RA_LABEL, &mut out);
-    let r_a = Fp::from_challenge(out);
-
-    let mut out = [0u8; 32];
-    tr.challenge_bytes(JOINT_CHALLENGE_RB_LABEL, &mut out);
-    let r_b = Fp::from_challenge(out);
-
-    let mut out = [0u8; 32];
-    tr.challenge_bytes(JOINT_CHALLENGE_RC_LABEL, &mut out);
-    let r_c = Fp::from_challenge(out);
-
+    tr.challenge_bytes(JOINT_CHALLENGE_R_LABEL, &mut out);
+    let r = Fp::from_challenge(out);
+    let r_a = Fp::new(1);
+    let r_b = r;
+    let r_c = r.mul(r);
+    // Keep transcript bindings for legacy explicit labels while deriving from a
+    // single reference-style joint challenge.
+    tr.append_message(JOINT_CHALLENGE_RA_LABEL, &r_a.0.to_le_bytes());
+    tr.append_message(JOINT_CHALLENGE_RB_LABEL, &r_b.0.to_le_bytes());
+    tr.append_message(JOINT_CHALLENGE_RC_LABEL, &r_c.0.to_le_bytes());
     (r_a, r_b, r_c)
 }
 

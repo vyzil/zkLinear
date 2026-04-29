@@ -220,6 +220,39 @@ fn expected_commitment_n_cols(cols: usize, field_profile: BrakedownFieldProfile)
     BrakedownPcs::new(params).encoding.n_cols
 }
 
+fn enforce_reference_aligned_commitment_profile(
+    cols: usize,
+    field_profile: BrakedownFieldProfile,
+    proof: &SpartanBrakedownProof,
+) -> Result<()> {
+    let params = leakage_reduced_public_params(cols, field_profile);
+    if !params.is_spec_v1_production_candidate() {
+        return Err(anyhow!(
+            "reference-alignment policy mismatch: verifier params are not spec-v1 production candidate"
+        ));
+    }
+    if proof.verifier_commitment.encoder_kind != params.encoder_kind {
+        return Err(anyhow!(
+            "reference-alignment policy mismatch: verifier commitment encoder kind is not allowed"
+        ));
+    }
+    if proof.verifier_commitment.encoder_seed != params.encoder_seed {
+        return Err(anyhow!(
+            "reference-alignment policy mismatch: verifier commitment encoder seed is not allowed"
+        ));
+    }
+    if proof.verifier_commitment.spel_layers != params.spel_layers
+        || proof.verifier_commitment.spel_pre_density != params.spel_pre_density
+        || proof.verifier_commitment.spel_post_density != params.spel_post_density
+        || proof.verifier_commitment.spel_base_rs_parity != params.spel_base_rs_parity
+    {
+        return Err(anyhow!(
+            "reference-alignment policy mismatch: verifier commitment Spielman profile is not allowed"
+        ));
+    }
+    Ok(())
+}
+
 pub fn parse_field_profile(s: &str) -> Option<BrakedownFieldProfile> {
     BrakedownFieldProfile::parse(s)
 }
@@ -651,6 +684,7 @@ fn validate_compiled_public(
     if public.field_profile != compiled.field_profile {
         return Err(anyhow!("compiled/public field profile mismatch"));
     }
+    enforce_reference_aligned_commitment_profile(compiled.cols, compiled.field_profile, proof)?;
     let expected_commitment_cols =
         expected_commitment_n_cols(compiled.cols, compiled.field_profile);
     if proof.verifier_commitment.n_rows != NIZK_BLINDED_LAYOUT_ROWS
@@ -671,6 +705,7 @@ fn verify_public_succinct(
     if public.field_profile != proof.verifier_commitment.field_profile {
         return Err(anyhow!("public/proof field profile mismatch"));
     }
+    enforce_reference_aligned_commitment_profile(public.cols, public.field_profile, proof)?;
     let _mod_scope = ModulusScope::enter(public.field_profile.base_modulus());
     if public.rows == 0
         || public.cols == 0

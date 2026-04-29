@@ -4,7 +4,7 @@ use merlin::Transcript;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
-    challenges::{sample_field_vec_round_t, sample_unique_cols_from_start},
+    challenges::{sample_cols, sample_field_vec_round_t},
     merkle::verify_column_path_t,
     scalar::BrakedownField,
     types::{BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownVerifierCommitment},
@@ -94,8 +94,8 @@ pub fn verify_eval_structure_t<F: BrakedownField>(
 
     append_field_vec_t(tr, b"p_eval", &proof.p_eval);
 
-    let cols_expected =
-        sample_unique_cols_from_start(tr, enc.n_cols, params.n_col_opens, params.col_open_start)?;
+    let _ = params.col_open_start;
+    let cols_expected = sample_cols(tr, enc.n_cols, params.n_col_opens)?;
 
     let p_eval_enc = enc.encode_row_t(&proof.p_eval);
     let p_rand_enc: Vec<Vec<F>> = proof

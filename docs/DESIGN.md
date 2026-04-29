@@ -16,8 +16,10 @@ In the current codebase, the primary verification path is `nizk::spartan_brakedo
 ## Verification Boundaries
 - `verify_public(proof, public)`:
   - verifies compact sumcheck transitions and PCS claimed evaluation from public inputs only.
+  - enforces reference-aligned Brakedown commitment encoder policy before transcript replay.
 - `verify_with_compiled(compiled, proof, public)`:
   - runs `verify_public` and also checks compiled/public/proof consistency for shape/profile/digest.
+  - enforces the same encoder policy against the compiled profile.
 - `verify_strict(...)`:
   - debug/replay path that reloads the input instance.
 

@@ -251,7 +251,7 @@ fn spartan2_006_transcript_challenge_vectors_are_stable() {
             testlog::data("merlin_chal", merlin_chal.0);
 
             assert_eq!(sha_chal.0, 76);
-            assert_eq!(merlin_chal.0, 46);
+            assert_eq!(merlin_chal.0, 31);
             assert!(sha_chal.0 < MODULUS);
             assert!(merlin_chal.0 < MODULUS);
         }

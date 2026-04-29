@@ -4,7 +4,7 @@ use merlin::Transcript;
 use crate::protocol::spec_v1::LCPC_DEG_TEST_LABEL;
 
 use super::{
-    challenges::{sample_field_vec_round_t, sample_unique_cols_from_start},
+    challenges::{sample_cols, sample_field_vec_round_t},
     commit::open_column_t,
     scalar::BrakedownField,
     types::{BrakedownEncoding, BrakedownEvalProofT, BrakedownParams, BrakedownProverCommitmentT},
@@ -50,8 +50,8 @@ pub fn prove_eval_t<F: BrakedownField>(
     let p_eval = collapse_rows_t(&comm.coeffs, outer_tensor, comm.n_rows, comm.n_per_row);
     append_field_vec_t(tr, b"p_eval", &p_eval);
 
-    let cols =
-        sample_unique_cols_from_start(tr, comm.n_cols, params.n_col_opens, params.col_open_start)?;
+    let _ = params.col_open_start;
+    let cols = sample_cols(tr, comm.n_cols, params.n_col_opens)?;
     let mut openings = Vec::with_capacity(cols.len());
     for c in cols {
         openings.push(open_column_t(comm, c)?);

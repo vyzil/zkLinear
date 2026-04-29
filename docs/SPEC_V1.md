@@ -43,8 +43,10 @@ Metadata is for observability/operations and is not a required input for verific
 - `verify_public(proof, public)`:
   - public-boundary verification
   - sumcheck transition checks + PCS claimed-evaluation check
+  - enforces reference-aligned commitment encoder policy for the public profile
 - `verify_with_compiled(compiled, proof, public)`:
   - `verify_public` plus compiled/public consistency checks
+  - also enforces reference-aligned commitment encoder policy under compiled profile
 
 ## 5. PCS Wire Contract
 - verifier commitment tag: `ZKVCB001`
@@ -63,6 +65,13 @@ Metadata is for observability/operations and is not a required input for verific
 - production-like preset uses fixed challenge counts:
   - `n_degree_tests = 8`
   - `n_col_opens = 16`
+- public verifier policy additionally pins commitment encoder profile to:
+  - `encoder_kind = SpielmanLike`
+  - `encoder_seed = 0`
+  - `spel_layers = 3`
+  - `spel_pre_density = 5`
+  - `spel_post_density = 4`
+  - `spel_base_rs_parity = 16`
 
 ## 8. Scope
 - This spec defines the current implementation boundary in this repository.

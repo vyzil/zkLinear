@@ -1,11 +1,22 @@
 use std::{fs, path::PathBuf};
 
+use merlin::Transcript;
 use zk_linear::{
     core::field::{Fp, ModulusScope},
+    core::transcript::derive_round_challenge_merlin,
     nizk::spartan_brakedown::{
         compile, prove, prove_with_compiled, verify_public, verify_strict, verify_with_compiled,
     },
+    pcs::brakedown::types::BrakedownEncoderKind,
+    protocol::reference::append_reference_profile_to_transcript,
     protocol::reference::DUAL_REFERENCE_PROFILE,
+    protocol::shared::{
+        append_field_profile_to_transcript, append_instance_digest_to_transcript,
+        sample_joint_challenges_from_transcript,
+    },
+    protocol::spec_v1::{
+        append_spec_domain, append_u64_le, NIZK_TRANSCRIPT_LABEL, OUTER_SUMCHECK_LABEL,
+    },
 };
 #[path = "testlog.rs"]
 mod testlog;
@@ -185,6 +196,157 @@ fn e2e_007_cli_verify_path_uses_compiled_public_boundary_only() {
                 !cli_src.contains("verify_strict("),
                 "strict replay verifier must stay out of CLI verify path"
             );
+        }
+    );
+}
+
+#[test]
+fn e2e_008_nizk_public_verify_rejects_non_spielman_encoder_kind_policy() {
+    run_instance!(
+        "e2e_008",
+        "public verifier rejects non-Spielman encoder kind by policy",
+        "input: valid proof with commitment encoder_kind tampered",
+        "verify=public boundary + reference alignment",
+        {
+            let mut result = prove(&instance_dir()).expect("prove should succeed");
+            result.proof.verifier_commitment.encoder_kind = BrakedownEncoderKind::ToyHybrid;
+            let err = verify_public(&result.proof, &result.public)
+                .expect_err("verify should fail for non-Spielman encoder kind");
+            testlog::data("error", &err);
+            assert!(err.to_string().contains(
+                "reference-alignment policy mismatch: verifier commitment encoder kind is not allowed"
+            ));
+        }
+    );
+}
+
+#[test]
+fn e2e_009_nizk_compiled_verify_rejects_nonzero_encoder_seed_policy() {
+    run_instance!(
+        "e2e_009",
+        "compiled verifier rejects non-zero encoder seed by policy",
+        "input: valid proof with commitment encoder_seed tampered",
+        "verify=compiled boundary + reference alignment",
+        {
+            let compiled = compile(&instance_dir()).expect("compile should succeed");
+            let mut result =
+                prove_with_compiled(&compiled, &instance_dir()).expect("prove should succeed");
+            result.proof.verifier_commitment.encoder_seed = 7;
+            let err = verify_with_compiled(&compiled, &result.proof, &result.public)
+                .expect_err("verify should fail for non-zero encoder seed");
+            testlog::data("error", &err);
+            assert!(err.to_string().contains(
+                "reference-alignment policy mismatch: verifier commitment encoder seed is not allowed"
+            ));
+        }
+    );
+}
+
+#[test]
+fn e2e_010_nizk_public_verify_rejects_non_reference_spielman_profile_policy() {
+    run_instance!(
+        "e2e_010",
+        "public verifier rejects non-reference Spielman profile knobs",
+        "input: valid proof with commitment spel_layers tampered",
+        "verify=public boundary + reference alignment",
+        {
+            let mut result = prove(&instance_dir()).expect("prove should succeed");
+            result.proof.verifier_commitment.spel_layers ^= 1;
+            let err = verify_public(&result.proof, &result.public)
+                .expect_err("verify should fail for non-reference Spielman profile");
+            testlog::data("error", &err);
+            assert!(err.to_string().contains(
+                "reference-alignment policy mismatch: verifier commitment Spielman profile is not allowed"
+            ));
+        }
+    );
+}
+
+#[test]
+fn e2e_011_nizk_public_verify_rejects_joint_challenges_from_wrong_derivation_point() {
+    run_instance!(
+        "e2e_011",
+        "joint challenges must be sampled after outer rounds",
+        "input: valid proof with joint challenges recomputed before outer rounds",
+        "verify=public boundary + transcript conformance",
+        {
+            let mut result = prove(&instance_dir()).expect("prove should succeed");
+
+            let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+            append_spec_domain(&mut tr);
+            append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
+            append_field_profile_to_transcript(&mut tr, result.public.field_profile);
+            append_instance_digest_to_transcript(
+                &mut tr,
+                result.public.rows,
+                result.public.cols,
+                result.public.instance_digest,
+            );
+            tr.append_message(b"polycommit", &result.proof.verifier_commitment.root);
+            append_u64_le(
+                &mut tr,
+                b"ncols",
+                result.proof.verifier_commitment.n_cols as u64,
+            );
+            let (ra, rb, rc) = sample_joint_challenges_from_transcript(&mut tr);
+            result.proof.joint_challenges.r_a = ra;
+            result.proof.joint_challenges.r_b = rb;
+            result.proof.joint_challenges.r_c = rc;
+
+            let err = verify_public(&result.proof, &result.public)
+                .expect_err("verify should fail when joint challenges are derived at wrong point");
+            testlog::data("error", &err);
+            assert!(err
+                .to_string()
+                .contains("joint challenges mismatch vs transcript-derived challenges"));
+        }
+    );
+}
+
+#[test]
+fn e2e_012_nizk_public_verify_rejects_outer_challenge_not_bound_to_commitment() {
+    run_instance!(
+        "e2e_012",
+        "outer challenge must be bound after commitment append",
+        "input: valid proof with round-0 challenge recomputed before commitment append",
+        "verify=public boundary + commit-before-challenge conformance",
+        {
+            let mut result = prove(&instance_dir()).expect("prove should succeed");
+            let r0 = result
+                .proof
+                .outer_trace
+                .rounds
+                .first()
+                .expect("outer round 0 must exist")
+                .clone();
+
+            let mut tr = Transcript::new(NIZK_TRANSCRIPT_LABEL);
+            append_spec_domain(&mut tr);
+            append_reference_profile_to_transcript(&mut tr, &DUAL_REFERENCE_PROFILE);
+            append_field_profile_to_transcript(&mut tr, result.public.field_profile);
+            append_instance_digest_to_transcript(
+                &mut tr,
+                result.public.rows,
+                result.public.cols,
+                result.public.instance_digest,
+            );
+            let wrong_r0 = derive_round_challenge_merlin(
+                &mut tr,
+                OUTER_SUMCHECK_LABEL,
+                0,
+                r0.g_at_0,
+                r0.g_at_2,
+                r0.g_at_3,
+            );
+            result.proof.outer_trace.rounds[0].challenge_r = wrong_r0;
+
+            let err = verify_public(&result.proof, &result.public).expect_err(
+                "verify should fail when outer challenge is not bound to commitment state",
+            );
+            testlog::data("error", &err);
+            assert!(err
+                .to_string()
+                .contains("outer challenge mismatch at round 0"));
         }
     );
 }

@@ -42,13 +42,12 @@ pub fn derive_round_challenge_merlin(
 
 pub fn derive_round_challenge_merlin_t<F: FieldElement>(
     tr: &mut Transcript,
-    label: &[u8],
+    _label: &[u8],
     round: usize,
     h0: F,
     h1: F,
     h2: F,
 ) -> F {
-    tr.append_message(b"round_label", label);
     append_u64_le(tr, b"round_idx", round as u64);
     let mut b0 = Vec::new();
     let mut b1 = Vec::new();
@@ -56,10 +55,12 @@ pub fn derive_round_challenge_merlin_t<F: FieldElement>(
     h0.append_le_bytes(&mut b0);
     h1.append_le_bytes(&mut b1);
     h2.append_le_bytes(&mut b2);
-    tr.append_message(b"msg_0", &b0);
-    tr.append_message(b"msg_1", &b1);
-    tr.append_message(b"msg_2", &b2);
+    let mut p_bytes = Vec::with_capacity(b0.len() + b1.len() + b2.len());
+    p_bytes.extend_from_slice(&b0);
+    p_bytes.extend_from_slice(&b1);
+    p_bytes.extend_from_slice(&b2);
+    tr.append_message(b"p", &p_bytes);
     let mut out = [0u8; 32];
-    tr.challenge_bytes(b"round_challenge", &mut out);
+    tr.challenge_bytes(b"c", &mut out);
     F::from_challenge(out)
 }
